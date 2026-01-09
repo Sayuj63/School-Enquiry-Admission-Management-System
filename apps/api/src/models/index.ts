@@ -1,0 +1,8 @@
+export { Enquiry, IEnquiry } from './Enquiry';
+export { Admission, IAdmission, IAdmissionDocument } from './Admission';
+export { CounsellingSlot, ICounsellingSlot } from './CounsellingSlot';
+export { SlotBooking, ISlotBooking } from './SlotBooking';
+export { FormTemplate, IFormTemplate, IFormField } from './FormTemplate';
+export { DocumentsList, IDocumentsList, IRequiredDocument } from './DocumentsList';
+export { OTP, IOTP } from './OTP';
+export { AdminUser, IAdminUser } from './AdminUser';
