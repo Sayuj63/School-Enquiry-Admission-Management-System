@@ -4,7 +4,7 @@ export interface IAdmissionDocument {
   _id?: Types.ObjectId;
   type: string;
   fileName: string;
-  filePath: string;
+  fileId: Types.ObjectId;
   uploadedAt: Date;
 }
 
@@ -41,7 +41,7 @@ export interface IAdmission extends Document {
 const documentSchema = new Schema({
   type: { type: String, required: true },
   fileName: { type: String, required: true },
-  filePath: { type: String, required: true },
+  fileId: { type: Schema.Types.ObjectId, required: true },
   uploadedAt: { type: Date, default: Date.now }
 });
 

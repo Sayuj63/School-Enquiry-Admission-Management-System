@@ -143,11 +143,11 @@ export default function DashboardPage() {
 
       {/* Action Buttons */}
       <div className="flex gap-4">
-        <Link href="/admin/enquiries/add" className="btn-primary">
+        <Link href="/admin/enquiries" className="btn-primary">
           <Plus className="h-4 w-4 mr-2" />
           Add Enquiry
         </Link>
-        <Link href="/admin/slots/add" className="btn-primary">
+        <Link href="/admin/slots" className="btn-primary">
           <Plus className="h-4 w-4 mr-2" />
           Create Slot
         </Link>

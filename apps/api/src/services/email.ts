@@ -1,8 +1,22 @@
 import * as ics from 'ics';
 import { Resend } from 'resend';
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-load Resend client to ensure environment variables are loaded first
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (resendClient) {
+    return resendClient;
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  resendClient = new Resend(apiKey);
+  return resendClient;
+}
 
 interface CalendarEventData {
   title: string;
@@ -60,7 +74,6 @@ function generateICSContent(event: CalendarEventData): string {
 
 /**
  * Send calendar invite email to parent using Resend
- * In development mode, email is logged to console
  */
 export async function sendParentCalendarInvite(data: {
   parentEmail: string;
@@ -113,27 +126,18 @@ Best regards,
 ${schoolName} Admissions Team
   `.trim();
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('========================================');
-    console.log('EMAIL SERVICE - PARENT INVITE (MOCK)');
-    console.log('----------------------------------------');
-    console.log(`To: ${data.parentEmail}`);
-    console.log(`Subject: Counselling Slot Confirmation - ${data.tokenId}`);
-    console.log('Body:');
-    console.log(emailBody);
-    console.log('----------------------------------------');
-    console.log('ICS Content:');
-    console.log(icsContent);
-    console.log('========================================');
 
-    return {
-      success: true,
-      message: 'Calendar invite email sent to parent (dev mode)'
-    };
-  }
-
-  // Production: Use Resend
+  // Send via Resend
   try {
+    const resend = getResendClient();
+    if (!resend) {
+      console.error('Resend API key not configured');
+      return {
+        success: false,
+        message: 'Email service not configured'
+      };
+    }
+
     const { data: emailData, error } = await resend.emails.send({
       from: `${schoolName} <${schoolEmail}>`,
       to: [data.parentEmail],
@@ -216,24 +220,18 @@ Time: ${data.slotStartTime} - ${data.slotEndTime}
 Location: ${data.location}
   `.trim();
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('========================================');
-    console.log('EMAIL SERVICE - PRINCIPAL INVITE (MOCK)');
-    console.log('----------------------------------------');
-    console.log(`To: ${principalEmail}`);
-    console.log(`Subject: Counselling Session - ${data.slotStartTime} - ${data.studentName}`);
-    console.log('Body:');
-    console.log(emailBody);
-    console.log('========================================');
 
-    return {
-      success: true,
-      message: 'Calendar invite email sent to principal (dev mode)'
-    };
-  }
-
-  // Production: Use Resend
+  // Send via Resend
   try {
+    const resend = getResendClient();
+    if (!resend) {
+      console.error('Resend API key not configured');
+      return {
+        success: false,
+        message: 'Email service not configured'
+      };
+    }
+
     const { data: emailData, error } = await resend.emails.send({
       from: `${schoolName} <${schoolEmail}>`,
       to: [principalEmail],

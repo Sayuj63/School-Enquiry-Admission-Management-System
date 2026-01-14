@@ -7,7 +7,7 @@ import {
   sendPrincipalCalendarInvite
 } from '../services';
 
-const router = Router();
+const router: Router = Router();
 
 const SLOT_CAPACITY = 3;
 const DEFAULT_LOCATION = 'School Campus, Counselling Room 101';
@@ -80,8 +80,16 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     if (dateFrom || dateTo) {
       query.date = {};
-      if (dateFrom) query.date.$gte = new Date(dateFrom);
-      if (dateTo) query.date.$lte = new Date(dateTo);
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        fromDate.setUTCHours(0, 0, 0, 0);
+        query.date.$gte = fromDate;
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setUTCHours(23, 59, 59, 999);
+        query.date.$lte = toDate;
+      }
     }
 
     if (status) {
@@ -300,8 +308,9 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       location: DEFAULT_LOCATION
     }).then(async (result) => {
       if (result.success) {
-        booking.calendarInviteSent = true;
-        await booking.save();
+        await SlotBooking.findByIdAndUpdate(booking._id, {
+          calendarInviteSent: true
+        });
       }
     }).catch((err) => {
       console.error('Parent calendar invite error:', err);
@@ -318,8 +327,9 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       location: DEFAULT_LOCATION
     }).then(async (result) => {
       if (result.success) {
-        booking.principalInviteSent = true;
-        await booking.save();
+        await SlotBooking.findByIdAndUpdate(booking._id, {
+          principalInviteSent: true
+        });
       }
     }).catch((err) => {
       console.error('Principal calendar invite error:', err);

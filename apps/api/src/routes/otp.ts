@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { sendOTP, verifyOTP } from '../services';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * POST /api/otp/send

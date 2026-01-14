@@ -11,6 +11,7 @@ export interface IEnquiry extends Document {
   grade: string;
   message: string;
   status: 'new' | 'in_progress' | 'converted';
+  additionalFields?: Record<string, any>;
   whatsappSent: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +72,10 @@ const enquirySchema = new Schema<IEnquiry>(
     whatsappSent: {
       type: Boolean,
       default: false
+    },
+    additionalFields: {
+      type: Schema.Types.Mixed,
+      default: {}
     }
   },
   {

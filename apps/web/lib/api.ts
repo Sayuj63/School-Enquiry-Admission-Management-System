@@ -47,9 +47,19 @@ class ApiClient {
       ...options.headers,
     };
 
+    // Always get fresh token from localStorage before each request
     const token = this.getToken();
     if (token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+    } else {
+      // Try one more time if running in browser
+      if (typeof window !== 'undefined') {
+        const freshToken = localStorage.getItem('auth_token');
+        if (freshToken) {
+          this.token = freshToken;
+          (headers as Record<string, string>)['Authorization'] = `Bearer ${freshToken}`;
+        }
+      }
     }
 
     try {
@@ -188,6 +198,7 @@ export async function submitEnquiry(data: {
   city: string;
   grade: string;
   message: string;
+  [key: string]: any;
 }) {
   return api.post<{ tokenId: string }>('/api/enquiry', data);
 }

@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
-import path from 'path';
-import fs from 'fs';
+import mongoose, { Types } from 'mongoose';
 import { Enquiry, Admission, SlotBooking } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { getBucket } from '../config/db';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * POST /api/admission/create/:enquiryId
@@ -14,6 +14,14 @@ const router = Router();
 router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { enquiryId } = req.params;
+
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(enquiryId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enquiry ID format'
+      });
+    }
 
     // Find the enquiry
     const enquiry = await Enquiry.findById(enquiryId);
@@ -71,6 +79,14 @@ router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Re
  */
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid admission ID format'
+      });
+    }
+
     const admission = await Admission.findById(req.params.id);
 
     if (!admission) {
@@ -157,6 +173,14 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
  */
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid admission ID format'
+      });
+    }
+
     const {
       studentDob,
       parentAddress,
@@ -215,11 +239,53 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 /**
+ * GET /api/admission/documents/:fileId
+ * Stream document (admin only)
+ */
+router.get('/documents/:fileId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!Types.ObjectId.isValid(req.params.fileId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file ID format'
+      });
+    }
+
+    const bucket = getBucket();
+    const downloadStream = bucket.openDownloadStream(new Types.ObjectId(req.params.fileId));
+
+    downloadStream.on('error', (error) => {
+      console.error('Stream error:', error);
+      res.status(404).json({
+        success: false,
+        error: 'File not found'
+      });
+    });
+
+    downloadStream.pipe(res);
+  } catch (error) {
+    console.error('Download document error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to download document'
+    });
+  }
+});
+
+/**
  * POST /api/admission/:id/documents
  * Upload document (admin only)
  */
 router.post('/:id/documents', authenticate, upload.single('document'), async (req: AuthRequest, res: Response) => {
   try {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid admission ID format'
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -244,10 +310,12 @@ router.post('/:id/documents', authenticate, upload.single('document'), async (re
     }
 
     // Add document to admission
+    const fileId = (req.file as any).id;
+
     admission.documents.push({
       type: documentType,
       fileName: req.file.originalname,
-      filePath: req.file.path,
+      fileId: fileId,
       uploadedAt: new Date()
     });
 
@@ -274,6 +342,14 @@ router.post('/:id/documents', authenticate, upload.single('document'), async (re
  */
 router.delete('/:id/documents/:docId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid admission ID format'
+      });
+    }
+
     const admission = await Admission.findById(req.params.id);
     if (!admission) {
       return res.status(404).json({
@@ -295,9 +371,13 @@ router.delete('/:id/documents/:docId', authenticate, async (req: AuthRequest, re
 
     const doc = admission.documents[docIndex];
 
-    // Delete file from filesystem
-    if (fs.existsSync(doc.filePath)) {
-      fs.unlinkSync(doc.filePath);
+    // Delete file from GridFS
+    try {
+      const bucket = getBucket();
+      await bucket.delete(doc.fileId);
+    } catch (err) {
+      console.error('Error deleting file from GridFS:', err);
+      // Continue to remove from admission even if GridFS delete fails (optional choice)
     }
 
     // Remove from admission

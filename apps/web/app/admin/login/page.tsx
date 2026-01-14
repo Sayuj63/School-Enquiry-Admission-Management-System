@@ -32,7 +32,18 @@ export default function AdminLoginPage() {
     setLoading(false)
 
     if (result.success) {
-      router.push('/admin/dashboard')
+      // Store user data for role-based UI
+      if (result.data?.user) {
+        localStorage.setItem('user_data', JSON.stringify(result.data.user))
+      }
+
+      // Redirect based on user role
+      const userRole = result.data?.user?.username?.toLowerCase()
+      if (userRole === 'principal') {
+        router.push('/principal/dashboard')
+      } else {
+        router.push('/admin/dashboard')
+      }
     } else {
       setError(result.error || 'Login failed')
     }

@@ -85,8 +85,10 @@ export default function AdmissionDetailPage() {
     parentOccupation: '',
     emergencyContact: '',
     status: 'draft',
-    notes: ''
+    notes: '',
+    additionalFields: {} as Record<string, any>
   })
+  const [fields, setFields] = useState<any[]>([])
 
   useEffect(() => {
     fetchData()
@@ -95,10 +97,11 @@ export default function AdmissionDetailPage() {
   const fetchData = async () => {
     setLoading(true)
 
-    const [admissionResult, slotsResult, docsResult] = await Promise.all([
+    const [admissionResult, slotsResult, docsResult, templateResult] = await Promise.all([
       getAdmission(admissionId),
       getAvailableSlots(),
-      getDocumentsList()
+      getDocumentsList(),
+      getAdmissionTemplate()
     ])
 
     if (admissionResult.success && admissionResult.data) {
@@ -111,7 +114,8 @@ export default function AdmissionDetailPage() {
         parentOccupation: adm.parentOccupation || '',
         emergencyContact: adm.emergencyContact || '',
         status: adm.status,
-        notes: adm.notes || ''
+        notes: adm.notes || '',
+        additionalFields: adm.additionalFields || {}
       })
     }
 
@@ -121,6 +125,10 @@ export default function AdmissionDetailPage() {
 
     if (docsResult.success && docsResult.data) {
       setRequiredDocs(docsResult.data.documents || [])
+    }
+
+    if (templateResult.success && templateResult.data) {
+      setFields(templateResult.data.fields || [])
     }
 
     setLoading(false)
@@ -152,8 +160,11 @@ export default function AdmissionDetailPage() {
 
     const result = await uploadDocument(admissionId, file, selectedDocType)
 
-    if (result.success) {
-      fetchData()
+    if (result.success && result.data?.document) {
+      setAdmission((prev) => prev ? {
+        ...prev,
+        documents: [...prev.documents, { ...result.data.document }]
+      } : null)
       setSelectedDocType('')
     } else {
       setError(result.error || 'Failed to upload document')
@@ -171,7 +182,10 @@ export default function AdmissionDetailPage() {
     const result = await deleteDocument(admissionId, docId)
 
     if (result.success) {
-      fetchData()
+      setAdmission((prev) => prev ? {
+        ...prev,
+        documents: prev.documents.filter(d => d._id !== docId)
+      } : null)
     } else {
       setError(result.error || 'Failed to delete document')
     }
@@ -204,8 +218,17 @@ export default function AdmissionDetailPage() {
 
   // Convert slots to calendar events
   const calendarEvents = availableSlots.map((slot) => {
-    const start = new Date(`${slot.date}T${slot.startTime}`)
-    const end = new Date(`${slot.date}T${slot.endTime}`)
+    // Parse the date properly - slot.date comes from MongoDB as ISO string
+    const slotDateObj = new Date(slot.date)
+    const year = slotDateObj.getFullYear()
+    const month = String(slotDateObj.getMonth() + 1).padStart(2, '0')
+    const day = String(slotDateObj.getDate()).padStart(2, '0')
+
+    // Create proper datetime strings in ISO format
+    const dateStr = `${year}-${month}-${day}`
+    const start = new Date(`${dateStr}T${slot.startTime}:00`)
+    const end = new Date(`${dateStr}T${slot.endTime}:00`)
+
     const slotsLeft = slot.capacity - slot.bookedCount
 
     return {
@@ -339,45 +362,67 @@ export default function AdmissionDetailPage() {
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Student Date of Birth</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={formData.studentDob}
-                  onChange={(e) => setFormData({ ...formData, studentDob: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Emergency Contact</label>
-                <input
-                  type="tel"
-                  className="input"
-                  placeholder="+91 XXXXX XXXXX"
-                  value={formData.emergencyContact}
-                  onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">Residential Address</label>
-                <textarea
-                  className="input"
-                  rows={3}
-                  placeholder="Full address with PIN code"
-                  value={formData.parentAddress}
-                  onChange={(e) => setFormData({ ...formData, parentAddress: e.target.value })}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">Parent Occupation</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g., Software Engineer"
-                  value={formData.parentOccupation}
-                  onChange={(e) => setFormData({ ...formData, parentOccupation: e.target.value })}
-                />
-              </div>
+              {fields.map((field) => {
+                const isCore = ['studentDob', 'parentAddress', 'parentOccupation', 'emergencyContact'].includes(field.name)
+
+                // Determine value based on whether it's a core field or additional field
+                let value = ''
+                if (isCore) {
+                  // Type safety casting for dynamic access
+                  value = (formData as any)[field.name] || ''
+                } else {
+                  value = formData.additionalFields[field.name] || ''
+                }
+
+                // Handle change handler
+                const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+                  const val = e.target.value
+                  if (isCore) {
+                    setFormData(prev => ({ ...prev, [field.name]: val }))
+                  } else {
+                    setFormData(prev => ({
+                      ...prev,
+                      additionalFields: { ...prev.additionalFields, [field.name]: val }
+                    }))
+                  }
+                }
+
+                return (
+                  <div key={field.name} className={field.type === 'textarea' || field.type === 'address' ? 'sm:col-span-2' : ''}>
+                    <label className="label">
+                      {field.label} {field.required && <span className="text-red-500">*</span>}
+                    </label>
+                    {field.type === 'textarea' ? (
+                      <textarea
+                        className="input"
+                        rows={3}
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                        value={value}
+                        onChange={handleChange}
+                      />
+                    ) : field.type === 'select' ? (
+                      <select
+                        className="input"
+                        value={value}
+                        onChange={handleChange}
+                      >
+                        <option value="">Select option</option>
+                        {field.options?.map((opt: string) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={field.type}
+                        className="input"
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                        value={value}
+                        onChange={handleChange}
+                      />
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
 

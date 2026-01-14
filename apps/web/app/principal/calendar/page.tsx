@@ -46,6 +46,35 @@ export default function PrincipalCalendarPage() {
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<FilterType>('all')
     const [selectedEvent, setSelectedEvent] = useState<any>(null)
+    const [currentDate, setCurrentDate] = useState(new Date())
+    const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>('month')
+
+    // Navigation handlers
+    const handleNavigate = (action: 'TODAY' | 'PREV' | 'NEXT') => {
+        const newDate = new Date(currentDate)
+
+        if (action === 'TODAY') {
+            setCurrentDate(new Date())
+        } else if (action === 'PREV') {
+            if (currentView === 'month') {
+                newDate.setMonth(newDate.getMonth() - 1)
+            } else if (currentView === 'week') {
+                newDate.setDate(newDate.getDate() - 7)
+            } else if (currentView === 'day') {
+                newDate.setDate(newDate.getDate() - 1)
+            }
+            setCurrentDate(newDate)
+        } else if (action === 'NEXT') {
+            if (currentView === 'month') {
+                newDate.setMonth(newDate.getMonth() + 1)
+            } else if (currentView === 'week') {
+                newDate.setDate(newDate.getDate() + 7)
+            } else if (currentView === 'day') {
+                newDate.setDate(newDate.getDate() + 1)
+            }
+            setCurrentDate(newDate)
+        }
+    }
 
     useEffect(() => {
         fetchSlots()
@@ -83,8 +112,16 @@ export default function PrincipalCalendarPage() {
         if (!slot.bookings || slot.bookings.length === 0) return []
 
         return slot.bookings.map((booking) => {
-            const start = new Date(`${slot.date}T${slot.startTime}`)
-            const end = new Date(`${slot.date}T${slot.endTime}`)
+            // Parse the MongoDB date properly
+            const slotDateObj = new Date(slot.date)
+            const year = slotDateObj.getFullYear()
+            const month = String(slotDateObj.getMonth() + 1).padStart(2, '0')
+            const day = String(slotDateObj.getDate()).padStart(2, '0')
+            const dateStr = `${year}-${month}-${day}`
+
+            // Create start and end dates with proper time
+            const start = new Date(`${dateStr}T${slot.startTime}:00`)
+            const end = new Date(`${dateStr}T${slot.endTime}:00`)
 
             return {
                 title: booking.admissionId?.studentName || 'Unknown Student',
@@ -158,8 +195,8 @@ export default function PrincipalCalendarPage() {
                     <button
                         onClick={() => setFilter('today')}
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'today'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-900'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >
                         Today
@@ -167,8 +204,8 @@ export default function PrincipalCalendarPage() {
                     <button
                         onClick={() => setFilter('week')}
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'week'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-900'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >
                         This Week
@@ -176,8 +213,8 @@ export default function PrincipalCalendarPage() {
                     <button
                         onClick={() => setFilter('all')}
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'all'
-                                ? 'bg-white text-gray-900 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-900'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
                             }`}
                     >
                         All
@@ -242,11 +279,79 @@ export default function PrincipalCalendarPage() {
                         endAccessor="end"
                         style={{ height: '100%' }}
                         views={['month', 'week', 'day']}
-                        defaultView="month"
+                        view={currentView}
+                        onView={(view) => {
+                            if (view === 'month' || view === 'week' || view === 'day') {
+                                setCurrentView(view)
+                            }
+                        }}
+                        date={currentDate}
+                        onNavigate={(date) => setCurrentDate(date)}
                         onSelectEvent={(event) => setSelectedEvent(event)}
                         eventPropGetter={eventPropGetter}
                         components={{
-                            event: EventComponent
+                            event: EventComponent,
+                            toolbar: (props) => (
+                                <div className="flex items-center justify-between mb-4">
+                                    {/* Navigation Buttons */}
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleNavigate('TODAY')}
+                                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Today
+                                        </button>
+                                        <button
+                                            onClick={() => handleNavigate('PREV')}
+                                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            onClick={() => handleNavigate('NEXT')}
+                                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+
+                                    {/* Current Date Label */}
+                                    <div className="text-lg font-semibold text-gray-900">
+                                        {props.label}
+                                    </div>
+
+                                    {/* View Buttons */}
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setCurrentView('month')}
+                                            className={`px-3 py-1.5 text-sm border rounded-md ${currentView === 'month'
+                                                    ? 'bg-blue-500 text-white border-blue-500'
+                                                    : 'border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            Month
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentView('week')}
+                                            className={`px-3 py-1.5 text-sm border rounded-md ${currentView === 'week'
+                                                    ? 'bg-blue-500 text-white border-blue-500'
+                                                    : 'border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            Week
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentView('day')}
+                                            className={`px-3 py-1.5 text-sm border rounded-md ${currentView === 'day'
+                                                    ? 'bg-blue-500 text-white border-blue-500'
+                                                    : 'border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            Day
+                                        </button>
+                                    </div>
+                                </div>
+                            )
                         }}
                     />
                 </div>

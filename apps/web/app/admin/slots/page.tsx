@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Calendar, Users, Clock, Loader2, List, CalendarDays } from 'lucide-react'
 import { getSlots, createSlot, updateSlot } from '@/lib/api'
-import { format, addDays, startOfWeek } from 'date-fns'
+import { startOfWeek, format } from 'date-fns'
 import CalendarView from './CalendarView'
 
 export interface Slot {
@@ -53,11 +53,7 @@ export default function SlotsPage() {
 
   const fetchSlots = async () => {
     setLoading(true)
-    const today = new Date()
-    const result = await getSlots({
-      dateFrom: format(today, 'yyyy-MM-dd'),
-      dateTo: format(addDays(today, 30), 'yyyy-MM-dd')
-    })
+    const result = await getSlots({})
 
     if (result.success && result.data) {
       setSlots(result.data)
@@ -130,8 +126,8 @@ export default function SlotsPage() {
           <button
             onClick={() => setView('list')}
             className={`px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors ${view === 'list'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-900'
               }`}
           >
             <List className="h-4 w-4 mr-2" />
@@ -140,8 +136,8 @@ export default function SlotsPage() {
           <button
             onClick={() => setView('calendar')}
             className={`px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors ${view === 'calendar'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-900'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-500 hover:text-gray-900'
               }`}
           >
             <CalendarDays className="h-4 w-4 mr-2" />
@@ -170,7 +166,6 @@ export default function SlotsPage() {
       ) : view === 'calendar' ? (
         <CalendarView
           slots={slots}
-          onSlotClick={(slot) => setSelectedSlot(slot)}
         />
       ) : Object.keys(slotsByDate).length === 0 ? (
         <div className="card text-center py-12">

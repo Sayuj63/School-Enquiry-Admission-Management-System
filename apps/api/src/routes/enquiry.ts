@@ -2,9 +2,10 @@ import { Router, Response } from 'express';
 import { Enquiry, Admission } from '../models';
 import { generateTokenId } from '@sayuj/shared';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { Types } from 'mongoose';
 import { sendEnquiryWhatsApp, isMobileVerified } from '../services';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * POST /api/enquiry
@@ -38,9 +39,20 @@ router.post('/', async (req, res: Response) => {
     // Generate unique token ID
     const tokenId = generateTokenId();
 
+    // Extract additional fields
+    const standardKeys = ['parentName', 'parent_name', 'childName', 'child_name', 'mobile', 'email', 'city', 'grade', 'message'];
+    const additionalFields: Record<string, any> = {};
+
+    Object.keys(req.body).forEach(key => {
+      if (!standardKeys.includes(key)) {
+        additionalFields[key] = req.body[key];
+      }
+    });
+
     // Create enquiry
     const enquiry = await Enquiry.create({
       ...data,
+      additionalFields,
       tokenId,
       mobileVerified,
       status: 'new'
@@ -126,10 +138,23 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
+    // Enrich enquiries with slot booking status
+    const enrichedEnquiries = await Promise.all(
+      enquiries.map(async (enquiry) => {
+        const admission = await Admission.findOne({ enquiryId: enquiry._id });
+        const slotBooked = admission ? !!admission.slotBookingId : false;
+
+        return {
+          ...enquiry.toObject(),
+          slotBooked
+        };
+      })
+    );
+
     res.json({
       success: true,
       data: {
-        enquiries,
+        enquiries: enrichedEnquiries,
         total,
         page,
         limit,
@@ -151,6 +176,14 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
  */
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enquiry ID format'
+      });
+    }
+
     const enquiry = await Enquiry.findById(req.params.id);
 
     if (!enquiry) {
@@ -186,6 +219,14 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
  */
 router.put('/:id/status', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid enquiry ID format'
+      });
+    }
+
     const { status } = req.body;
 
     if (!['new', 'in_progress', 'converted'].includes(status)) {

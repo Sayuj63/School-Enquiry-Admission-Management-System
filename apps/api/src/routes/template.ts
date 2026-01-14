@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { FormTemplate, DocumentsList } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * GET /api/templates/enquiry

@@ -1,10 +1,11 @@
 'use client'
 
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay } from 'date-fns'
+import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, startOfISOWeek, endOfISOWeek } from 'date-fns'
 import { enUS } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
-import { Slot } from './page'
+import { Calendar as CalendarIcon, Clock, MapPin, User } from 'lucide-react'
+import { useState } from 'react'
 
 const locales = {
     'en-US': enUS,
@@ -18,97 +19,390 @@ const localizer = dateFnsLocalizer({
     locales,
 })
 
-interface CalendarViewProps {
-    slots: Slot[]
-    onSlotClick: (slot: Slot) => void
+interface Booking {
+    _id: string
+    tokenId: string
+    admissionId: {
+        studentName: string
+        parentName: string
+        mobile?: string
+        grade?: string
+    }
 }
 
-export default function CalendarView({ slots, onSlotClick }: CalendarViewProps) {
-    // Map slots to events
-    const events = slots.map((slot) => {
-        const start = new Date(`${slot.date}T${slot.startTime}`)
-        const end = new Date(`${slot.date}T${slot.endTime}`)
+interface Slot {
+    _id: string
+    date: string
+    startTime: string
+    endTime: string
+    capacity: number
+    bookedCount: number
+    status: string
+    bookings?: Booking[]
+}
 
-        // Determine title based on booking
-        const title = `${slot.bookedCount}/${slot.capacity}`
+type FilterType = 'today' | 'week' | 'all'
 
-        return {
-            title,
-            start,
-            end,
-            resource: slot,
+interface CalendarViewProps {
+    slots: Slot[]
+}
+
+export default function CalendarView({ slots }: CalendarViewProps) {
+    const [filter, setFilter] = useState<FilterType>('all')
+    const [selectedEvent, setSelectedEvent] = useState<any>(null)
+    const [currentDate, setCurrentDate] = useState(new Date())
+    const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>('month')
+
+    // Navigation handlers
+    const handleNavigate = (action: 'TODAY' | 'PREV' | 'NEXT') => {
+        const newDate = new Date(currentDate)
+
+        if (action === 'TODAY') {
+            setCurrentDate(new Date())
+        } else if (action === 'PREV') {
+            if (currentView === 'month') {
+                newDate.setMonth(newDate.getMonth() - 1)
+            } else if (currentView === 'week') {
+                newDate.setDate(newDate.getDate() - 7)
+            } else if (currentView === 'day') {
+                newDate.setDate(newDate.getDate() - 1)
+            }
+            setCurrentDate(newDate)
+        } else if (action === 'NEXT') {
+            if (currentView === 'month') {
+                newDate.setMonth(newDate.getMonth() + 1)
+            } else if (currentView === 'week') {
+                newDate.setDate(newDate.getDate() + 7)
+            } else if (currentView === 'day') {
+                newDate.setDate(newDate.getDate() + 1)
+            }
+            setCurrentDate(newDate)
+        }
+    }
+
+    // Convert slots to calendar events
+    const events = slots.flatMap((slot) => {
+        if (!slot.bookings || slot.bookings.length === 0) return []
+
+        return slot.bookings.map((booking) => {
+            // Parse the MongoDB date properly
+            const slotDateObj = new Date(slot.date)
+            const year = slotDateObj.getFullYear()
+            const month = String(slotDateObj.getMonth() + 1).padStart(2, '0')
+            const day = String(slotDateObj.getDate()).padStart(2, '0')
+            const dateStr = `${year}-${month}-${day}`
+
+            // Create start and end dates with proper time
+            const start = new Date(`${dateStr}T${slot.startTime}:00`)
+            const end = new Date(`${dateStr}T${slot.endTime}:00`)
+
+            return {
+                title: booking.admissionId?.studentName || 'Unknown Student',
+                start,
+                end,
+                resource: {
+                    slot,
+                    booking,
+                    studentName: booking.admissionId?.studentName || 'Unknown',
+                    tokenId: booking.tokenId,
+                    parentName: booking.admissionId?.parentName || 'Unknown',
+                    mobile: booking.admissionId?.mobile || 'N/A',
+                    grade: booking.admissionId?.grade || 'N/A',
+                    time: `${slot.startTime} - ${slot.endTime}`,
+                    location: 'Counselling Room'
+                }
+            }
+        })
+    })
+
+    // Apply filter
+    const filteredEvents = events.filter((event) => {
+        const now = new Date()
+        const eventDate = event.start
+
+        switch (filter) {
+            case 'today':
+                return eventDate >= startOfDay(now) && eventDate <= endOfDay(now)
+            case 'week':
+                return eventDate >= startOfISOWeek(now) && eventDate <= endOfISOWeek(now)
+            case 'all':
+            default:
+                return true
         }
     })
 
-    const eventPropGetter = (event: any) => {
-        const slot = event.resource as Slot
-        let className = ''
-
-        if (slot.status === 'full' || slot.bookedCount >= slot.capacity) {
-            className = 'bg-red-100 text-red-800 border-red-200'
-        } else if (slot.bookedCount > 0) { // Partially booked
-            className = 'bg-blue-100 text-blue-800 border-blue-200'
-        } else { // Available
-            className = 'bg-green-100 text-green-800 border-green-200'
-        }
-
-        if (slot.status === 'disabled') {
-            className = 'bg-gray-100 text-gray-800 border-gray-200 opacity-70'
-        }
-
+    const eventPropGetter = () => {
         return {
-            className: `border rounded-md text-xs font-medium ${className}`,
+            className: 'bg-blue-100 text-blue-800 border-blue-200 border rounded-md text-xs font-medium',
             style: {
-                backgroundColor: undefined, // Let tailwind handle it
+                backgroundColor: undefined,
             }
         }
     }
 
-    // Custom Event Component
     const EventComponent = ({ event }: any) => {
         return (
-            <div className="h-full w-full flex items-center justify-center pointer-events-none">
-                {event.title}
+            <div className="h-full w-full flex flex-col justify-center pointer-events-none px-1">
+                <div className="font-semibold truncate">{event.title}</div>
+                <div className="text-xs opacity-75 truncate">{event.resource.tokenId}</div>
             </div>
         )
     }
 
-    return (
-        <div className="h-[600px] bg-white p-4 rounded-lg border shadow-sm">
-            <Calendar
-                localizer={localizer}
-                events={events}
-                startAccessor="start"
-                endAccessor="end"
-                style={{ height: '100%' }}
-                views={['month', 'week', 'day']}
-                defaultView="month"
-                onSelectEvent={(event) => onSlotClick(event.resource)}
-                eventPropGetter={eventPropGetter}
-                components={{
-                    event: EventComponent
-                }}
-            />
+    // Calculate statistics
+    const todayCount = events.filter(e => {
+        const now = new Date()
+        return e.start >= startOfDay(now) && e.start <= endOfDay(now)
+    }).length
 
-            {/* Legend */}
-            <div className="mt-4 flex gap-4 text-sm">
-                <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-2"></div>
-                    <span>Available</span>
+    return (
+        <div>
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Counselling Calendar</h2>
+                    <p className="text-gray-600">View all scheduled counselling sessions</p>
                 </div>
-                <div className="flex items-center">
-                    <div className="w-3 h-3 bg-blue-100 border border-blue-200 rounded mr-2"></div>
-                    <span>Partially Booked</span>
-                </div>
-                <div className="flex items-center">
-                    <div className="w-3 h-3 bg-red-100 border border-red-200 rounded mr-2"></div>
-                    <span>Full</span>
-                </div>
-                <div className="flex items-center">
-                    <div className="w-3 h-3 bg-gray-100 border border-gray-200 rounded mr-2"></div>
-                    <span>Disabled</span>
+
+                {/* Filter Buttons */}
+                <div className="bg-gray-100 p-1 rounded-lg inline-flex">
+                    <button
+                        onClick={() => setFilter('today')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'today'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        Today
+                    </button>
+                    <button
+                        onClick={() => setFilter('week')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'week'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        This Week
+                    </button>
+                    <button
+                        onClick={() => setFilter('all')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${filter === 'all'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900'
+                            }`}
+                    >
+                        All
+                    </button>
                 </div>
             </div>
+
+            {/* Stats */}
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="card">
+                    <div className="flex items-center">
+                        <div className="bg-blue-500 p-3 rounded-lg">
+                            <CalendarIcon className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4">
+                            <p className="text-sm text-gray-500">Total Sessions</p>
+                            <p className="text-2xl font-bold text-gray-900">{filteredEvents.length}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="card">
+                    <div className="flex items-center">
+                        <div className="bg-green-500 p-3 rounded-lg">
+                            <User className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4">
+                            <p className="text-sm text-gray-500">Total Slots</p>
+                            <p className="text-2xl font-bold text-gray-900">{slots.length}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="card">
+                    <div className="flex items-center">
+                        <div className="bg-purple-500 p-3 rounded-lg">
+                            <Clock className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="ml-4">
+                            <p className="text-sm text-gray-500">Today</p>
+                            <p className="text-2xl font-bold text-gray-900">{todayCount}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Calendar */}
+            {filteredEvents.length === 0 ? (
+                <div className="card text-center py-12">
+                    <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No scheduled counselling sessions found</p>
+                </div>
+            ) : (
+                <div className="h-[600px] bg-white p-4 rounded-lg border shadow-sm">
+                    <Calendar
+                        localizer={localizer}
+                        events={filteredEvents}
+                        startAccessor="start"
+                        endAccessor="end"
+                        style={{ height: '100%' }}
+                        views={['month', 'week', 'day']}
+                        view={currentView}
+                        onView={(view) => {
+                            if (view === 'month' || view === 'week' || view === 'day') {
+                                setCurrentView(view)
+                            }
+                        }}
+                        date={currentDate}
+                        onNavigate={(date) => setCurrentDate(date)}
+                        onSelectEvent={(event) => setSelectedEvent(event)}
+                        eventPropGetter={eventPropGetter}
+                        components={{
+                            event: EventComponent,
+                            toolbar: (props) => (
+                                <div className="flex items-center justify-between mb-4">
+                                    {/* Navigation Buttons */}
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleNavigate('TODAY')}
+                                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Today
+                                        </button>
+                                        <button
+                                            onClick={() => handleNavigate('PREV')}
+                                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            onClick={() => handleNavigate('NEXT')}
+                                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+
+                                    {/* Current Date Label */}
+                                    <div className="text-lg font-semibold text-gray-900">
+                                        {props.label}
+                                    </div>
+
+                                    {/* View Buttons */}
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setCurrentView('month')}
+                                            className={`px-3 py-1.5 text-sm border rounded-md ${currentView === 'month'
+                                                ? 'bg-blue-500 text-white border-blue-500'
+                                                : 'border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            Month
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentView('week')}
+                                            className={`px-3 py-1.5 text-sm border rounded-md ${currentView === 'week'
+                                                ? 'bg-blue-500 text-white border-blue-500'
+                                                : 'border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            Week
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentView('day')}
+                                            className={`px-3 py-1.5 text-sm border rounded-md ${currentView === 'day'
+                                                ? 'bg-blue-500 text-white border-blue-500'
+                                                : 'border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            Day
+                                        </button>
+                                    </div>
+                                </div>
+                            )
+                        }}
+                    />
+                </div>
+            )}
+
+            {/* Event Detail Modal */}
+            {selectedEvent && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <div className="flex justify-between items-start mb-4">
+                            <h3 className="text-xl font-semibold text-gray-900">Session Details</h3>
+                            <button
+                                onClick={() => setSelectedEvent(null)}
+                                className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-start">
+                                <User className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Student Name</p>
+                                    <p className="font-medium text-gray-900">{selectedEvent.resource.studentName}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start">
+                                <User className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Parent Name</p>
+                                    <p className="font-medium text-gray-900">{selectedEvent.resource.parentName}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start">
+                                <User className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Grade</p>
+                                    <p className="font-medium text-gray-900">{selectedEvent.resource.grade}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start">
+                                <Clock className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Time</p>
+                                    <p className="font-medium text-gray-900">
+                                        {format(selectedEvent.start, 'MMMM d, yyyy')} at {selectedEvent.resource.time}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start">
+                                <CalendarIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Token ID</p>
+                                    <p className="font-medium text-gray-900 font-mono">{selectedEvent.resource.tokenId}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start">
+                                <MapPin className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Location</p>
+                                    <p className="font-medium text-gray-900">{selectedEvent.resource.location}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6">
+                            <button
+                                onClick={() => setSelectedEvent(null)}
+                                className="btn-secondary w-full"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

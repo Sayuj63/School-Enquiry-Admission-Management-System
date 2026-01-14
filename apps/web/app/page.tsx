@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { GraduationCap, ClipboardList, UserCircle } from 'lucide-react'
+import { GraduationCap, ClipboardList, UserCircle, Shield } from 'lucide-react'
 
 export default function Home() {
   return (
@@ -19,7 +19,7 @@ export default function Home() {
         </div>
 
         {/* Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {/* Enquiry Card */}
           <Link href="/enquiry" className="block">
             <div className="card hover:shadow-lg transition-shadow cursor-pointer h-full">
@@ -52,6 +52,24 @@ export default function Home() {
               </p>
               <span className="text-primary-600 font-medium">
                 Admin Login &rarr;
+              </span>
+            </div>
+          </Link>
+
+          {/* Principal Card */}
+          <Link href="/principal/login" className="block">
+            <div className="card hover:shadow-lg transition-shadow cursor-pointer h-full">
+              <div className="flex items-center mb-4">
+                <Shield className="h-10 w-10 text-primary-600" />
+                <h2 className="text-2xl font-semibold text-gray-900 ml-3">
+                  Principal Portal
+                </h2>
+              </div>
+              <p className="text-gray-600 mb-4">
+                School principal can view counselling schedules and monitor admission activities.
+              </p>
+              <span className="text-primary-600 font-medium">
+                Principal Login &rarr;
               </span>
             </div>
           </Link>

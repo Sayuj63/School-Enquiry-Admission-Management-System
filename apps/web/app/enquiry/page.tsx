@@ -1,47 +1,64 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import Link from 'next/link'
 import { GraduationCap, ArrowLeft, Loader2, CheckCircle } from 'lucide-react'
-import { sendOTP, verifyOTP, submitEnquiry } from '@/lib/api'
+import { sendOTP, verifyOTP, submitEnquiry, getEnquiryTemplate } from '@/lib/api'
 
-interface EnquiryFormData {
-  parentName: string
-  childName: string
-  mobile: string
-  email: string
-  city: string
-  grade: string
-  message: string
+interface FormField {
+  name: string
+  label: string
+  type: string
+  required: boolean
+  options?: string[]
+  order: number
+  placeholder?: string
 }
-
-const GRADES = [
-  'Nursery', 'LKG', 'UKG',
-  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
-  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10',
-  'Class 11', 'Class 12'
-]
 
 export default function EnquiryPage() {
   const router = useRouter()
   const [step, setStep] = useState<'form' | 'otp' | 'submitting'>('form')
+  const [loading, setLoading] = useState(true)
+  const [fields, setFields] = useState<FormField[]>([])
+
+  // OTP State
   const [otpSent, setOtpSent] = useState(false)
   const [otpValue, setOtpValue] = useState('')
   const [otpVerified, setOtpVerified] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [devOtp, setDevOtp] = useState<string | null>(null)
+
+  const [error, setError] = useState('')
 
   const {
     register,
     handleSubmit,
     watch,
     formState: { errors }
-  } = useForm<EnquiryFormData>()
+  } = useForm()
 
   const mobileValue = watch('mobile')
+
+  useEffect(() => {
+    const fetchTemplate = async () => {
+      try {
+        const result = await getEnquiryTemplate()
+        if (result.success && result.data && result.data.fields) {
+          // Sort fields by order
+          const sortedFields = result.data.fields.sort((a: FormField, b: FormField) => a.order - b.order)
+          setFields(sortedFields)
+        }
+      } catch (err) {
+        console.error('Failed to load form template', err)
+        setError('Failed to load enquiry form. Please try again later.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTemplate()
+  }, [])
 
   const handleSendOTP = async () => {
     if (!mobileValue || mobileValue.length < 10) {
@@ -49,17 +66,16 @@ export default function EnquiryPage() {
       return
     }
 
-    setLoading(true)
+    // Set loading state for button
+    // We reuse the main loading state, or creating a specific one would be better
+    // For simplicity using local var or relying on UI feedback
+
     setError('')
-
     const result = await sendOTP(mobileValue)
-
-    setLoading(false)
 
     if (result.success) {
       setOtpSent(true)
       setStep('otp')
-      // In dev mode, show the OTP
       if (result.data?.otp) {
         setDevOtp(result.data.otp)
       }
@@ -74,12 +90,8 @@ export default function EnquiryPage() {
       return
     }
 
-    setLoading(true)
     setError('')
-
     const result = await verifyOTP(mobileValue, otpValue)
-
-    setLoading(false)
 
     if (result.success) {
       setOtpVerified(true)
@@ -89,19 +101,23 @@ export default function EnquiryPage() {
     }
   }
 
-  const onSubmit = async (data: EnquiryFormData) => {
+  const onSubmit = async (data: any) => {
     if (!otpVerified) {
       setError('Please verify your mobile number first')
       return
     }
 
     setStep('submitting')
-    setLoading(true)
     setError('')
 
-    const result = await submitEnquiry(data)
+    // Map fields if necessary
+    // Backend expects 'childName', template might use 'studentName'
+    const payload = {
+      ...data,
+      childName: data.childName || data.studentName,
+    }
 
-    setLoading(false)
+    const result = await submitEnquiry(payload)
 
     if (result.success && result.data?.tokenId) {
       router.push(`/success/${result.data.tokenId}`)
@@ -109,6 +125,14 @@ export default function EnquiryPage() {
       setStep('form')
       setError(result.error || 'Failed to submit enquiry')
     }
+  }
+
+  if (loading && fields.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
   }
 
   return (
@@ -174,13 +198,9 @@ export default function EnquiryPage() {
                   type="button"
                   className="btn-primary flex-1"
                   onClick={handleVerifyOTP}
-                  disabled={loading || otpValue.length !== 6}
+                  disabled={otpValue.length !== 6}
                 >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    'Verify OTP'
-                  )}
+                  Verify OTP
                 </button>
               </div>
 
@@ -188,7 +208,6 @@ export default function EnquiryPage() {
                 type="button"
                 className="w-full mt-3 text-sm text-primary-600 hover:text-primary-700"
                 onClick={handleSendOTP}
-                disabled={loading}
               >
                 Resend OTP
               </button>
@@ -205,153 +224,94 @@ export default function EnquiryPage() {
           )}
 
           <div className="space-y-6">
-            {/* Parent Name */}
-            <div>
-              <label htmlFor="parentName" className="label">
-                Parent/Guardian Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="parentName"
-                type="text"
-                className={`input ${errors.parentName ? 'input-error' : ''}`}
-                placeholder="Enter parent name"
-                {...register('parentName', { required: 'Parent name is required' })}
-              />
-              {errors.parentName && (
-                <p className="error-text">{errors.parentName.message}</p>
-              )}
-            </div>
+            {fields.map((field) => {
+              const errorMessage = errors[field.name]?.message as string | undefined
 
-            {/* Child Name */}
-            <div>
-              <label htmlFor="childName" className="label">
-                Student Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="childName"
-                type="text"
-                className={`input ${errors.childName ? 'input-error' : ''}`}
-                placeholder="Enter student name"
-                {...register('childName', { required: 'Student name is required' })}
-              />
-              {errors.childName && (
-                <p className="error-text">{errors.childName.message}</p>
-              )}
-            </div>
+              const rules: any = {
+                required: field.required ? `${field.label} is required` : false
+              }
 
-            {/* Mobile with OTP */}
-            <div>
-              <label htmlFor="mobile" className="label">
-                Mobile Number <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-3">
-                <input
-                  id="mobile"
-                  type="tel"
-                  className={`input flex-1 ${errors.mobile ? 'input-error' : ''}`}
-                  placeholder="+91 XXXXX XXXXX"
-                  {...register('mobile', {
-                    required: 'Mobile number is required',
-                    pattern: {
-                      value: /^[+]?[\d\s-]{10,15}$/,
-                      message: 'Please enter a valid mobile number'
-                    }
-                  })}
-                  disabled={otpVerified}
-                />
-                {otpVerified ? (
-                  <div className="flex items-center gap-2 text-green-600 px-4">
-                    <CheckCircle className="h-5 w-5" />
-                    <span className="text-sm font-medium">Verified</span>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleSendOTP}
-                    disabled={loading || !mobileValue}
-                  >
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send OTP'}
-                  </button>
-                )}
-              </div>
-              {errors.mobile && (
-                <p className="error-text">{errors.mobile.message}</p>
-              )}
-            </div>
+              if (field.type === 'email') {
+                rules.pattern = {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: 'Please enter a valid email address'
+                }
+              }
 
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="label">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="email"
-                type="email"
-                className={`input ${errors.email ? 'input-error' : ''}`}
-                placeholder="email@example.com"
-                {...register('email', {
-                  required: 'Email is required',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Please enter a valid email address'
-                  }
-                })}
-              />
-              {errors.email && (
-                <p className="error-text">{errors.email.message}</p>
-              )}
-            </div>
+              if (field.type === 'tel' || field.name === 'mobile') {
+                rules.pattern = {
+                  value: /^[+]?[\d\s-]{10,15}$/,
+                  message: 'Please enter a valid mobile number'
+                }
+              }
 
-            {/* City */}
-            <div>
-              <label htmlFor="city" className="label">
-                City
-              </label>
-              <input
-                id="city"
-                type="text"
-                className="input"
-                placeholder="Enter city"
-                {...register('city')}
-              />
-            </div>
+              return (
+                <div key={field.name}>
+                  <label htmlFor={field.name} className="label">
+                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                  </label>
 
-            {/* Grade */}
-            <div>
-              <label htmlFor="grade" className="label">
-                Class Applying For <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="grade"
-                className={`input ${errors.grade ? 'input-error' : ''}`}
-                {...register('grade', { required: 'Please select a class' })}
-              >
-                <option value="">Select a class</option>
-                {GRADES.map((grade) => (
-                  <option key={grade} value={grade}>
-                    {grade}
-                  </option>
-                ))}
-              </select>
-              {errors.grade && (
-                <p className="error-text">{errors.grade.message}</p>
-              )}
-            </div>
+                  {field.name === 'mobile' ? (
+                    <div className="flex gap-3">
+                      <input
+                        id={field.name}
+                        type="tel"
+                        className={`input flex-1 ${errorMessage ? 'input-error' : ''}`}
+                        placeholder="+91 XXXXX XXXXX"
+                        {...register(field.name, rules)}
+                        disabled={otpVerified}
+                      />
+                      {otpVerified ? (
+                        <div className="flex items-center gap-2 text-green-600 px-4">
+                          <CheckCircle className="h-5 w-5" />
+                          <span className="text-sm font-medium">Verified</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-secondary whitespace-nowrap"
+                          onClick={handleSendOTP}
+                          disabled={!mobileValue}
+                        >
+                          Send OTP
+                        </button>
+                      )}
+                    </div>
+                  ) : field.type === 'textarea' ? (
+                    <textarea
+                      id={field.name}
+                      rows={4}
+                      className={`input ${errorMessage ? 'input-error' : ''}`}
+                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                      {...register(field.name, rules)}
+                    />
+                  ) : field.type === 'select' ? (
+                    <select
+                      id={field.name}
+                      className={`input ${errorMessage ? 'input-error' : ''}`}
+                      {...register(field.name, rules)}
+                    >
+                      <option value="">Select an option</option>
+                      {field.options?.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id={field.name}
+                      type={field.type}
+                      className={`input ${errorMessage ? 'input-error' : ''}`}
+                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                      {...register(field.name, rules)}
+                    />
+                  )}
 
-            {/* Message */}
-            <div>
-              <label htmlFor="message" className="label">
-                Additional Remarks
-              </label>
-              <textarea
-                id="message"
-                rows={4}
-                className="input"
-                placeholder="Any additional information you'd like to share..."
-                {...register('message')}
-              />
-            </div>
+                  {errorMessage && (
+                    <p className="error-text">{errorMessage}</p>
+                  )}
+                </div>
+              )
+            })}
 
             {/* Submit */}
             <button
@@ -369,7 +329,7 @@ export default function EnquiryPage() {
               )}
             </button>
 
-            {!otpVerified && (
+            {!otpVerified && fields.some(f => f.name === 'mobile') && (
               <p className="text-center text-sm text-gray-500">
                 Please verify your mobile number before submitting
               </p>

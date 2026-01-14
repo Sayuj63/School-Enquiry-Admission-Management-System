@@ -64,6 +64,28 @@ export async function seedDatabase(): Promise<void> {
     console.log(`  Password: ${DEFAULT_ADMIN.password}`);
   }
 
+  // Seed principal user
+  const PRINCIPAL_USER = {
+    username: 'Principal',
+    email: 'principal@school.com',
+    password: 'principal123',
+    role: 'admin' as const
+  };
+
+  const principalExists = await AdminUser.findOne({ email: PRINCIPAL_USER.email });
+  if (!principalExists) {
+    const passwordHash = await bcrypt.hash(PRINCIPAL_USER.password, 10);
+    await AdminUser.create({
+      username: PRINCIPAL_USER.username,
+      email: PRINCIPAL_USER.email,
+      passwordHash,
+      role: PRINCIPAL_USER.role
+    });
+    console.log('Default principal user created:');
+    console.log(`  Email: ${PRINCIPAL_USER.email}`);
+    console.log(`  Password: ${PRINCIPAL_USER.password}`);
+  }
+
   // Seed enquiry form template
   const enquiryTemplateExists = await FormTemplate.findOne({ type: 'enquiry' });
   if (!enquiryTemplateExists) {

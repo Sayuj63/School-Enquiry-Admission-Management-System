@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { AdminUser } from '../models';
 import { authenticate, generateToken, AuthRequest } from '../middleware/auth';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * POST /api/auth/login
