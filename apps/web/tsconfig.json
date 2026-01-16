@@ -24,6 +24,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@sayuj/shared": [
+        "../../packages/shared/dist/index.d.ts"
       ]
     }
   },
