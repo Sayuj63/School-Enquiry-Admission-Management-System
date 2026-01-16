@@ -27,20 +27,42 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Parse date
-    const slotDate = new Date(date);
-    slotDate.setHours(0, 0, 0, 0);
-
-    // Check for existing slot
-    const existingSlot = await CounsellingSlot.findOne({
-      date: slotDate,
-      startTime
-    });
-
-    if (existingSlot) {
+    if (startTime >= endTime) {
       return res.status(400).json({
         success: false,
-        error: 'A slot already exists for this date and time'
+        error: 'Start time must be before end time'
+      });
+    }
+
+    const [year, month, day] = date.split('-').map(Number)
+    const slotDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
+
+    // Check if date is in the past
+    const today = new Date();
+    const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+
+    if (slotDate < todayUTC) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot create slots for past dates'
+      });
+    }
+
+    // Check for any overlapping slot (not just exact start time)
+    const overlappingSlot = await CounsellingSlot.findOne({
+      date: slotDate,
+      $or: [
+        {
+          startTime: { $lt: endTime },
+          endTime: { $gt: startTime }
+        }
+      ]
+    })
+
+    if (overlappingSlot) {
+      return res.status(400).json({
+        success: false,
+        error: `A slot already exists or overlaps with this time range (${overlappingSlot.startTime} - ${overlappingSlot.endTime})`
       });
     }
 
@@ -172,6 +194,14 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Don't allow disabling if slot has bookings
+    if (status === 'disabled' && slot.bookedCount > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot disable a slot with existing bookings'
+      });
+    }
+
     // Don't allow enabling if slot is full
     if (status === 'available' && slot.bookedCount >= slot.capacity) {
       return res.status(400).json({
@@ -244,26 +274,63 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       });
     }
 
-    // Check if admission already has a booking
-    const existingBooking = await SlotBooking.findOne({ admissionId });
-    if (existingBooking) {
+    // Check if admission is in 'submitted' status
+    if (admission.status !== 'submitted' && admission.status !== 'approved') {
       return res.status(400).json({
         success: false,
-        error: 'This admission already has a slot booked'
+        error: 'Counselling slots can only be booked for submitted admission forms'
       });
     }
 
-    // Create booking
-    const booking = await SlotBooking.create({
-      slotId: slot._id,
-      admissionId: admission._id,
-      tokenId: admission.tokenId,
-      parentEmail: admission.email,
-      calendarInviteSent: false,
-      principalInviteSent: false
-    });
+    // Check if admission already has a booking and handle as reschedule
+    const existingBooking = await SlotBooking.findOne({ admissionId });
+    let booking;
+    let isReschedule = false;
 
-    // Update slot count
+    if (existingBooking) {
+      // If same slot, just return
+      if (existingBooking.slotId.toString() === slot._id.toString()) {
+        return res.json({
+          success: true,
+          data: {
+            booking: existingBooking,
+            slot,
+            message: 'Admission already booked for this slot'
+          }
+        });
+      }
+
+      // Handle Reschedule: Decrement count on old slot
+      const oldSlot = await CounsellingSlot.findById(existingBooking.slotId);
+      if (oldSlot) {
+        oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
+        if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
+          oldSlot.status = 'available';
+        }
+        await oldSlot.save();
+      }
+
+      // Update existing booking
+      existingBooking.slotId = slot._id as any;
+      existingBooking.calendarInviteSent = false;
+      existingBooking.principalInviteSent = false;
+      existingBooking.bookedAt = new Date();
+      await existingBooking.save();
+      booking = existingBooking;
+      isReschedule = true;
+    } else {
+      // Create new booking
+      booking = await SlotBooking.create({
+        slotId: slot._id,
+        admissionId: admission._id,
+        tokenId: admission.tokenId,
+        parentEmail: admission.email,
+        calendarInviteSent: false,
+        principalInviteSent: false
+      });
+    }
+
+    // Update slot count (for the new slot)
     slot.bookedCount += 1;
     if (slot.bookedCount >= slot.capacity) {
       slot.status = 'full';
@@ -271,7 +338,7 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
     await slot.save();
 
     // Update admission with booking reference
-    admission.slotBookingId = booking._id;
+    admission.slotBookingId = booking._id as any;
     await admission.save();
 
     // Send notifications (in background, don't block response)
@@ -340,7 +407,9 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       data: {
         booking,
         slot,
-        message: 'Slot booked successfully. Calendar invites are being sent.'
+        message: isReschedule
+          ? 'Slot rescheduled successfully. New calendar invites are being sent.'
+          : 'Slot booked successfully. Calendar invites are being sent.'
       }
     });
   } catch (error) {
@@ -395,6 +464,43 @@ router.delete('/:slotId/bookings/:bookingId', authenticate, async (req: AuthRequ
     res.status(500).json({
       success: false,
       error: 'Failed to cancel booking'
+    });
+  }
+});
+
+/**
+ * DELETE /api/slots/:id
+ * Delete a slot (admin only)
+ */
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const slot = await CounsellingSlot.findById(req.params.id);
+    if (!slot) {
+      return res.status(404).json({
+        success: false,
+        error: 'Slot not found'
+      });
+    }
+
+    // Don't allow deleting if slot has bookings
+    if (slot.bookedCount > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete a slot with existing bookings. Please cancel bookings first.'
+      });
+    }
+
+    await CounsellingSlot.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Slot deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete slot error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete slot'
     });
   }
 });

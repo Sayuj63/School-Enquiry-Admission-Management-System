@@ -190,17 +190,12 @@ export async function verifyOTP(mobile: string, otp: string) {
 }
 
 // Enquiry functions
-export async function submitEnquiry(data: {
-  parentName: string;
-  childName: string;
-  mobile: string;
-  email: string;
-  city: string;
-  grade: string;
-  message: string;
-  [key: string]: any;
-}) {
+export async function submitEnquiry(data: any) {
   return api.post<{ tokenId: string }>('/api/enquiry', data);
+}
+
+export async function adminSubmitEnquiry(data: any) {
+  return api.post<any>('/api/enquiry/admin', data);
 }
 
 export async function getEnquiries(params?: {
@@ -240,12 +235,16 @@ export async function getAdmissions(params?: {
   limit?: number;
   status?: string;
   search?: string;
+  noSlot?: boolean;
+  counselling?: 'booked' | 'pending';
 }) {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', params.page.toString());
   if (params?.limit) searchParams.append('limit', params.limit.toString());
   if (params?.status) searchParams.append('status', params.status);
   if (params?.search) searchParams.append('search', params.search);
+  if (params?.noSlot) searchParams.append('noSlot', 'true');
+  if (params?.counselling) searchParams.append('counselling', params.counselling);
 
   return api.get<any>(`/api/admissions?${searchParams.toString()}`);
 }
@@ -286,6 +285,10 @@ export async function updateSlot(id: string, data: { status: string }) {
   return api.put<any>(`/api/slots/${id}`, data);
 }
 
+export async function deleteSlot(id: string) {
+  return api.delete<any>(`/api/slots/${id}`);
+}
+
 export async function bookSlot(slotId: string, admissionId: string) {
   return api.post<any>(`/api/slots/${slotId}/book`, { admissionId });
 }
@@ -299,16 +302,16 @@ export async function getEnquiryTemplate() {
   return api.get<any>('/api/templates/enquiry');
 }
 
-export async function updateEnquiryTemplate(fields: any[]) {
-  return api.put<any>('/api/templates/enquiry', { fields });
+export async function updateEnquiryTemplate(fields: any[], baseFields?: Record<string, boolean>) {
+  return api.put<any>('/api/templates/enquiry', { fields, baseFields });
 }
 
 export async function getAdmissionTemplate() {
   return api.get<any>('/api/templates/admission');
 }
 
-export async function updateAdmissionTemplate(fields: any[]) {
-  return api.put<any>('/api/templates/admission', { fields });
+export async function updateAdmissionTemplate(fields: any[], baseFields?: Record<string, boolean>) {
+  return api.put<any>('/api/templates/admission', { fields, baseFields });
 }
 
 export async function getDocumentsList() {

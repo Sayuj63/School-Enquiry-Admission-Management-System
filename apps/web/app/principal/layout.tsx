@@ -97,12 +97,12 @@ export default function PrincipalLayout({
                 <div className="flex flex-col h-full">
                     {/* Logo */}
                     <div className="flex items-center justify-between h-16 px-4 border-b">
-                        <div className="flex items-center">
+                        <Link href="/principal/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
                             <GraduationCap className="h-8 w-8 text-primary-600" />
                             <span className="ml-2 text-lg font-semibold text-gray-900">
                                 Principal Portal
                             </span>
-                        </div>
+                        </Link>
                         <button
                             onClick={() => setSidebarOpen(false)}
                             className="lg:hidden text-gray-500 hover:text-gray-700"

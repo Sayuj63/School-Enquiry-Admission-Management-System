@@ -4,24 +4,12 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap } from 'lucide-react'
-import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList } from '@/lib/api'
-import { format } from 'date-fns'
-import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import { parse, startOfWeek, getDay } from 'date-fns'
-import { enUS } from 'date-fns/locale'
+import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking } from '@/lib/api'
+import { startOfWeek, getDay, parse, format } from 'date-fns'
+import SlotCalendar from '../../../components/SlotCalendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 
-const locales = {
-  'en-US': enUS,
-}
 
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-})
 
 interface Admission {
   _id: string
@@ -40,6 +28,7 @@ interface Admission {
     _id: string
     type: string
     fileName: string
+    url: string
     uploadedAt: string
   }>
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
@@ -77,6 +66,7 @@ export default function AdmissionDetailPage() {
   const [bookingSlot, setBookingSlot] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [cancelling, setCancelling] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -89,6 +79,7 @@ export default function AdmissionDetailPage() {
     additionalFields: {} as Record<string, any>
   })
   const [fields, setFields] = useState<any[]>([])
+  const [baseFields, setBaseFields] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     fetchData()
@@ -129,6 +120,8 @@ export default function AdmissionDetailPage() {
 
     if (templateResult.success && templateResult.data) {
       setFields(templateResult.data.fields || [])
+      const bf = templateResult.data.baseFields || {}
+      setBaseFields(bf instanceof Map ? Object.fromEntries(bf) : bf)
     }
 
     setLoading(false)
@@ -195,7 +188,6 @@ export default function AdmissionDetailPage() {
     setSelectedSlot(slot)
     setShowConfirmDialog(true)
   }
-
   const handleBookSlot = async () => {
     if (!selectedSlot) return
 
@@ -207,13 +199,37 @@ export default function AdmissionDetailPage() {
     if (result.success) {
       setShowSlotModal(false)
       setShowConfirmDialog(false)
-      setSuccess('✓ Counselling slot booked successfully! Calendar invites are being sent.')
+      setSuccess(`✓ ${result.data?.message || 'Counselling slot saved successfully!'}`)
       fetchData()
     } else {
       setError(result.error || 'Failed to book slot')
     }
 
     setBookingSlot(false)
+  }
+
+  const handleCancelBooking = async () => {
+    if (!slotBooking || !slotBooking.slotId?._id) return
+
+    if (!confirm('Are you sure you want to cancel this counselling slot?')) return
+
+    setCancelling(true)
+    setError('')
+
+    const result = await cancelBooking(slotBooking.slotId._id, slotBooking._id)
+
+    if (result.success) {
+      setSuccess('Counselling slot cancelled successfully')
+      fetchData()
+    } else {
+      setError(result.error || 'Failed to cancel slot')
+    }
+
+    setCancelling(false)
+  }
+
+  const handleReschedule = () => {
+    setShowSlotModal(true)
   }
 
   // Convert slots to calendar events
@@ -323,40 +339,53 @@ export default function AdmissionDetailPage() {
         </div>
       )}
       {success && (
-        <div className="mb-6 bg-green-50 border border-green-200 rounded p-3">
+        <div className="mb-6 bg-green-50 border border-green-200 rounded p-3 flex items-center justify-between">
           <p className="text-sm text-green-600">{success}</p>
+          <button onClick={() => setSuccess('')} className="text-green-800 hover:text-green-900">✕</button>
         </div>
       )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Main Form */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Pre-filled Info (Read-only) */}
-          <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Enquiry Information (Pre-filled)</h3>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Student Name</label>
-                <p className="input bg-gray-50">{admission.studentName}</p>
-              </div>
-              <div>
-                <label className="label">Grade</label>
-                <p className="input bg-gray-50">{admission.grade}</p>
-              </div>
-              <div>
-                <label className="label">Parent Name</label>
-                <p className="input bg-gray-50">{admission.parentName}</p>
-              </div>
-              <div>
-                <label className="label">Mobile</label>
-                <p className="input bg-gray-50">{admission.mobile}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">Email</label>
-                <p className="input bg-gray-50">{admission.email}</p>
+          {/* Basic Info (Read-only) */}
+          {((baseFields.studentName !== false) || (baseFields.grade !== false) || (baseFields.parentName !== false) || (baseFields.mobile !== false) || (baseFields.email !== false)) && (
+            <div className="card">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Enquiry Information (Pre-filled)</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {(baseFields.studentName !== false) && (
+                  <div>
+                    <label className="label">Student Name</label>
+                    <p className="input bg-gray-50">{admission.studentName}</p>
+                  </div>
+                )}
+                {(baseFields.grade !== false) && (
+                  <div>
+                    <label className="label">Grade</label>
+                    <p className="input bg-gray-50">{admission.grade}</p>
+                  </div>
+                )}
+                {(baseFields.parentName !== false) && (
+                  <div>
+                    <label className="label">Parent Name</label>
+                    <p className="input bg-gray-50">{admission.parentName}</p>
+                  </div>
+                )}
+                {(baseFields.mobile !== false) && (
+                  <div>
+                    <label className="label">Mobile</label>
+                    <p className="input bg-gray-50">{admission.mobile}</p>
+                  </div>
+                )}
+                {(baseFields.email !== false) && (
+                  <div className="sm:col-span-2">
+                    <label className="label">Email</label>
+                    <p className="input bg-gray-50">{admission.email}</p>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Additional Info (Editable) */}
           <div className="card">
@@ -376,7 +405,17 @@ export default function AdmissionDetailPage() {
 
                 // Handle change handler
                 const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-                  const val = e.target.value
+                  let val: any = e.target.value
+
+                  if (e.target.type === 'checkbox') {
+                    val = (e.target as HTMLInputElement).checked
+                  }
+
+                  // Filter non-numeric characters for tel type or specific fields
+                  if (field.type === 'tel' || field.name === 'emergencyContact' || field.name === 'mobile') {
+                    val = val.toString().replace(/\D/g, '')
+                  }
+
                   if (isCore) {
                     setFormData(prev => ({ ...prev, [field.name]: val }))
                   } else {
@@ -389,9 +428,11 @@ export default function AdmissionDetailPage() {
 
                 return (
                   <div key={field.name} className={field.type === 'textarea' || field.type === 'address' ? 'sm:col-span-2' : ''}>
-                    <label className="label">
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
-                    </label>
+                    {field.type !== 'checkbox' && (
+                      <label className="label">
+                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                      </label>
+                    )}
                     {field.type === 'textarea' ? (
                       <textarea
                         className="input"
@@ -411,6 +452,19 @@ export default function AdmissionDetailPage() {
                           <option key={opt} value={opt}>{opt}</option>
                         ))}
                       </select>
+                    ) : field.type === 'checkbox' ? (
+                      <div className="flex items-center gap-3 p-2 bg-gray-50 rounded border border-gray-200">
+                        <input
+                          type="checkbox"
+                          id={field.name}
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          checked={!!value}
+                          onChange={handleChange}
+                        />
+                        <label htmlFor={field.name} className="text-sm font-medium text-gray-700 cursor-pointer">
+                          {field.label} {field.required && <span className="text-red-500">*</span>}
+                        </label>
+                      </div>
                     ) : (
                       <input
                         type={field.type}
@@ -453,12 +507,22 @@ export default function AdmissionDetailPage() {
                       <p className="font-medium text-gray-900">{doc.type}</p>
                       <p className="text-sm text-gray-500">{doc.fileName}</p>
                     </div>
-                    <button
-                      onClick={() => handleDeleteDocument(doc._id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                      >
+                        View
+                      </a>
+                      <button
+                        onClick={() => handleDeleteDocument(doc._id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -516,16 +580,23 @@ export default function AdmissionDetailPage() {
           {/* Status */}
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Status</h3>
-            <select
-              className="input"
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            >
-              <option value="draft">Draft</option>
-              <option value="submitted">Submitted</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
+            {['approved', 'rejected'].includes(formData.status) ? (
+              <div className={`p-3 rounded-lg font-bold text-center capitalize border ${formData.status === 'approved'
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : 'bg-red-50 text-red-700 border-red-200'
+                }`}>
+                {formData.status}
+              </div>
+            ) : (
+              <select
+                className="input"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              >
+                <option value="draft">Draft</option>
+                <option value="submitted">Submitted</option>
+              </select>
+            )}
           </div>
 
           {/* Counselling Slot */}
@@ -544,15 +615,39 @@ export default function AdmissionDetailPage() {
                 <p className="text-sm text-green-600">
                   {slotBooking.slotId.startTime} - {slotBooking.slotId.endTime}
                 </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={handleReschedule}
+                    className="text-xs bg-white text-green-700 border border-green-200 px-2 py-1.5 rounded hover:bg-green-100 transition-colors font-medium flex-1 text-center"
+                  >
+                    Reschedule
+                  </button>
+                  <button
+                    onClick={handleCancelBooking}
+                    disabled={cancelling}
+                    className="text-xs bg-white text-red-600 border border-red-100 px-2 py-1.5 rounded hover:bg-red-50 transition-colors font-medium flex-1 text-center flex items-center justify-center gap-1"
+                  >
+                    {cancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                    Cancel
+                  </button>
+                </div>
               </div>
             ) : (
-              <button
-                onClick={() => setShowSlotModal(true)}
-                className="btn-primary w-full justify-center"
-              >
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                Book Counselling Slot
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowSlotModal(true)}
+                  disabled={admission.status === 'draft'}
+                  className={`btn-primary w-full justify-center ${admission.status === 'draft' ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                >
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Book Counselling Slot
+                </button>
+                {admission.status === 'draft' && (
+                  <p className="text-xs text-amber-600 flex items-start gap-1 bg-amber-50 p-2 rounded border border-amber-100 italic">
+                    Form must be <strong>Submitted</strong> before booking a slot.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -591,40 +686,17 @@ export default function AdmissionDetailPage() {
             {availableSlots.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No available slots</p>
             ) : (
-              <>
-                <div className="h-[500px] bg-white rounded-lg border mb-4">
-                  <Calendar
-                    localizer={localizer}
-                    events={calendarEvents}
-                    startAccessor="start"
-                    endAccessor="end"
-                    style={{ height: '100%' }}
-                    views={['month', 'week', 'day']}
-                    defaultView="week"
-                    onSelectEvent={(event) => handleSlotSelect(event.resource)}
-                    eventPropGetter={eventPropGetter}
-                    components={{
-                      event: EventComponent
-                    }}
-                  />
-                </div>
-
-                {/* Legend */}
-                <div className="flex gap-4 text-sm mb-4">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-green-100 border border-green-200 rounded mr-2"></div>
-                    <span>Available (2+ slots)</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-yellow-100 border border-yellow-200 rounded mr-2"></div>
-                    <span>Limited (1 slot)</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 bg-red-100 border border-red-200 rounded mr-2"></div>
-                    <span>Full</span>
-                  </div>
-                </div>
-              </>
+              <div className="mb-6">
+                <SlotCalendar
+                  slots={availableSlots}
+                  type="available"
+                  onSelectSlot={handleSlotSelect}
+                  showStats={false}
+                  showFilters={false}
+                  view="week"
+                  height={500}
+                />
+              </div>
             )}
 
             <button

@@ -90,6 +90,71 @@ router.post('/', async (req, res: Response) => {
 });
 
 /**
+ * POST /api/enquiry/admin
+ * Manual enquiry entry by admin (requires auth, bypasses OTP)
+ */
+router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const data = {
+      parentName: req.body.parentName,
+      childName: req.body.childName,
+      mobile: req.body.mobile,
+      email: req.body.email,
+      grade: req.body.grade,
+      city: req.body.city || '',
+      message: req.body.message || ''
+    };
+
+    if (!data.parentName || !data.childName || !data.mobile || !data.grade) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields'
+      });
+    }
+
+    // Check if mobile is verified
+    const isVerified = await isMobileVerified(data.mobile);
+    const mobileVerified = process.env.NODE_ENV === 'development' ? true : isVerified;
+
+    if (!mobileVerified) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mobile number not verified'
+      });
+    }
+
+    const tokenId = generateTokenId();
+    const standardKeys = ['parentName', 'childName', 'mobile', 'email', 'city', 'grade', 'message'];
+    const additionalFields: Record<string, any> = {};
+
+    Object.keys(req.body).forEach(key => {
+      if (!standardKeys.includes(key)) {
+        additionalFields[key] = req.body[key];
+      }
+    });
+
+    const enquiry = await Enquiry.create({
+      ...data,
+      additionalFields,
+      tokenId,
+      mobileVerified: true,
+      status: 'new'
+    });
+
+    res.status(201).json({
+      success: true,
+      data: enquiry
+    });
+  } catch (error) {
+    console.error('Admin enquiry creation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create enquiry'
+    });
+  }
+});
+
+/**
  * GET /api/enquiries
  * List all enquiries (admin only)
  */
@@ -138,15 +203,17 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
-    // Enrich enquiries with slot booking status
+    // Enrich enquiries with slot booking status and admission status
     const enrichedEnquiries = await Promise.all(
       enquiries.map(async (enquiry) => {
         const admission = await Admission.findOne({ enquiryId: enquiry._id });
         const slotBooked = admission ? !!admission.slotBookingId : false;
+        const admissionStatus = admission ? admission.status : null;
 
         return {
           ...enquiry.toObject(),
-          slotBooked
+          slotBooked,
+          admissionStatus
         };
       })
     );

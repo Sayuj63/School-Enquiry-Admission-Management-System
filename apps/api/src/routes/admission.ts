@@ -3,7 +3,7 @@ import mongoose, { Types } from 'mongoose';
 import { Enquiry, Admission, SlotBooking } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
-import { getBucket } from '../config/db';
+import cloudinary from '../config/cloudinary';
 
 const router: Router = Router();
 
@@ -127,11 +127,23 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
     const status = req.query.status as string;
     const search = req.query.search as string;
+    const noSlot = req.query.noSlot === 'true';
+    const counselling = req.query.counselling as string;
 
     const query: any = {};
 
     if (status) {
       query.status = status;
+    } else {
+      // By default, only show submitted or approved admissions
+      query.status = { $in: ['submitted', 'approved'] };
+    }
+
+    if (counselling === 'booked') {
+      query.slotBookingId = { $exists: true };
+    } else if (counselling === 'pending' || noSlot) {
+      query.slotBookingId = { $exists: false };
+      // Status is already handled above or passed explicitly
     }
 
     if (search) {
@@ -239,35 +251,27 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 /**
- * GET /api/admission/documents/:fileId
- * Stream document (admin only)
+ * GET /api/admission/documents/:publicId
+ * Redirects to Cloudinary document URL
  */
-router.get('/documents/:fileId', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/documents/:publicId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    if (!Types.ObjectId.isValid(req.params.fileId)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid file ID format'
-      });
+    const admission = await Admission.findOne({ 'documents.fileId': req.params.publicId });
+    if (!admission) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
     }
 
-    const bucket = getBucket();
-    const downloadStream = bucket.openDownloadStream(new Types.ObjectId(req.params.fileId));
+    const doc = admission.documents.find(d => d.fileId === req.params.publicId);
+    if (!doc) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
 
-    downloadStream.on('error', (error) => {
-      console.error('Stream error:', error);
-      res.status(404).json({
-        success: false,
-        error: 'File not found'
-      });
-    });
-
-    downloadStream.pipe(res);
+    res.redirect(doc.url);
   } catch (error) {
-    console.error('Download document error:', error);
+    console.error('View document error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to download document'
+      error: 'Failed to access document'
     });
   }
 });
@@ -309,13 +313,14 @@ router.post('/:id/documents', authenticate, upload.single('document'), async (re
       });
     }
 
-    // Add document to admission
-    const fileId = (req.file as any).id;
+    // Add document to admission (Cloudinary stores file info in req.file)
+    const file = req.file as any;
 
     admission.documents.push({
       type: documentType,
       fileName: req.file.originalname,
-      fileId: fileId,
+      fileId: file.filename, // This is the public_id in Cloudinary storage
+      url: file.path,       // This is the secure_url in Cloudinary storage
       uploadedAt: new Date()
     });
 
@@ -371,13 +376,11 @@ router.delete('/:id/documents/:docId', authenticate, async (req: AuthRequest, re
 
     const doc = admission.documents[docIndex];
 
-    // Delete file from GridFS
+    // Delete file from Cloudinary
     try {
-      const bucket = getBucket();
-      await bucket.delete(doc.fileId);
+      await cloudinary.uploader.destroy(doc.fileId);
     } catch (err) {
-      console.error('Error deleting file from GridFS:', err);
-      // Continue to remove from admission even if GridFS delete fails (optional choice)
+      console.error('Error deleting file from Cloudinary:', err);
     }
 
     // Remove from admission

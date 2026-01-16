@@ -258,7 +258,12 @@ export default function EnquiryPage() {
                         type="tel"
                         className={`input flex-1 ${errorMessage ? 'input-error' : ''}`}
                         placeholder="+91 XXXXX XXXXX"
-                        {...register(field.name, rules)}
+                        {...register(field.name, {
+                          ...rules,
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/\D/g, '')
+                          }
+                        })}
                         disabled={otpVerified}
                       />
                       {otpVerified ? (
@@ -296,6 +301,22 @@ export default function EnquiryPage() {
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
                     </select>
+                  ) : field.type === 'checkbox' ? (
+                    <div className="flex items-start">
+                      <div className="flex items-center h-5">
+                        <input
+                          id={field.name}
+                          type="checkbox"
+                          className={`h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 ${errorMessage ? 'border-red-500' : ''}`}
+                          {...register(field.name, rules)}
+                        />
+                      </div>
+                      <div className="ml-3 text-sm">
+                        <label htmlFor={field.name} className="font-medium text-gray-700">
+                          {field.label} {field.required && <span className="text-red-500">*</span>}
+                        </label>
+                      </div>
+                    </div>
                   ) : (
                     <input
                       id={field.name}

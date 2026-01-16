@@ -88,15 +88,19 @@ export async function sendParentCalendarInvite(data: {
   const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
   const schoolEmail = process.env.SCHOOL_EMAIL || 'info@school.com';
 
-  // Parse time strings to create proper dates
+  // Parse date and time strings to create proper dates without timezone shift
   const [startHour, startMin] = data.slotStartTime.split(':').map(Number);
   const [endHour, endMin] = data.slotEndTime.split(':').map(Number);
 
-  const startDate = new Date(data.slotDate);
-  startDate.setHours(startHour, startMin, 0, 0);
+  // Use the Date object from database (which is UTC midnight) to get components
+  const year = data.slotDate.getUTCFullYear();
+  const month = data.slotDate.getUTCMonth();
+  const day = data.slotDate.getUTCDate();
 
-  const endDate = new Date(data.slotDate);
-  endDate.setHours(endHour, endMin, 0, 0);
+  // Create dates in local time (or whatever timezone the server is in)
+  // but based on the intended date components from UTC
+  const startDate = new Date(year, month, day, startHour, startMin, 0, 0);
+  const endDate = new Date(year, month, day, endHour, endMin, 0, 0);
 
   const event: CalendarEventData = {
     title: `Counselling Session - ${schoolName}`,
@@ -189,14 +193,19 @@ export async function sendPrincipalCalendarInvite(data: {
   const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
   const schoolEmail = process.env.SCHOOL_EMAIL || 'info@school.com';
 
+  // Parse date and time strings to create proper dates without timezone shift
   const [startHour, startMin] = data.slotStartTime.split(':').map(Number);
   const [endHour, endMin] = data.slotEndTime.split(':').map(Number);
 
-  const startDate = new Date(data.slotDate);
-  startDate.setHours(startHour, startMin, 0, 0);
+  // Use the Date object from database (which is UTC midnight) to get components
+  const year = data.slotDate.getUTCFullYear();
+  const month = data.slotDate.getUTCMonth();
+  const day = data.slotDate.getUTCDate();
 
-  const endDate = new Date(data.slotDate);
-  endDate.setHours(endHour, endMin, 0, 0);
+  // Create dates in local time (or whatever timezone the server is in)
+  // but based on the intended date components from UTC
+  const startDate = new Date(year, month, day, startHour, startMin, 0, 0);
+  const endDate = new Date(year, month, day, endHour, endMin, 0, 0);
 
   const event: CalendarEventData = {
     title: `Counselling: ${data.studentName} - ${data.tokenId}`,

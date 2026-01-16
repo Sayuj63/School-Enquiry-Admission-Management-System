@@ -38,18 +38,11 @@ router.get('/enquiry', async (req, res: Response) => {
  */
 router.put('/enquiry', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { fields } = req.body;
-
-    if (!fields || !Array.isArray(fields)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Fields array is required'
-      });
-    }
+    const { fields, baseFields } = req.body;
 
     const template = await FormTemplate.findOneAndUpdate(
       { type: 'enquiry' },
-      { fields, updatedAt: new Date() },
+      { fields, baseFields, updatedAt: new Date() },
       { new: true, upsert: true }
     );
 
@@ -100,18 +93,11 @@ router.get('/admission', async (req, res: Response) => {
  */
 router.put('/admission', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { fields } = req.body;
-
-    if (!fields || !Array.isArray(fields)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Fields array is required'
-      });
-    }
+    const { fields, baseFields } = req.body;
 
     const template = await FormTemplate.findOneAndUpdate(
       { type: 'admission' },
-      { fields, updatedAt: new Date() },
+      { fields, baseFields, updatedAt: new Date() },
       { new: true, upsert: true }
     );
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Phone, Mail, MapPin, Calendar, CheckCircle, Loader2 } from 'lucide-react'
-import { getEnquiry, createAdmission } from '@/lib/api'
+import { getEnquiry, createAdmission, getEnquiryTemplate } from '@/lib/api'
 import { format } from 'date-fns'
 
 interface Enquiry {
@@ -19,6 +19,7 @@ interface Enquiry {
   grade: string
   message: string
   status: 'new' | 'in_progress' | 'converted'
+  additionalFields?: Record<string, any>
   whatsappSent: boolean
   createdAt: string
 }
@@ -41,6 +42,7 @@ export default function EnquiryDetailPage() {
   const enquiryId = params.id as string
 
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null)
+  const [templateFields, setTemplateFields] = useState<any[]>([])
   const [hasAdmission, setHasAdmission] = useState(false)
   const [admissionId, setAdmissionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -48,17 +50,26 @@ export default function EnquiryDetailPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    async function fetchEnquiry() {
-      const result = await getEnquiry(enquiryId)
-      if (result.success && result.data) {
-        setEnquiry(result.data.enquiry)
-        setHasAdmission(result.data.hasAdmission)
-        setAdmissionId(result.data.admissionId)
+    async function fetchData() {
+      const [enquiryResult, templateResult] = await Promise.all([
+        getEnquiry(enquiryId),
+        getEnquiryTemplate()
+      ])
+
+      if (enquiryResult.success && enquiryResult.data) {
+        setEnquiry(enquiryResult.data.enquiry)
+        setHasAdmission(enquiryResult.data.hasAdmission)
+        setAdmissionId(enquiryResult.data.admissionId)
       }
+
+      if (templateResult.success && templateResult.data) {
+        setTemplateFields(templateResult.data.fields || [])
+      }
+
       setLoading(false)
     }
 
-    fetchEnquiry()
+    fetchData()
   }, [enquiryId])
 
   const handleCreateAdmission = async () => {
@@ -94,6 +105,12 @@ export default function EnquiryDetailPage() {
     )
   }
 
+  // Get additional fields from template that have values in enquiry
+  const dynamicFields = templateFields.filter(f => {
+    const standardKeys = ['parentName', 'childName', 'mobile', 'email', 'city', 'grade', 'message']
+    return !standardKeys.includes(f.name) && enquiry.additionalFields?.[f.name] !== undefined
+  })
+
   return (
     <div>
       {/* Header */}
@@ -108,8 +125,8 @@ export default function EnquiryDetailPage() {
             <h2 className="text-2xl font-bold text-gray-900">{enquiry.childName}</h2>
             <p className="font-mono text-gray-500">{enquiry.tokenId}</p>
           </div>
-          <span className={`px-3 py-1 text-sm font-medium rounded-full w-fit ${statusColors[enquiry.status]}`}>
-            {statusLabels[enquiry.status]}
+          <span className={`px-3 py-1 text-sm font-medium rounded-full w-fit ${statusColors[enquiry.status] || 'bg-gray-100 text-gray-800'}`}>
+            {statusLabels[enquiry.status] || enquiry.status}
           </span>
         </div>
       </div>
@@ -136,38 +153,69 @@ export default function EnquiryDetailPage() {
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Parent/Guardian Information</h3>
             <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Name</p>
-                <p className="font-medium text-gray-900">{enquiry.parentName}</p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Name</p>
+                  <p className="font-medium text-gray-900">{enquiry.parentName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="font-medium text-gray-900">{enquiry.email}</p>
+                </div>
               </div>
-              <div className="flex items-center">
-                <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                <span className="text-gray-900">{enquiry.mobile}</span>
-                {enquiry.mobileVerified && (
-                  <span className="ml-2 inline-flex items-center text-green-600 text-sm">
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    Verified
-                  </span>
+
+              <div className="flex flex-wrap gap-6">
+                <div className="flex items-center">
+                  <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-gray-900 font-medium">{enquiry.mobile}</span>
+                  {enquiry.mobileVerified && (
+                    <span className="ml-2 inline-flex items-center text-green-600 text-xs font-semibold px-2 py-0.5 bg-green-50 rounded-full border border-green-100">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Verified
+                    </span>
+                  )}
+                </div>
+                {enquiry.city && (
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 text-gray-400 mr-2" />
+                    <span className="text-gray-900 font-medium">{enquiry.city}</span>
+                  </div>
                 )}
               </div>
-              <div className="flex items-center">
-                <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                <span className="text-gray-900">{enquiry.email}</span>
-              </div>
-              {enquiry.city && (
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-gray-900">{enquiry.city}</span>
-                </div>
-              )}
             </div>
           </div>
+
+          {/* Dynamic Additional Fields */}
+          {dynamicFields.length > 0 && (
+            <div className="card">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
+              <div className="grid sm:grid-cols-2 gap-6">
+                {dynamicFields.map(field => {
+                  const val = enquiry.additionalFields?.[field.name]
+                  return (
+                    <div key={field.name} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
+                      <p className="text-sm text-gray-500 mb-1">{field.label}</p>
+                      {field.type === 'checkbox' ? (
+                        <div className={`inline-flex items-center px-2 py-1 rounded text-sm font-medium ${val ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {val ? 'Yes' : 'No'}
+                        </div>
+                      ) : (
+                        <p className="text-gray-900 font-medium whitespace-pre-wrap">{val || 'N/A'}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Message */}
           {enquiry.message && (
             <div className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Remarks</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">{enquiry.message}</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Message / Remarks</h3>
+              <p className="text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg border border-gray-100">
+                {enquiry.message}
+              </p>
             </div>
           )}
         </div>

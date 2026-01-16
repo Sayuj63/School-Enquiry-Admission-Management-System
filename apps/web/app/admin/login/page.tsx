@@ -66,10 +66,10 @@ export default function AdminLoginPage() {
               <GraduationCap className="h-12 w-12 text-primary-600" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Admin Portal
+              Staff Portal
             </h1>
             <p className="text-gray-600 mt-2">
-              Sign in to manage admissions
+              Sign in as Admin or Principal to continue
             </p>
           </div>
 
@@ -139,9 +139,10 @@ export default function AdminLoginPage() {
 
           {/* Dev Mode Hint */}
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center">
-              Default credentials: admin@school.com / admin123
-            </p>
+            <div className="text-xs text-gray-500 text-center space-y-1">
+              <p>Admin: admin@school.com / admin123</p>
+              <p>Principal: principal@school.com / principal123</p>
+            </div>
           </div>
         </div>
       </div>

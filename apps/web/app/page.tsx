@@ -18,59 +18,25 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {/* Enquiry Card */}
-          <Link href="/enquiry" className="block">
-            <div className="card hover:shadow-lg transition-shadow cursor-pointer h-full">
-              <div className="flex items-center mb-4">
-                <ClipboardList className="h-10 w-10 text-primary-600" />
-                <h2 className="text-2xl font-semibold text-gray-900 ml-3">
-                  Submit Enquiry
+        {/* Center Login Card */}
+        <div className="flex justify-center max-w-xl mx-auto">
+          <Link href="/admin/login" className="block w-full">
+            <div className="card hover:shadow-xl transition-all cursor-pointer p-8 group">
+              <div className="flex items-center mb-6">
+                <div className="p-3 bg-primary-50 rounded-lg group-hover:bg-primary-100 transition-colors">
+                  <UserCircle className="h-10 w-10 text-primary-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 ml-4">
+                  Staff Portal
                 </h2>
               </div>
-              <p className="text-gray-600 mb-4">
-                Interested in admission? Fill out our enquiry form and our team will get back to you shortly.
+              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
+                Log in to access the School Admission Management System. Manage enquiries, admissions, and counselling schedules in one place.
               </p>
-              <span className="text-primary-600 font-medium">
-                Start Enquiry &rarr;
-              </span>
-            </div>
-          </Link>
-
-          {/* Admin Card */}
-          <Link href="/admin/login" className="block">
-            <div className="card hover:shadow-lg transition-shadow cursor-pointer h-full">
-              <div className="flex items-center mb-4">
-                <UserCircle className="h-10 w-10 text-primary-600" />
-                <h2 className="text-2xl font-semibold text-gray-900 ml-3">
-                  Admin Portal
-                </h2>
+              <div className="flex items-center text-primary-600 font-semibold text-lg">
+                Proceed to Login
+                <span className="ml-2 group-hover:translate-x-1 transition-transform">&rarr;</span>
               </div>
-              <p className="text-gray-600 mb-4">
-                School administrators can manage enquiries, admissions, and counselling slots.
-              </p>
-              <span className="text-primary-600 font-medium">
-                Admin Login &rarr;
-              </span>
-            </div>
-          </Link>
-
-          {/* Principal Card */}
-          <Link href="/principal/login" className="block">
-            <div className="card hover:shadow-lg transition-shadow cursor-pointer h-full">
-              <div className="flex items-center mb-4">
-                <Shield className="h-10 w-10 text-primary-600" />
-                <h2 className="text-2xl font-semibold text-gray-900 ml-3">
-                  Principal Portal
-                </h2>
-              </div>
-              <p className="text-gray-600 mb-4">
-                School principal can view counselling schedules and monitor admission activities.
-              </p>
-              <span className="text-primary-600 font-medium">
-                Principal Login &rarr;
-              </span>
             </div>
           </Link>
         </div>

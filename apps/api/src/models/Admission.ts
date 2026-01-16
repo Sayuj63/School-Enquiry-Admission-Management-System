@@ -4,7 +4,8 @@ export interface IAdmissionDocument {
   _id?: Types.ObjectId;
   type: string;
   fileName: string;
-  fileId: Types.ObjectId;
+  fileId: string; // Cloudinary public_id
+  url: string;    // Cloudinary URL
   uploadedAt: Date;
 }
 
@@ -41,7 +42,8 @@ export interface IAdmission extends Document {
 const documentSchema = new Schema({
   type: { type: String, required: true },
   fileName: { type: String, required: true },
-  fileId: { type: Schema.Types.ObjectId, required: true },
+  fileId: { type: String, required: true }, // Cloudinary public_id
+  url: { type: String, required: true },    // Cloudinary URL
   uploadedAt: { type: Date, default: Date.now }
 });
 

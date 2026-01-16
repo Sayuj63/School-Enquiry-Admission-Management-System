@@ -1,6 +1,6 @@
+import './env';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import { apiReference } from '@scalar/express-api-reference';
 import { connectDB } from './config/db';
@@ -15,15 +15,12 @@ import slotRoutes from './routes/slot';
 import templateRoutes from './routes/template';
 import otpRoutes from './routes/otp';
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 5002;
 
 // Middleware
 app.use(cors({
-  origin: '*', // Allow all origins for development
+  origin: process.env.FRONTEND_URL || '*',
   credentials: true
 }));
 app.use(express.json());

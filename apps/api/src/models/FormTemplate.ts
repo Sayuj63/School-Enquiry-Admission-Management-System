@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IFormField {
   name: string;
   label: string;
-  type: 'text' | 'email' | 'tel' | 'select' | 'textarea' | 'date' | 'number';
+  type: 'text' | 'email' | 'tel' | 'select' | 'textarea' | 'date' | 'number' | 'checkbox';
   required: boolean;
   options?: string[];
   order: number;
@@ -13,6 +13,7 @@ export interface IFormField {
 export interface IFormTemplate extends Document {
   type: 'enquiry' | 'admission';
   fields: IFormField[];
+  baseFields?: Record<string, boolean>; // Field name -> enabled
   updatedAt: Date;
 }
 
@@ -21,7 +22,7 @@ const formFieldSchema = new Schema({
   label: { type: String, required: true },
   type: {
     type: String,
-    enum: ['text', 'email', 'tel', 'select', 'textarea', 'date', 'number'],
+    enum: ['text', 'email', 'tel', 'select', 'textarea', 'date', 'number', 'checkbox'],
     default: 'text'
   },
   required: { type: Boolean, default: false },
@@ -38,7 +39,12 @@ const formTemplateSchema = new Schema<IFormTemplate>(
       required: true,
       unique: true
     },
-    fields: [formFieldSchema]
+    fields: [formFieldSchema],
+    baseFields: {
+      type: Map,
+      of: Boolean,
+      default: {}
+    }
   },
   {
     timestamps: { updatedAt: true, createdAt: false }

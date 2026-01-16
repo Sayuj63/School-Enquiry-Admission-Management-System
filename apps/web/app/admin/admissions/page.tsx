@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 import { getAdmissions } from '@/lib/api'
 import { format } from 'date-fns'
@@ -13,6 +14,7 @@ interface Admission {
   parentName: string
   grade: string
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  slotBookingId?: string
   createdAt: string
 }
 
@@ -37,11 +39,17 @@ export default function AdmissionsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+
+  const searchParams = useSearchParams()
+  const statusParam = searchParams.get('status')
+  const initialStatusFilter = statusParam && ['draft', 'submitted', 'approved', 'rejected'].includes(statusParam) ? statusParam : ''
+
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter)
+  const [counsellingFilter, setCounsellingFilter] = useState('')
 
   useEffect(() => {
     fetchAdmissions()
-  }, [page, statusFilter])
+  }, [page, statusFilter, counsellingFilter])
 
   const fetchAdmissions = async () => {
     setLoading(true)
@@ -49,6 +57,7 @@ export default function AdmissionsPage() {
       page,
       limit: 10,
       status: statusFilter || undefined,
+      counselling: (counsellingFilter as any) || undefined,
       search: search || undefined
     })
 
@@ -76,6 +85,46 @@ export default function AdmissionsPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6 overflow-x-auto no-scrollbar">
+        <button
+          onClick={() => {
+            setStatusFilter('')
+            setPage(1)
+          }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === ''
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+        >
+          All Admissions
+        </button>
+        <button
+          onClick={() => {
+            setStatusFilter('approved')
+            setPage(1)
+          }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'approved'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+        >
+          Approved
+        </button>
+        <button
+          onClick={() => {
+            setStatusFilter('rejected')
+            setPage(1)
+          }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'rejected'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+        >
+          Rejected
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="card mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -92,18 +141,16 @@ export default function AdmissionsPage() {
             </div>
           </form>
           <select
-            className="input w-40"
-            value={statusFilter}
+            className="input w-44"
+            value={counsellingFilter}
             onChange={(e) => {
-              setStatusFilter(e.target.value)
+              setCounsellingFilter(e.target.value)
               setPage(1)
             }}
           >
-            <option value="">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="submitted">Submitted</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
+            <option value="">All Counselling</option>
+            <option value="booked">Booked</option>
+            <option value="pending">Pending</option>
           </select>
         </div>
       </div>
@@ -136,7 +183,7 @@ export default function AdmissionsPage() {
                     Grade
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Counselling
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
@@ -162,9 +209,15 @@ export default function AdmissionsPage() {
                       {admission.grade}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[admission.status]}`}>
-                        {statusLabels[admission.status]}
-                      </span>
+                      {admission.slotBookingId ? (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                          Booked
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                          Pending
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {format(new Date(admission.createdAt), 'dd MMM yyyy')}

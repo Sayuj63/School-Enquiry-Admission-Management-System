@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Save, Loader2, GripVertical } from 'lucide-react'
+import { Plus, Trash2, Save, Loader2, GripVertical, CheckSquare, Square } from 'lucide-react'
 import {
   getEnquiryTemplate,
   updateEnquiryTemplate,
@@ -27,6 +27,14 @@ interface RequiredDocument {
   order: number
 }
 
+const ADMISSION_BASE_FIELDS = [
+  { name: 'studentName', label: 'Student Name' },
+  { name: 'parentName', label: 'Parent Name' },
+  { name: 'mobile', label: 'Mobile Number' },
+  { name: 'email', label: 'Email Address' },
+  { name: 'grade', label: 'Grade/Class' }
+]
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'enquiry' | 'admission' | 'documents'>('enquiry')
   const [loading, setLoading] = useState(true)
@@ -36,6 +44,13 @@ export default function SettingsPage() {
 
   const [enquiryFields, setEnquiryFields] = useState<FormField[]>([])
   const [admissionFields, setAdmissionFields] = useState<FormField[]>([])
+  const [admissionBaseFields, setAdmissionBaseFields] = useState<Record<string, boolean>>({
+    studentName: true,
+    parentName: true,
+    mobile: true,
+    email: true,
+    grade: true
+  })
   const [documents, setDocuments] = useState<RequiredDocument[]>([])
 
   useEffect(() => {
@@ -57,6 +72,14 @@ export default function SettingsPage() {
 
     if (admissionResult.success && admissionResult.data) {
       setAdmissionFields(admissionResult.data.fields || [])
+      if (admissionResult.data.baseFields) {
+        // Map might come as an object or a Map depending on how it's serialized
+        const bf = admissionResult.data.baseFields
+        setAdmissionBaseFields(prev => ({
+          ...prev,
+          ...(bf instanceof Map ? Object.fromEntries(bf) : bf)
+        }))
+      }
     }
 
     if (docsResult.success && docsResult.data) {
@@ -87,7 +110,7 @@ export default function SettingsPage() {
     setError('')
     setSuccess('')
 
-    const result = await updateAdmissionTemplate(admissionFields)
+    const result = await updateAdmissionTemplate(admissionFields, admissionBaseFields)
 
     if (result.success) {
       setSuccess('Admission template saved successfully')
@@ -150,6 +173,13 @@ export default function SettingsPage() {
     }
   }
 
+  const toggleAdmissionBaseField = (fieldName: string) => {
+    setAdmissionBaseFields(prev => ({
+      ...prev,
+      [fieldName]: !prev[fieldName]
+    }))
+  }
+
   const addDocument = () => {
     setDocuments([
       ...documents,
@@ -208,11 +238,10 @@ export default function SettingsPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
               {tab.label}
             </button>
@@ -239,39 +268,35 @@ export default function SettingsPage() {
 
           <div className="space-y-4">
             {enquiryFields.map((field, index) => (
-              <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
-                <div className="text-gray-400 cursor-move">
-                  <GripVertical className="h-5 w-5" />
-                </div>
-                <div className="flex-1 grid sm:grid-cols-4 gap-4">
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Field Name"
-                    value={field.name}
-                    onChange={(e) => updateField('enquiry', index, { name: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Label"
-                    value={field.label}
-                    onChange={(e) => updateField('enquiry', index, { label: e.target.value })}
-                  />
-                  <select
-                    className="input"
-                    value={field.type}
-                    onChange={(e) => updateField('enquiry', index, { type: e.target.value })}
-                  >
-                    <option value="text">Text</option>
-                    <option value="email">Email</option>
-                    <option value="tel">Phone</option>
-                    <option value="select">Select</option>
-                    <option value="textarea">Textarea</option>
-                    <option value="date">Date</option>
-                    <option value="number">Number</option>
-                  </select>
-                  <div className="flex items-center gap-4">
+              <div key={index} className="flex flex-col gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-start gap-4">
+                  <div className="text-gray-400 cursor-move pt-2">
+                    <GripVertical className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 grid sm:grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Label"
+                      value={field.label}
+                      onChange={(e) => updateField('enquiry', index, { label: e.target.value })}
+                    />
+                    <select
+                      className="input"
+                      value={field.type}
+                      onChange={(e) => updateField('enquiry', index, { type: e.target.value })}
+                    >
+                      <option value="text">Text</option>
+                      <option value="email">Email</option>
+                      <option value="tel">Phone</option>
+                      <option value="select">Select</option>
+                      <option value="textarea">Textarea</option>
+                      <option value="date">Date</option>
+                      <option value="number">Number</option>
+                      <option value="checkbox">Checkbox</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-4 pt-2">
                     <label className="flex items-center">
                       <input
                         type="checkbox"
@@ -279,7 +304,7 @@ export default function SettingsPage() {
                         checked={field.required}
                         onChange={(e) => updateField('enquiry', index, { required: e.target.checked })}
                       />
-                      <span className="ml-2 text-sm">Required</span>
+                      <span className="ml-2 text-sm whitespace-nowrap">Required</span>
                     </label>
                     <button
                       onClick={() => removeField('enquiry', index)}
@@ -289,6 +314,19 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+                {field.type === 'select' && (
+                  <div className="pl-9">
+                    <input
+                      type="text"
+                      className="input w-full bg-white"
+                      placeholder="Options (comma separated, e.g. Nursery, LKG, UKG)"
+                      value={field.options?.join(', ') || ''}
+                      onChange={(e) => updateField('enquiry', index, {
+                        options: e.target.value.split(',').map(s => s.trim()).filter(s => s !== '')
+                      })}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -297,82 +335,120 @@ export default function SettingsPage() {
 
       {/* Admission Form Tab */}
       {activeTab === 'admission' && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold">Admission Form Fields</h3>
-            <div className="flex gap-3">
-              <button onClick={() => addField('admission')} className="btn-secondary">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Field
-              </button>
-              <button onClick={handleSaveAdmission} disabled={saving} className="btn-primary">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                Save Changes
-              </button>
+        <div className="space-y-6">
+          {/* Base Fields Visibility */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Base Fields Visibility</h3>
+              <p className="text-sm text-gray-500 italic">Toggle visibility of auto-filled fields</p>
+            </div>
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {ADMISSION_BASE_FIELDS.map((field) => (
+                <button
+                  key={field.name}
+                  onClick={() => toggleAdmissionBaseField(field.name)}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${admissionBaseFields[field.name]
+                    ? 'bg-primary-50 border-primary-200 text-primary-900 shadow-sm'
+                    : 'bg-gray-50 border-gray-200 text-gray-500 grayscale'
+                    }`}
+                >
+                  {admissionBaseFields[field.name] ? (
+                    <CheckSquare className="h-5 w-5 text-primary-600" />
+                  ) : (
+                    <Square className="h-5 w-5 text-gray-400" />
+                  )}
+                  <span className="font-medium">{field.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              <strong>Note:</strong> Basic fields (Student Name, Parent Name, Mobile, Email, Grade) are automatically pre-filled from the enquiry.
-              Add additional fields that admin needs to fill.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {admissionFields.map((field, index) => (
-              <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
-                <div className="text-gray-400 cursor-move">
-                  <GripVertical className="h-5 w-5" />
-                </div>
-                <div className="flex-1 grid sm:grid-cols-4 gap-4">
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Field Name"
-                    value={field.name}
-                    onChange={(e) => updateField('admission', index, { name: e.target.value })}
-                  />
-                  <input
-                    type="text"
-                    className="input"
-                    placeholder="Label"
-                    value={field.label}
-                    onChange={(e) => updateField('admission', index, { label: e.target.value })}
-                  />
-                  <select
-                    className="input"
-                    value={field.type}
-                    onChange={(e) => updateField('admission', index, { type: e.target.value })}
-                  >
-                    <option value="text">Text</option>
-                    <option value="email">Email</option>
-                    <option value="tel">Phone</option>
-                    <option value="select">Select</option>
-                    <option value="textarea">Textarea</option>
-                    <option value="date">Date</option>
-                    <option value="number">Number</option>
-                  </select>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        checked={field.required}
-                        onChange={(e) => updateField('admission', index, { required: e.target.checked })}
-                      />
-                      <span className="ml-2 text-sm">Required</span>
-                    </label>
-                    <button
-                      onClick={() => removeField('admission', index)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+          <div className="card">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Additional Form Fields</h3>
+              <div className="flex gap-3">
+                <button onClick={() => addField('admission')} className="btn-secondary">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Field
+                </button>
+                <button onClick={handleSaveAdmission} disabled={saving} className="btn-primary">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Changes
+                </button>
               </div>
-            ))}
+            </div>
+
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Note:</strong> Basic fields (Student Name, Parent Name, Mobile, Email, Grade) are automatically pre-filled from the enquiry.
+                Add additional fields that admin needs to fill.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {admissionFields.map((field, index) => (
+                <div key={index} className="flex flex-col gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-start gap-4">
+                    <div className="text-gray-400 cursor-move pt-2">
+                      <GripVertical className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 grid sm:grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Label"
+                        value={field.label}
+                        onChange={(e) => updateField('admission', index, { label: e.target.value })}
+                      />
+                      <select
+                        className="input"
+                        value={field.type}
+                        onChange={(e) => updateField('admission', index, { type: e.target.value })}
+                      >
+                        <option value="text">Text</option>
+                        <option value="email">Email</option>
+                        <option value="tel">Phone</option>
+                        <option value="select">Select</option>
+                        <option value="textarea">Textarea</option>
+                        <option value="date">Date</option>
+                        <option value="number">Number</option>
+                        <option value="checkbox">Checkbox</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-4 pt-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          checked={field.required}
+                          onChange={(e) => updateField('admission', index, { required: e.target.checked })}
+                        />
+                        <span className="ml-2 text-sm whitespace-nowrap">Required</span>
+                      </label>
+                      <button
+                        onClick={() => removeField('admission', index)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {field.type === 'select' && (
+                    <div className="pl-9">
+                      <input
+                        type="text"
+                        className="input w-full bg-white"
+                        placeholder="Options (comma separated, e.g. A+, B+, AB+)"
+                        value={field.options?.join(', ') || ''}
+                        onChange={(e) => updateField('admission', index, {
+                          options: e.target.value.split(',').map(s => s.trim()).filter(s => s !== '')
+                        })}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
