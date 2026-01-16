@@ -81,6 +81,36 @@ export default function SlotsPage() {
     setCreating(true)
     setError('')
 
+    // Validate duration (min 30 min)
+    const [startH, startM] = newSlot.startTime.split(':').map(Number);
+    const [endH, endM] = newSlot.endTime.split(':').map(Number);
+    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+    if (durationMinutes < 30) {
+      setError('Counselling slots must be at least 30 minutes long.');
+      setCreating(false);
+      return;
+    }
+
+    const { date, startTime, endTime } = newSlot;
+    // Check if slot overlaps with existing slots
+    const isOverlapping = slots.some(slot => {
+      if (slot.date.split('T')[0] !== date) return false;
+
+      const s1 = startTime;
+      const e1 = endTime;
+      const s2 = slot.startTime;
+      const e2 = slot.endTime;
+
+      return (s1 < e2 && e1 > s2);
+    });
+
+    if (isOverlapping) {
+      setError('This slot overlaps with an existing slot.');
+      setCreating(false);
+      return;
+    }
+
     const result = await createSlot(newSlot)
 
     if (result.success) {
@@ -450,9 +480,9 @@ export default function SlotsPage() {
                 </div>
               </div>
 
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> Each slot has a fixed capacity of 3 parents.
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                  <strong>Note:</strong> Counselling slots must be at least 30 minutes long. Each slot has a fixed capacity of 3 parents.
                 </p>
               </div>
             </div>

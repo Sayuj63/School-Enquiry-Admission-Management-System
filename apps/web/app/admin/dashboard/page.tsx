@@ -294,8 +294,46 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Sidebar: Upcoming Counselling / Quick Actions */}
+        {/* Sidebar: Upcoming Counselling / Funnel */}
         <div className="space-y-6">
+          {/* Admission Funnel Visualizer */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 px-2">
+              <BarChart3 className="h-5 w-5 text-emerald-600" />
+              Admission Funnel
+            </h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+              {[
+                { label: 'Total Enquiries', count: stats.totalEnquiriesMonth, color: 'bg-blue-500', icon: ClipboardList, total: stats.totalEnquiriesMonth || 1 },
+                { label: 'Applications Filed', count: stats.pendingAdmissions, color: 'bg-orange-500', icon: FileText, total: stats.totalEnquiriesMonth || 1 },
+                { label: 'Counselling Booked', count: stats.scheduledCounselling, color: 'bg-purple-500', icon: Users, total: stats.totalEnquiriesMonth || 1 },
+              ].map((stage, idx) => (
+                <div key={stage.label} className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-lg ${stage.color.replace('500', '50')} ${stage.color.replace('bg-', 'text-')}`}>
+                        <stage.icon className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-tight">{stage.label}</span>
+                    </div>
+                    <span className="text-sm font-black text-gray-900">{stage.count}</span>
+                  </div>
+                  <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${stage.color} rounded-full transition-all duration-1000 ease-out`}
+                      style={{ width: `${(stage.count / stage.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+              <div className="pt-2">
+                <p className="text-[10px] text-gray-400 font-medium leading-relaxed italic">
+                  * Funnel based on this month's enquiries.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Upcoming Counselling */}
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 px-2">

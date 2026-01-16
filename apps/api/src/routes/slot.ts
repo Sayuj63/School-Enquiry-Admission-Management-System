@@ -34,6 +34,18 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Calculate duration in minutes
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+    if (durationMinutes < 30) {
+      return res.status(400).json({
+        success: false,
+        error: 'Counselling slots must be at least 30 minutes long'
+      });
+    }
+
     const [year, month, day] = date.split('-').map(Number)
     const slotDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
 

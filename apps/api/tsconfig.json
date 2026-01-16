@@ -14,13 +14,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@sayuj/shared": [
-        "../../packages/shared/src/index.ts"
-      ]
-    }
+    "sourceMap": true
   },
   "include": [
     "src/**/*"

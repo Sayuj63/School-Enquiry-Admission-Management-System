@@ -24,9 +24,6 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "@sayuj/shared": [
-        "../../packages/shared/src/index.ts"
       ]
     }
   },
