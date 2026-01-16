@@ -12,22 +12,26 @@ This guide outlines the steps to deploy the application with the **Frontend on V
 3. Connect your GitHub repository and select the project.
 
 ### Step 2: Configure Web Service
-- **Name**: `sayuj-api` (or your choice)
-- **Root Directory**: `apps/api`
+- **Name**: `sayuj-api`
+- **Region**: Select closest to your users
+- **Root Directory**: Leave empty (root)
 - **Environment**: `Node`
-- **Build Command**: `npm install && npm run build` (or `pnpm install && pnpm run build`)
-- **Start Command**: `npm start` (or `pnpm start`)
+- **Build Command**: `pnpm install && pnpm run build`
+- **Start Command**: `pnpm --filter @sayuj/api start`
 
 ### Step 3: Environment Variables
 Add the following in the **Environment** tab:
 | Key | Value (Example) |
 |-----|-----|
+| `NODE_VERSION` | `22` (Crucial for Node 22 features) |
 | `MONGODB_URI` | `mongodb+srv://...` |
 | `JWT_SECRET` | `your_secret_string` |
-| `PORT` | `5002` (Render usually sets this automatically) |
-| `FRONTEND_URL` | `https://your-app.vercel.app` (Add after Vercel is deployed) |
+| `PORT` | `5002` |
+| `FRONTEND_URL` | `https://your-app.vercel.app` |
 | `CLOUDINARY_URL` | `cloudinary://API_KEY:API_SECRET@CLOUD_NAME` |
 | `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | `your_cloud_name` |
+| `NEXT_PUBLIC_CLOUDINARY_API_KEY` | `your_api_key` |
+| `NEXT_PUBLIC_CLOUDINARY_API_SECRET` | `your_api_secret` |
 
 ---
 
@@ -41,14 +45,15 @@ Add the following in the **Environment** tab:
 ### Step 2: Configure Project
 - **Framework Preset**: `Next.js`
 - **Root Directory**: `apps/web`
-- **Build Command**: `npm run build` (or `pnpm run build`)
-- **Install Command**: `npm install` (or `pnpm install`)
+- **Build Command**: `pnpm run build`
+- **Install Command**: `pnpm install`
 
 ### Step 3: Environment Variables
 Add the following:
 | Key | Value |
 |-----|-----|
-| `NEXT_PUBLIC_API_URL` | `https://your-api.onrender.com` (Use your Render URL) |
+| `NODE_VERSION` | `22` |
+| `NEXT_PUBLIC_API_URL` | `https://your-api.onrender.com` |
 | `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | `your_cloud_name` (Same as backend) |
 | `NEXT_PUBLIC_CLOUDINARY_API_KEY` | `your_api_key` |
 
