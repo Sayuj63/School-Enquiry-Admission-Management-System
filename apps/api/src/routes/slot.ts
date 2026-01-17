@@ -162,17 +162,35 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
  */
 router.get('/available', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
 
     const slots = await CounsellingSlot.find({
-      date: { $gte: today },
+      date: { $gte: todayDate },
       status: 'available'
     }).sort({ date: 1, startTime: 1 });
 
+    const now = new Date();
+    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    const filteredSlots = slots.filter(slot => {
+      const slotDate = new Date(slot.date);
+      slotDate.setHours(0, 0, 0, 0);
+
+      // If slot is for a future date, it's available
+      if (slotDate > todayDate) return true;
+
+      // If slot is for today, check start time
+      if (slotDate.getTime() === todayDate.getTime()) {
+        return slot.startTime > currentTimeStr;
+      }
+
+      return false;
+    });
+
     res.json({
       success: true,
-      data: slots
+      data: filteredSlots
     });
   } catch (error) {
     console.error('Get available slots error:', error);
@@ -274,6 +292,23 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       return res.status(400).json({
         success: false,
         error: 'Slot is fully booked'
+      });
+    }
+
+    // Check if slot is in the past
+    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const slotDate = new Date(slot.date);
+    slotDate.setHours(0, 0, 0, 0);
+
+    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    if (slotDate < today || (slotDate.getTime() === today.getTime() && slot.startTime <= currentTimeStr)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot book a slot that has already passed'
       });
     }
 

@@ -205,8 +205,18 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     const query: any = {};
 
-    if (status) {
-      query.status = status;
+    if (status && status !== 'all') {
+      if (status === 'half_filled' || status === 'pending_admission') {
+        query.status = 'in_progress';
+        // Note: For precise filtering between half_filled and pending_admission, 
+        // we would need to join with Admissions, but for now we map to the base status.
+      } else {
+        query.status = status;
+      }
+    } else if (status !== 'all') {
+      // By default (or if status is undefined/empty), only show "New" enquiries.
+      // Once an enquiry is converted or in progress, it moves to the Admissions section.
+      query.status = 'new';
     }
 
     if (grade) {

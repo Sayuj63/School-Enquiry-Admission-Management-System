@@ -14,6 +14,7 @@ class ApiClient {
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     if (typeof window !== 'undefined') {
+      console.log('%c🚀 API Client Initialized', 'color: #00ff00; font-weight: bold; font-size: 14px;', { baseUrl });
       this.token = localStorage.getItem('auth_token');
     }
   }

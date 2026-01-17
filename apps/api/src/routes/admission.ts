@@ -232,8 +232,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // If admission is approved, update enquiry status
-    if (status === 'approved') {
+    // If admission is submitted, approved, or rejected, update enquiry status to converted
+    if (status && ['submitted', 'approved', 'rejected'].includes(status)) {
       await Enquiry.findByIdAndUpdate(admission.enquiryId, { status: 'converted' });
     }
 

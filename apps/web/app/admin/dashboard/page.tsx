@@ -58,7 +58,7 @@ export default function DashboardPage() {
 
         // Fetch All Required Data in Parallel
         const [enquiriesRes, admissionsRes, slotsRes] = await Promise.all([
-          getEnquiries({ limit: 10 }),
+          getEnquiries({ limit: 10, status: 'all' }),
           getAdmissions({ limit: 10 }),
           getSlots({ dateFrom: todayStart, dateTo: todayEnd })
         ])
