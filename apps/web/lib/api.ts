@@ -14,7 +14,6 @@ class ApiClient {
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     if (typeof window !== 'undefined') {
-      console.log('%c🚀 API Client Initialized', 'color: #00ff00; font-weight: bold; font-size: 14px;', { baseUrl });
       this.token = localStorage.getItem('auth_token');
     }
   }
@@ -71,9 +70,6 @@ class ApiClient {
 
       const data = await response.json();
 
-      // Log all API data to console for visibility
-      console.log(`[API ${options.method || 'GET'}] ${endpoint}`, data);
-
       // Pretty print mock data if present
       this.prettyPrintMock(data);
 
@@ -99,37 +95,37 @@ class ApiClient {
 
     // 1. Check for OTP mock
     if (data.success && data.otp) {
-      console.log(': ========================================');
-      console.log('apps/api dev: OTP SERVICE (MOCK MODE)');
-      console.log('apps/api dev: ----------------------------------------');
-      console.log(`apps/api dev: Mobile: ${data.mobile}`);
-      console.log(`apps/api dev: OTP: ${data.otp}`);
-      console.log(`apps/api dev: Expires: ${data.expiresAt}`);
-      console.log('apps/api dev: ========================================');
+      console.log('========================================');
+      console.log('OTP SERVICE (MOCK MODE)');
+      console.log('----------------------------------------');
+      console.log(`Mobile: ${data.mobile}`);
+      console.log(`OTP: ${data.otp}`);
+      console.log(`Expires: ${data.expiresAt}`);
+      console.log('========================================');
     }
 
     // 2. Check for Single mockNotification (Enquiry)
     if (data.data?.mockNotification) {
       const mock = data.data.mockNotification;
-      console.log(': ========================================');
-      console.log(`apps/api dev: ${mock.type.toUpperCase()} SERVICE (MOCK MODE)`);
-      console.log('apps/api dev: ----------------------------------------');
-      console.log(`apps/api dev: To: ${mock.to}`);
-      console.log('apps/api dev: Message:');
-      console.log(mock.content.split('\n').map((line: string) => `apps/api dev: ${line}`).join('\n'));
-      console.log('apps/api dev: ========================================');
+      console.log('========================================');
+      console.log(`${mock.type.toUpperCase()} SERVICE (MOCK MODE)`);
+      console.log('----------------------------------------');
+      console.log(`To: ${mock.to}`);
+      console.log('Message:');
+      console.log(mock.content);
+      console.log('========================================');
     }
 
     // 3. Check for Array of mockNotifications (Slot booking)
     if (data.data?.mockNotifications && Array.isArray(data.data.mockNotifications)) {
       data.data.mockNotifications.forEach((mock: any) => {
-        console.log(': ========================================');
-        console.log(`apps/api dev: ${mock.type.toUpperCase()} SERVICE (MOCK MODE)`);
-        console.log('apps/api dev: ----------------------------------------');
-        console.log(`apps/api dev: To: ${mock.to}`);
-        console.log('apps/api dev: Message:');
-        console.log(mock.content.split('\n').map((line: string) => `apps/api dev: ${line}`).join('\n'));
-        console.log('apps/api dev: ========================================');
+        console.log('========================================');
+        console.log(`${mock.type.toUpperCase()} SERVICE (MOCK MODE)`);
+        console.log('----------------------------------------');
+        console.log(`To: ${mock.to}`);
+        console.log('Message:');
+        console.log(mock.content);
+        console.log('========================================');
       });
     }
   }
