@@ -67,7 +67,7 @@ ${schoolName} Admissions Team
 `.trim();
 
   // In development, log message instead of sending
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
     console.log('========================================');
     console.log('WHATSAPP SERVICE (MOCK MODE)');
     console.log('----------------------------------------');
@@ -127,7 +127,7 @@ Best regards,
 ${schoolName} Admissions Team
 `.trim();
 
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
     console.log('========================================');
     console.log('WHATSAPP SLOT CONFIRMATION (MOCK MODE)');
     console.log('----------------------------------------');

@@ -58,7 +58,7 @@ export async function sendOTP(mobile: string): Promise<SendOTPResult> {
   });
 
   // In development, log OTP instead of sending
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
     console.log('========================================');
     console.log('OTP SERVICE (MOCK MODE)');
     console.log('----------------------------------------');

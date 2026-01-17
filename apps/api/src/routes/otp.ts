@@ -33,7 +33,7 @@ router.post('/send', async (req, res: Response) => {
       message: result.message
     };
 
-    if (process.env.NODE_ENV === 'development' && result.otp) {
+    if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && result.otp) {
       response.otp = result.otp;
       response.expiresAt = result.expiresAt;
       response.mobile = result.mobile;

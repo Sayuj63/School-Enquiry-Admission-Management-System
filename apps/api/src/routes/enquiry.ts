@@ -70,7 +70,7 @@ router.post('/', async (req, res: Response) => {
       enquiry.whatsappSent = whatsappResult.success;
       await enquiry.save();
 
-      if (process.env.NODE_ENV === 'development' && whatsappResult.mockMessage) {
+      if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && whatsappResult.mockMessage) {
         mockNotification = {
           type: 'whatsapp',
           to: whatsappResult.to,
@@ -162,7 +162,7 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
       enquiry.whatsappSent = whatsappResult.success;
       await enquiry.save();
 
-      if (process.env.NODE_ENV === 'development' && whatsappResult.mockMessage) {
+      if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && whatsappResult.mockMessage) {
         mockNotification = {
           type: 'whatsapp',
           to: whatsappResult.to,

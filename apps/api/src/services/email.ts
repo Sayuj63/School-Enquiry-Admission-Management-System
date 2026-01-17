@@ -135,7 +135,7 @@ ${schoolName} Admissions Team
 
   // Send via Resend
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
       return {
         success: true,
         message: 'Email sent successfully (dev mode)',
@@ -243,7 +243,7 @@ Location: ${data.location}
 
   // Send via Resend
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
       return {
         success: true,
         message: 'Principal email sent successfully (dev mode)',

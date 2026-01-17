@@ -373,7 +373,7 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       slotTime: `${slot.startTime} - ${slot.endTime}`,
       location: DEFAULT_LOCATION
     }).then((result) => {
-      if (process.env.NODE_ENV === 'development' && result.mockMessage) {
+      if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && result.mockMessage) {
         mockNotifications.push({ type: 'whatsapp', to: result.to, content: result.mockMessage });
       }
     }).catch((err) => {
@@ -393,7 +393,7 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
     }).then(async (result) => {
       if (result.success) {
         await SlotBooking.findByIdAndUpdate(booking._id, { calendarInviteSent: true });
-        if (process.env.NODE_ENV === 'development' && result.mockMessage) {
+        if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && result.mockMessage) {
           mockNotifications.push({ type: 'email-parent', to: result.to, content: result.mockMessage });
         }
       }
@@ -413,7 +413,7 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
     }).then(async (result) => {
       if (result.success) {
         await SlotBooking.findByIdAndUpdate(booking._id, { principalInviteSent: true });
-        if (process.env.NODE_ENV === 'development' && result.mockMessage) {
+        if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && result.mockMessage) {
           mockNotifications.push({ type: 'email-principal', to: result.to, content: result.mockMessage });
         }
       }
@@ -422,7 +422,7 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
     });
 
     // In development, wait for notifications to finish so we can return them
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
       await Promise.all([whatsappPromise, parentInvitePromise, principalInvitePromise]);
     }
 
