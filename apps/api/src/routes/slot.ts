@@ -171,17 +171,22 @@ router.get('/available', authenticate, async (req: AuthRequest, res: Response) =
     }).sort({ date: 1, startTime: 1 });
 
     const now = new Date();
-    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const istNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+    const todayIST = new Date(istNow);
+    todayIST.setHours(0, 0, 0, 0);
+
+    const currentTimeStr = `${String(istNow.getHours()).padStart(2, '0')}:${String(istNow.getMinutes()).padStart(2, '0')}`;
 
     const filteredSlots = slots.filter(slot => {
       const slotDate = new Date(slot.date);
       slotDate.setHours(0, 0, 0, 0);
 
       // If slot is for a future date, it's available
-      if (slotDate > todayDate) return true;
+      if (slotDate > todayIST) return true;
 
       // If slot is for today, check start time
-      if (slotDate.getTime() === todayDate.getTime()) {
+      if (slotDate.getTime() === todayIST.getTime()) {
         return slot.startTime > currentTimeStr;
       }
 
@@ -295,17 +300,19 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       });
     }
 
-    // Check if slot is in the past
+    // Check if slot is in the past (using IST)
     const now = new Date();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const istNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+    const todayIST = new Date(istNow);
+    todayIST.setHours(0, 0, 0, 0);
 
     const slotDate = new Date(slot.date);
     slotDate.setHours(0, 0, 0, 0);
 
-    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const currentTimeStr = `${String(istNow.getHours()).padStart(2, '0')}:${String(istNow.getMinutes()).padStart(2, '0')}`;
 
-    if (slotDate < today || (slotDate.getTime() === today.getTime() && slot.startTime <= currentTimeStr)) {
+    if (slotDate < todayIST || (slotDate.getTime() === todayIST.getTime() && slot.startTime <= currentTimeStr)) {
       return res.status(400).json({
         success: false,
         error: 'Cannot book a slot that has already passed'
