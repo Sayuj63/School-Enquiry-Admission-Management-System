@@ -58,7 +58,7 @@ router.post('/', async (req, res: Response) => {
       status: 'new'
     });
 
-    // Send WhatsApp notification
+    let mockNotification;
     try {
       const whatsappResult = await sendEnquiryWhatsApp({
         to: data.mobile,
@@ -69,6 +69,14 @@ router.post('/', async (req, res: Response) => {
 
       enquiry.whatsappSent = whatsappResult.success;
       await enquiry.save();
+
+      if (process.env.NODE_ENV === 'development' && whatsappResult.mockMessage) {
+        mockNotification = {
+          type: 'whatsapp',
+          to: whatsappResult.to,
+          content: whatsappResult.mockMessage
+        };
+      }
     } catch (whatsappError) {
       console.error('WhatsApp notification failed:', whatsappError);
     }
@@ -77,7 +85,8 @@ router.post('/', async (req, res: Response) => {
       success: true,
       data: {
         tokenId: enquiry.tokenId,
-        message: 'Enquiry submitted successfully'
+        message: 'Enquiry submitted successfully',
+        mockNotification
       }
     });
   } catch (error) {
@@ -141,9 +150,35 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
       status: 'new'
     });
 
+    let mockNotification;
+    try {
+      const whatsappResult = await sendEnquiryWhatsApp({
+        to: data.mobile,
+        tokenId,
+        studentName: data.childName,
+        parentName: data.parentName
+      });
+
+      enquiry.whatsappSent = whatsappResult.success;
+      await enquiry.save();
+
+      if (process.env.NODE_ENV === 'development' && whatsappResult.mockMessage) {
+        mockNotification = {
+          type: 'whatsapp',
+          to: whatsappResult.to,
+          content: whatsappResult.mockMessage
+        };
+      }
+    } catch (whatsappError) {
+      console.error('WhatsApp notification failed:', whatsappError);
+    }
+
     res.status(201).json({
       success: true,
-      data: enquiry
+      data: {
+        ...enquiry.toObject(),
+        mockNotification
+      }
     });
   } catch (error) {
     console.error('Admin enquiry creation error:', error);

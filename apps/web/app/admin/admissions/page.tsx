@@ -215,7 +215,7 @@ export default function AdmissionsPage() {
                         </span>
                       ) : (
                         <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                          Pending
+                          Pending for Counselling
                         </span>
                       )}
                     </td>

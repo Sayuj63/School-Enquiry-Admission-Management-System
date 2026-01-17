@@ -132,13 +132,57 @@ export default function AdmissionDetailPage() {
     setError('')
     setSuccess('')
 
-    const result = await updateAdmission(admissionId, formData)
+    // Validate required fields
+    const missingFields: string[] = []
+
+    fields.forEach(field => {
+      // 1. General Required Check
+      if (field.required) {
+        const isCore = ['studentDob', 'parentAddress', 'parentOccupation', 'emergencyContact'].includes(field.name)
+        const value = isCore ? (formData as any)[field.name] : formData.additionalFields[field.name]
+
+        if (!value || (typeof value === 'string' && value.trim() === '')) {
+          missingFields.push(field.label)
+        }
+      }
+
+      // 2. Specific Format Validations
+      if (field.name === 'emergencyContact') {
+        const val = formData.emergencyContact
+        if (val && val.length > 0 && val.length < 10) {
+          missingFields.push('Emergency Contact Number must be at least 10 digits')
+        }
+      }
+    })
+
+    // Validate document upload (at least one document required)
+    const hasDocuments = (admission?.documents || []).length > 0
+    if (!hasDocuments) {
+      missingFields.push('At least one document must be uploaded')
+    }
+
+    if (missingFields.length > 0) {
+      setError(`Please complete the following requirements: ${missingFields.join(', ')}`)
+      setSaving(false)
+      // Scroll to top to see error
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    // Automatically set status to 'submitted' when Submit Form is clicked
+    const updatedData = {
+      ...formData,
+      status: 'submitted'
+    }
+
+    const result = await updateAdmission(admissionId, updatedData)
 
     if (result.success) {
-      setSuccess('Admission form saved successfully')
+      setSuccess('Admission form submitted successfully')
       setAdmission(result.data)
+      setFormData(prev => ({ ...prev, status: 'submitted' }))
     } else {
-      setError(result.error || 'Failed to save')
+      setError(result.error || 'Failed to submit form')
     }
 
     setSaving(false)
@@ -327,7 +371,7 @@ export default function AdmissionDetailPage() {
             ) : (
               <Save className="h-4 w-4 mr-2" />
             )}
-            Save Changes
+            Submit Form
           </button>
         </div>
       </div>
@@ -577,27 +621,7 @@ export default function AdmissionDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Status */}
-          <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Status</h3>
-            {['approved', 'rejected'].includes(formData.status) ? (
-              <div className={`p-3 rounded-lg font-bold text-center capitalize border ${formData.status === 'approved'
-                  ? 'bg-green-50 text-green-700 border-green-200'
-                  : 'bg-red-50 text-red-700 border-red-200'
-                }`}>
-                {formData.status}
-              </div>
-            ) : (
-              <select
-                className="input"
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="draft">Draft</option>
-                <option value="submitted">Submitted</option>
-              </select>
-            )}
-          </div>
+
 
           {/* Counselling Slot */}
           <div className="card">

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Search, Filter, ChevronLeft, ChevronRight, Eye, Plus, Calendar, X, Loader2, CheckCircle } from 'lucide-react'
+import { Search, Filter, ChevronLeft, ChevronRight, Eye, Plus, X, Loader2, CheckCircle } from 'lucide-react'
 import { getEnquiries, getEnquiryTemplate, adminSubmitEnquiry, sendOTP, verifyOTP } from '@/lib/api'
 import { format, startOfDay, startOfWeek, startOfMonth } from 'date-fns'
 
@@ -33,7 +33,7 @@ const statusLabels = {
   new: 'New',
   half_filled: 'Half Filled',
   pending_admission: 'Pending Admission',
-  converted: 'Completed'
+  converted: 'Admission Approved'
 }
 
 export default function EnquiriesPage() {
@@ -358,9 +358,6 @@ export default function EnquiriesPage() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Slot
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -402,18 +399,6 @@ export default function EnquiriesPage() {
                       ) : (
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.converted}`}>
                           {statusLabels.converted}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {enquiry.slotBooked ? (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          <Calendar className="h-3 w-3 inline mr-1" />
-                          Booked
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                          Not Booked
                         </span>
                       )}
                     </td>

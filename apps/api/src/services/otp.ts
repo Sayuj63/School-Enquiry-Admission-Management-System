@@ -8,7 +8,9 @@ const RESEND_COOLDOWN_SECONDS = 30;
 interface SendOTPResult {
   success: boolean;
   message: string;
-  otp?: string; // Only returned in dev mode for testing
+  otp?: string;
+  expiresAt?: string;
+  mobile?: string;
 }
 
 interface VerifyOTPResult {
@@ -68,7 +70,9 @@ export async function sendOTP(mobile: string): Promise<SendOTPResult> {
     return {
       success: true,
       message: 'OTP sent successfully (dev mode)',
-      otp // Return OTP in dev mode for testing
+      otp,
+      expiresAt: expiresAt.toISOString(),
+      mobile
     };
   }
 

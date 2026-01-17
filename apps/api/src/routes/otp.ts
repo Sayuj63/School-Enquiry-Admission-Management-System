@@ -34,7 +34,9 @@ router.post('/send', async (req, res: Response) => {
     };
 
     if (process.env.NODE_ENV === 'development' && result.otp) {
-      response.otp = result.otp; // Only for testing
+      response.otp = result.otp;
+      response.expiresAt = result.expiresAt;
+      response.mobile = result.mobile;
     }
 
     res.json(response);

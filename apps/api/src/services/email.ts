@@ -30,6 +30,8 @@ interface CalendarEventData {
 interface SendEmailResult {
   success: boolean;
   message: string;
+  mockMessage?: string;
+  to?: string;
 }
 
 /**
@@ -133,6 +135,15 @@ ${schoolName} Admissions Team
 
   // Send via Resend
   try {
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        message: 'Email sent successfully (dev mode)',
+        mockMessage: emailBody,
+        to: data.parentEmail
+      };
+    }
+
     const resend = getResendClient();
     if (!resend) {
       console.error('Resend API key not configured');
@@ -232,6 +243,15 @@ Location: ${data.location}
 
   // Send via Resend
   try {
+    if (process.env.NODE_ENV === 'development') {
+      return {
+        success: true,
+        message: 'Principal email sent successfully (dev mode)',
+        mockMessage: emailBody,
+        to: principalEmail
+      };
+    }
+
     const resend = getResendClient();
     if (!resend) {
       console.error('Resend API key not configured');

@@ -10,6 +10,8 @@ interface WhatsAppMessage {
 interface SendWhatsAppResult {
   success: boolean;
   message: string;
+  mockMessage?: string;
+  to?: string;
 }
 
 /**
@@ -76,7 +78,9 @@ ${schoolName} Admissions Team
 
     return {
       success: true,
-      message: 'WhatsApp message sent successfully (dev mode)'
+      message: 'WhatsApp message sent successfully (dev mode)',
+      mockMessage: message,
+      to: data.to
     };
   }
 
@@ -134,7 +138,9 @@ ${schoolName} Admissions Team
 
     return {
       success: true,
-      message: 'Slot confirmation WhatsApp sent (dev mode)'
+      message: 'Slot confirmation WhatsApp sent (dev mode)',
+      mockMessage: message,
+      to: data.to
     };
   }
 

@@ -361,8 +361,11 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       day: 'numeric'
     });
 
+    // Use a collector for mock notifications in dev mode
+    const mockNotifications: any[] = [];
+
     // Send WhatsApp
-    sendSlotConfirmationWhatsApp({
+    const whatsappPromise = sendSlotConfirmationWhatsApp({
       to: admission.mobile,
       tokenId: admission.tokenId,
       studentName: admission.studentName,
@@ -370,13 +373,15 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       slotTime: `${slot.startTime} - ${slot.endTime}`,
       location: DEFAULT_LOCATION
     }).then((result) => {
-      console.log('WhatsApp notification result:', result);
+      if (process.env.NODE_ENV === 'development' && result.mockMessage) {
+        mockNotifications.push({ type: 'whatsapp', to: result.to, content: result.mockMessage });
+      }
     }).catch((err) => {
       console.error('WhatsApp notification error:', err);
     });
 
     // Send parent calendar invite
-    sendParentCalendarInvite({
+    const parentInvitePromise = sendParentCalendarInvite({
       parentEmail: admission.email,
       parentName: admission.parentName,
       studentName: admission.studentName,
@@ -387,16 +392,17 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       location: DEFAULT_LOCATION
     }).then(async (result) => {
       if (result.success) {
-        await SlotBooking.findByIdAndUpdate(booking._id, {
-          calendarInviteSent: true
-        });
+        await SlotBooking.findByIdAndUpdate(booking._id, { calendarInviteSent: true });
+        if (process.env.NODE_ENV === 'development' && result.mockMessage) {
+          mockNotifications.push({ type: 'email-parent', to: result.to, content: result.mockMessage });
+        }
       }
     }).catch((err) => {
       console.error('Parent calendar invite error:', err);
     });
 
     // Send principal calendar invite
-    sendPrincipalCalendarInvite({
+    const principalInvitePromise = sendPrincipalCalendarInvite({
       studentName: admission.studentName,
       parentName: admission.parentName,
       tokenId: admission.tokenId,
@@ -406,22 +412,29 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       location: DEFAULT_LOCATION
     }).then(async (result) => {
       if (result.success) {
-        await SlotBooking.findByIdAndUpdate(booking._id, {
-          principalInviteSent: true
-        });
+        await SlotBooking.findByIdAndUpdate(booking._id, { principalInviteSent: true });
+        if (process.env.NODE_ENV === 'development' && result.mockMessage) {
+          mockNotifications.push({ type: 'email-principal', to: result.to, content: result.mockMessage });
+        }
       }
     }).catch((err) => {
       console.error('Principal calendar invite error:', err);
     });
+
+    // In development, wait for notifications to finish so we can return them
+    if (process.env.NODE_ENV === 'development') {
+      await Promise.all([whatsappPromise, parentInvitePromise, principalInvitePromise]);
+    }
 
     res.status(201).json({
       success: true,
       data: {
         booking,
         slot,
+        mockNotifications: mockNotifications.length > 0 ? mockNotifications : undefined,
         message: isReschedule
-          ? 'Slot rescheduled successfully. New calendar invites are being sent.'
-          : 'Slot booked successfully. Calendar invites are being sent.'
+          ? 'Slot rescheduled successfully.'
+          : 'Slot booked successfully.'
       }
     });
   } catch (error) {
