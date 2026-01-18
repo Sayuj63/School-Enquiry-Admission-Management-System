@@ -18,12 +18,12 @@ import {
   BarChart3
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
-import { getEnquiries, getAdmissions, getSlots } from '@/lib/api'
+import { getEnquiries, getAdmissions, getSlots, getDashboardStats } from '@/lib/api'
 
 interface DashboardStats {
   totalEnquiriesToday: number
-  totalEnquiriesMonth: number
-  pendingAdmissions: number
+  totalAdmissions: number
+  admissionsThisMonth: number
   scheduledCounselling: number
 }
 
@@ -40,8 +40,8 @@ interface Activity {
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
     totalEnquiriesToday: 0,
-    totalEnquiriesMonth: 0,
-    pendingAdmissions: 0,
+    totalAdmissions: 0,
+    admissionsThisMonth: 0,
     scheduledCounselling: 0
   })
   const [activities, setActivities] = useState<Activity[]>([])
@@ -52,78 +52,111 @@ export default function DashboardPage() {
     async function fetchDashboardData() {
       try {
         const now = new Date()
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString()
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+        const year = now.getFullYear()
+        const month = String(now.getMonth() + 1).padStart(2, '0')
+        const day = String(now.getDate()).padStart(2, '0')
+        const todayStr = `${year}-${month}-${day}`
 
-        // Fetch All Required Data in Parallel
-        const [enquiriesRes, admissionsRes, slotsRes] = await Promise.all([
-          getEnquiries({ limit: 10, status: 'all' }),
-          getAdmissions({ limit: 10 }),
-          getSlots({ dateFrom: todayStart, dateTo: todayEnd })
+        // Use a 5-minute buffer for "upcoming" meetings within today
+        const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
+        // Fetch Stats and Data
+        const [statsRes, slotsRes] = await Promise.all([
+          getDashboardStats(),
+          getSlots({ dateFrom: todayStr, dateTo: todayStr })
         ])
 
-        // 1. Process Stats
-        const enquiriesToday = enquiriesRes.success
-          ? enquiriesRes.data.enquiries.filter((e: any) => new Date(e.createdAt) >= new Date(todayStart)).length
-          : 0
-
-        const enquiriesMonth = enquiriesRes.success
-          ? enquiriesRes.data.enquiries.filter((e: any) => new Date(e.createdAt) >= new Date(monthStart)).length
-          : 0
-
-        const pendingAds = admissionsRes.success
-          ? admissionsRes.data.admissions.filter((a: any) => a.status === 'submitted' || a.status === 'draft').length
-          : 0
-
-        const bookedSlotsCount = slotsRes.success
-          ? slotsRes.data.reduce((acc: number, s: any) => acc + (s.bookedCount || 0), 0)
-          : 0
-
-        setStats({
-          totalEnquiriesToday: enquiriesToday,
-          totalEnquiriesMonth: enquiriesMonth,
-          pendingAdmissions: pendingAds,
-          scheduledCounselling: bookedSlotsCount
-        })
-
-        // 2. Process Activities (Notifications)
+        // 2. Process Activities (Notifications) - FILTER TO TODAY ONLY
         const recentActivities: Activity[] = []
+        const startOfToday = new Date()
+        startOfToday.setHours(0, 0, 0, 0)
 
-        if (enquiriesRes.success) {
-          enquiriesRes.data.enquiries.slice(0, 5).forEach((enq: any) => {
-            recentActivities.push({
-              id: enq._id,
-              type: 'enquiry',
-              title: 'New Enquiry Received',
-              description: `Student: ${enq.childName} (${enq.grade})`,
-              time: new Date(enq.createdAt),
-              status: 'new'
-            })
+        if (statsRes.success) {
+          const s = statsRes.data
+          setStats({
+            totalEnquiriesToday: s.enquiriesToday || 0,
+            totalAdmissions: s.totalAdmissions || 0,
+            admissionsThisMonth: s.admissionsThisMonth || 0,
+            scheduledCounselling: s.scheduledCounselling || 0
           })
+
+          // Add Enquiries from today
+          if (s.recentEnquiries) {
+            s.recentEnquiries.forEach((enq: any) => {
+              const date = new Date(enq.createdAt)
+              if (date >= startOfToday) {
+                recentActivities.push({
+                  id: enq._id,
+                  type: 'enquiry',
+                  title: 'New Enquiry Received',
+                  description: `${enq.childName} (${enq.grade})`,
+                  time: date,
+                  status: enq.status || 'new'
+                })
+              }
+            })
+          }
+
+          // Add Admissions from today
+          if (s.recentAdmissions) {
+            s.recentAdmissions.forEach((adm: any) => {
+              const date = new Date(adm.updatedAt || adm.createdAt)
+              if (date >= startOfToday) {
+                recentActivities.push({
+                  id: adm._id,
+                  type: 'admission',
+                  title: adm.status === 'submitted' ? 'Admission Submitted' : 'Admission Feed',
+                  description: `${adm.studentName}`,
+                  time: date,
+                  status: adm.status
+                })
+              }
+            })
+          }
         }
 
-        if (admissionsRes.success) {
-          admissionsRes.data.admissions.slice(0, 5).forEach((adm: any) => {
-            recentActivities.push({
-              id: adm._id,
-              type: 'admission',
-              title: adm.status === 'submitted' ? 'Admission Submitted' : 'Admission Draft Saved',
-              description: `Student: ${adm.student_name}`,
-              time: new Date(adm.updatedAt || adm.createdAt),
-              status: adm.status
-            })
-          })
-        }
-
-        // Sort by time descending
-        setActivities(recentActivities.sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 8))
-
-        // 3. Process Upcoming Slots
+        // 3. Process Upcoming Slots and Flatten Booked Sessions (TODAY ONLY)
         if (slotsRes.success) {
-          const booked = slotsRes.data.filter((s: any) => s.bookedCount > 0)
-          setUpcomingSlots(booked.slice(0, 5))
+          const allBookings: any[] = []
+          slotsRes.data.forEach((slot: any) => {
+            // Only include today's slots (extra safety)
+            const slotDate = new Date(slot.date)
+            const slotDateStr = `${slotDate.getUTCFullYear()}-${String(slotDate.getUTCMonth() + 1).padStart(2, '0')}-${String(slotDate.getUTCDate()).padStart(2, '0')}`
+
+            if (slotDateStr === todayStr && slot.bookings && slot.bookings.length > 0) {
+              slot.bookings.forEach((booking: any) => {
+                allBookings.push({
+                  id: booking._id,
+                  studentName: booking.admissionId?.studentName || 'Unknown Student',
+                  time: `${slot.startTime} - ${slot.endTime}`,
+                  startTime: slot.startTime,
+                  location: 'Virtual Room',
+                  admissionId: booking.admissionId?._id
+                })
+
+                // Add to activities feed
+                const bookedDate = new Date(booking.bookedAt || slot.date)
+                if (bookedDate >= startOfToday) {
+                  recentActivities.push({
+                    id: booking._id,
+                    type: 'slot',
+                    title: 'Counselling Slot Booked',
+                    description: `${booking.admissionId?.studentName || 'Unknown'} - ${slot.startTime}`,
+                    time: bookedDate,
+                    status: 'booked'
+                  })
+                }
+              })
+            }
+          })
+
+          // Sort by time
+          allBookings.sort((a, b) => a.startTime.localeCompare(b.startTime))
+          setUpcomingSlots(allBookings)
         }
+
+        // Update final sorted activities
+        setActivities(recentActivities.sort((a, b) => b.time.getTime() - a.time.getTime()))
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
@@ -154,17 +187,17 @@ export default function DashboardPage() {
       href: '/admin/enquiries?date=today'
     },
     {
-      name: 'THIS MONTH',
-      value: stats.totalEnquiriesMonth,
-      icon: Calendar,
+      name: 'ACCEPTED ADMISSIONS',
+      value: stats.totalAdmissions,
+      icon: Users,
       color: 'bg-emerald-600',
       textColor: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
-      href: '/admin/enquiries?date=month'
+      href: '/admin/admissions?status=approved'
     },
     {
-      name: 'PENDING FORMS',
-      value: stats.pendingAdmissions,
+      name: 'ADMISSIONS THIS MONTH',
+      value: stats.admissionsThisMonth,
       icon: FileText,
       color: 'bg-orange-600',
       textColor: 'text-orange-600',
@@ -232,7 +265,7 @@ export default function DashboardPage() {
               <Bell className="h-5 w-5 text-primary-600" />
               Notifications & Recent Activity
             </h2>
-            <Link href="/admin/enquiries" className="text-sm text-primary-600 hover:underline font-medium">
+            <Link href="/admin/notifications" className="text-sm text-primary-600 hover:underline font-medium">
               View All
             </Link>
           </div>
@@ -296,43 +329,7 @@ export default function DashboardPage() {
 
         {/* Sidebar: Upcoming Counselling / Funnel */}
         <div className="space-y-6">
-          {/* Admission Funnel Visualizer */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 px-2">
-              <BarChart3 className="h-5 w-5 text-emerald-600" />
-              Admission Funnel
-            </h2>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
-              {[
-                { label: 'Total Enquiries', count: stats.totalEnquiriesMonth, color: 'bg-blue-500', icon: ClipboardList, total: stats.totalEnquiriesMonth || 1 },
-                { label: 'Applications Filed', count: stats.pendingAdmissions, color: 'bg-orange-500', icon: FileText, total: stats.totalEnquiriesMonth || 1 },
-                { label: 'Counselling Booked', count: stats.scheduledCounselling, color: 'bg-purple-500', icon: Users, total: stats.totalEnquiriesMonth || 1 },
-              ].map((stage, idx) => (
-                <div key={stage.label} className="space-y-2">
-                  <div className="flex justify-between items-end">
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${stage.color.replace('500', '50')} ${stage.color.replace('bg-', 'text-')}`}>
-                        <stage.icon className="h-3.5 w-3.5" />
-                      </div>
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-tight">{stage.label}</span>
-                    </div>
-                    <span className="text-sm font-black text-gray-900">{stage.count}</span>
-                  </div>
-                  <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${stage.color} rounded-full transition-all duration-1000 ease-out`}
-                      style={{ width: `${(stage.count / stage.total) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-              <div className="pt-2">
-                <p className="text-[10px] text-gray-400 font-medium leading-relaxed italic">
-                  * Funnel based on this month's enquiries.
-                </p>
-              </div>
-            </div>
-          </div>
+
 
           {/* Upcoming Counselling */}
           <div className="space-y-4">
@@ -343,31 +340,43 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
               {upcomingSlots.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-sm text-gray-400 italic">No slots booked for today.</p>
+                  <p className="text-sm text-gray-400 italic">No counselling sessions today.</p>
                   <Link href="/admin/slots" className="mt-4 text-xs font-bold text-primary-600 hover:underline inline-block">
                     OPEN CALENDAR
                   </Link>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {upcomingSlots.map((slot: any) => (
-                    <div key={slot._id} className="group relative pl-4 border-l-2 border-purple-200">
+                  {upcomingSlots.map((booking: any) => (
+                    <div key={booking.id} className="group relative pl-4 border-l-2 border-purple-200 hover:border-purple-400 transition-all">
                       <div className="absolute left-[-2px] top-0 bottom-0 w-0.5 bg-purple-600 group-hover:w-1 transition-all"></div>
-                      <p className="text-sm font-bold text-gray-900">{slot.timeSlot}</p>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {slot.bookedCount} Students
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          Virtual Room
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{booking.studentName}</p>
+                        <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100 uppercase tracking-tighter">
+                          {booking.time.split(' - ')[0]}
                         </span>
                       </div>
+                      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-purple-400" />
+                          {booking.time}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-purple-400" />
+                          {booking.location}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/admin/admissions/${booking.admissionId}`}
+                        className="mt-2.5 inline-flex items-center gap-1.5 text-[10px] font-black text-purple-600/60 hover:text-purple-600 transition-all uppercase tracking-widest"
+                      >
+                        VIEW ADMISSION
+                        <ArrowRight className="h-2.5 w-2.5" />
+                      </Link>
                     </div>
                   ))}
-                  <Link href="/admin/slots" className="btn-secondary w-full py-2 text-xs flex items-center justify-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border-none">
-                    View Full Schedule
+                  <Link href="/admin/slots" className="btn-secondary w-full py-2.5 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 bg-purple-600 text-white hover:bg-purple-700 border-none transition-all shadow-sm hover:shadow-md rounded-xl">
+                    Full Schedule
                     <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>

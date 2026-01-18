@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Calendar, Users, Clock, Loader2, List, CalendarDays, Search, Trash2, AlertTriangle } from 'lucide-react'
+import { Plus, Calendar, Users, Clock, Loader2, List, CalendarDays, Search, Trash2, AlertTriangle, X } from 'lucide-react'
 import { getSlots, createSlot, updateSlot, getAdmissions, bookSlot, deleteSlot } from '@/lib/api'
 import { startOfWeek, format } from 'date-fns'
 import CalendarView from './CalendarView'
@@ -438,7 +438,16 @@ export default function SlotsPage() {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+            <button
+              onClick={() => {
+                setShowCreateModal(false)
+                setError('')
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
             <h2 className="text-xl font-semibold mb-4">Create New Slot</h2>
 
             {error && (
@@ -524,9 +533,9 @@ export default function SlotsPage() {
             <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 relative">
               <button
                 onClick={() => setSelectedSlot(null)}
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
               >
-                ✕
+                <X className="h-6 w-6" />
               </button>
               <h3 className="text-lg font-semibold mb-2">
                 {format(parseLocalDate(currentSlot.date), 'MMMM d, yyyy')}
@@ -584,9 +593,9 @@ export default function SlotsPage() {
                   setSelectedSlot(null)
                   setAssignSearch('')
                 }}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                ✕
+                <X className="h-6 w-6" />
               </button>
             </div>
 
@@ -683,7 +692,16 @@ export default function SlotsPage() {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 relative">
+            <button
+              onClick={() => {
+                setShowDeleteModal(false)
+                setSlotToDelete(null)
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
             <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mb-4 mx-auto">
               <AlertTriangle className="h-6 w-6 text-red-600" />
             </div>

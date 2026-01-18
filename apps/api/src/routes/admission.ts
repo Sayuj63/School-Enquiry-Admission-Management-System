@@ -135,8 +135,8 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     if (status) {
       query.status = status;
     } else {
-      // By default, only show submitted or approved admissions
-      query.status = { $in: ['submitted', 'approved'] };
+      // By default, only show submitted admissions (Approved move to Accepted, Rejected to Rejected)
+      query.status = 'submitted';
     }
 
     if (counselling === 'booked') {

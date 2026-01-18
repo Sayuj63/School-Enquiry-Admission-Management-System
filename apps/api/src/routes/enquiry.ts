@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { Enquiry, Admission } from '../models';
+import { Enquiry, Admission, CounsellingSlot } from '../models';
 import { generateTokenId } from '@sayuj/shared';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { Types } from 'mongoose';
@@ -382,19 +382,40 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    const [totalEnquiries, enquiriesToday, enquiriesThisMonth, pendingAdmissions, recentEnquiries] = await Promise.all([
+    const [
+      totalEnquiries,
+      enquiriesToday,
+      enquiriesThisMonth,
+      admissionsThisMonth,
+      totalAdmissions,
+      recentEnquiries,
+      todaySlots,
+      recentAdmissions
+    ] = await Promise.all([
       Enquiry.countDocuments(),
       Enquiry.countDocuments({ createdAt: { $gte: today } }),
       Enquiry.countDocuments({ createdAt: { $gte: startOfMonth } }),
-      Admission.countDocuments({ status: 'draft' }),
+      Admission.countDocuments({ createdAt: { $gte: startOfMonth } }),
+      Admission.countDocuments({ status: 'approved' }),
       Enquiry.find()
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('tokenId childName grade createdAt')
+        .select('tokenId childName grade createdAt status'),
+      CounsellingSlot.find({
+        date: { $gte: today, $lt: tomorrow }
+      }),
+      Admission.find()
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(5)
+        .select('studentName status updatedAt createdAt')
     ]);
+
+    const scheduledCounselling = todaySlots.reduce((acc, slot) => acc + (slot.bookedCount || 0), 0);
 
     res.json({
       success: true,
@@ -402,8 +423,11 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
         totalEnquiries,
         enquiriesToday,
         enquiriesThisMonth,
-        pendingAdmissions,
-        recentEnquiries
+        admissionsThisMonth,
+        totalAdmissions,
+        scheduledCounselling,
+        recentEnquiries,
+        recentAdmissions
       }
     });
   } catch (error) {

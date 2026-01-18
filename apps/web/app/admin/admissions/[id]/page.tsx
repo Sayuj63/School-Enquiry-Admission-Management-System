@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap } from 'lucide-react'
+import { ArrowLeft, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X } from 'lucide-react'
 import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking } from '@/lib/api'
 import { startOfWeek, getDay, parse, format } from 'date-fns'
 import SlotCalendar from '../../../components/SlotCalendar'
@@ -358,21 +358,70 @@ export default function AdmissionDetailPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Admission Form</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold text-gray-900">Admission Form</h2>
+              {admission.status === 'approved' && (
+                <span className="px-2.5 py-0.5 text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200">
+                  Accepted
+                </span>
+              )}
+              {admission.status === 'rejected' && (
+                <span className="px-2.5 py-0.5 text-xs font-black uppercase tracking-wider bg-red-100 text-red-700 rounded-lg border border-red-200">
+                  Rejected
+                </span>
+              )}
+            </div>
             <p className="font-mono text-gray-500">{admission.tokenId}</p>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-primary"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
+          <div className="flex flex-wrap items-center gap-3">
+            {admission.status === 'submitted' && (
+              <>
+                <button
+                  onClick={async () => {
+                    if (confirm('Are you sure you want to approve this admission?')) {
+                      const res = await updateAdmission(admissionId, { status: 'approved' })
+                      if (res.success) {
+                        setSuccess('Admission approved successfully')
+                        fetchData()
+                      }
+                    }
+                  }}
+                  className="btn-primary bg-emerald-600 hover:bg-emerald-700 border-none px-6"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve Admission
+                </button>
+                <button
+                  onClick={async () => {
+                    const reason = prompt('Please enter reason for rejection:')
+                    if (reason !== null) {
+                      const res = await updateAdmission(admissionId, { status: 'rejected', notes: reason })
+                      if (res.success) {
+                        setSuccess('Admission rejected')
+                        fetchData()
+                      }
+                    }
+                  }}
+                  className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Reject
+                </button>
+              </>
             )}
-            Submit Form
-          </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn-secondary bg-white border-gray-200"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {admission.status === 'draft' ? 'Submit Form' : 'Save Changes'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -380,6 +429,24 @@ export default function AdmissionDetailPage() {
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded p-3">
           <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+      {admission.status === 'approved' && (
+        <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
+          <CheckCircle className="h-5 w-5 text-emerald-600" />
+          <div>
+            <p className="text-sm font-bold text-emerald-900">This admission has been Accepted.</p>
+            <p className="text-xs text-emerald-700">All documents and verification are complete.</p>
+          </div>
+        </div>
+      )}
+      {admission.status === 'rejected' && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <Trash2 className="h-5 w-5 text-red-600" />
+          <div>
+            <p className="text-sm font-bold text-red-900">This admission has been Rejected.</p>
+            {admission.notes && <p className="text-xs text-red-700">Reason: {admission.notes}</p>}
+          </div>
         </div>
       )}
       {success && (
@@ -680,7 +747,13 @@ export default function AdmissionDetailPage() {
       {/* Slot Booking Modal with Calendar */}
       {showSlotModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={() => setShowSlotModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
+            >
+              <X className="h-6 w-6" />
+            </button>
             <h2 className="text-xl font-semibold mb-4">Select Counselling Slot</h2>
 
             {/* Admission Summary */}
@@ -736,7 +809,16 @@ export default function AdmissionDetailPage() {
       {/* Confirmation Dialog */}
       {showConfirmDialog && selectedSlot && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
+            <button
+              onClick={() => {
+                setShowConfirmDialog(false)
+                setSelectedSlot(null)
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
+            >
+              <X className="h-6 w-6" />
+            </button>
             <h3 className="text-lg font-semibold mb-4">Confirm Slot Booking</h3>
 
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
