@@ -4,12 +4,10 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X, Clock } from 'lucide-react'
-import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking } from '@/lib/api'
-import { startOfWeek, getDay, parse, format } from 'date-fns'
+import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking, getCurrentUser } from '@/lib/api'
+import { format } from 'date-fns'
 import SlotCalendar from '../../../components/SlotCalendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
-
-
 
 interface Admission {
   _id: string
@@ -57,6 +55,7 @@ export default function AdmissionDetailPage() {
   const [availableSlots, setAvailableSlots] = useState<Slot[]>([])
   const [requiredDocs, setRequiredDocs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [selectedDocType, setSelectedDocType] = useState('')
@@ -88,12 +87,17 @@ export default function AdmissionDetailPage() {
   const fetchData = async () => {
     setLoading(true)
 
-    const [admissionResult, slotsResult, docsResult, templateResult] = await Promise.all([
+    const [admissionResult, slotsResult, docsResult, templateResult, userResult] = await Promise.all([
       getAdmission(admissionId),
       getAvailableSlots(),
       getDocumentsList(),
-      getAdmissionTemplate()
+      getAdmissionTemplate(),
+      getCurrentUser()
     ])
+
+    if (userResult.success) {
+      setUser(userResult.data)
+    }
 
     if (admissionResult.success && admissionResult.data) {
       const adm = admissionResult.data.admission
@@ -164,12 +168,10 @@ export default function AdmissionDetailPage() {
     if (missingFields.length > 0) {
       setError(`Please complete the following requirements: ${missingFields.join(', ')}`)
       setSaving(false)
-      // Scroll to top to see error
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
 
-    // Automatically set status to 'submitted' when Submit Form is clicked
     const updatedData = {
       ...formData,
       status: 'submitted'
@@ -232,6 +234,7 @@ export default function AdmissionDetailPage() {
     setSelectedSlot(slot)
     setShowConfirmDialog(true)
   }
+
   const handleBookSlot = async () => {
     if (!selectedSlot) return
 
@@ -254,7 +257,6 @@ export default function AdmissionDetailPage() {
 
   const handleCancelBooking = async () => {
     if (!slotBooking || !slotBooking.slotId?._id) return
-
     if (!confirm('Are you sure you want to cancel this counselling slot?')) return
 
     setCancelling(true)
@@ -276,58 +278,6 @@ export default function AdmissionDetailPage() {
     setShowSlotModal(true)
   }
 
-  // Convert slots to calendar events
-  const calendarEvents = availableSlots.map((slot) => {
-    // Parse the date properly - slot.date comes from MongoDB as ISO string
-    const slotDateObj = new Date(slot.date)
-    const year = slotDateObj.getFullYear()
-    const month = String(slotDateObj.getMonth() + 1).padStart(2, '0')
-    const day = String(slotDateObj.getDate()).padStart(2, '0')
-
-    // Create proper datetime strings in ISO format
-    const dateStr = `${year}-${month}-${day}`
-    const start = new Date(`${dateStr}T${slot.startTime}:00`)
-    const end = new Date(`${dateStr}T${slot.endTime}:00`)
-
-    const slotsLeft = slot.capacity - slot.bookedCount
-
-    return {
-      title: `${slotsLeft}/${slot.capacity} available`,
-      start,
-      end,
-      resource: slot,
-    }
-  })
-
-  const eventPropGetter = (event: any) => {
-    const slot = event.resource as Slot
-    const slotsLeft = slot.capacity - slot.bookedCount
-
-    let className = ''
-    if (slotsLeft === 0) {
-      className = 'bg-red-100 text-red-800 border-red-200'
-    } else if (slotsLeft <= 1) {
-      className = 'bg-yellow-100 text-yellow-800 border-yellow-200'
-    } else {
-      className = 'bg-green-100 text-green-800 border-green-200'
-    }
-
-    return {
-      className: `border rounded-md text-xs font-medium cursor-pointer ${className}`,
-      style: {
-        backgroundColor: undefined,
-      }
-    }
-  }
-
-  const EventComponent = ({ event }: any) => {
-    return (
-      <div className="h-full w-full flex items-center justify-center pointer-events-none">
-        {event.title}
-      </div>
-    )
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -346,6 +296,8 @@ export default function AdmissionDetailPage() {
       </div>
     )
   }
+
+  const isPrincipal = user?.role === 'principal'
 
   return (
     <div>
@@ -374,75 +326,81 @@ export default function AdmissionDetailPage() {
             <p className="font-mono text-gray-500">{admission.tokenId}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {admission.status === 'submitted' && slotBooking && (() => {
-              const [year, month, day] = slotBooking.slotId.date.split('T')[0].split('-').map(Number)
-              const [hours, minutes] = slotBooking.slotId.startTime.split(':').map(Number)
-              const slotStartTime = new Date(year, month - 1, day, hours, minutes)
-              const canDecide = slotStartTime <= new Date()
+            <>
+              {admission.status === 'submitted' && slotBooking && (() => {
+                const [year, month, day] = slotBooking.slotId.date.split('T')[0].split('-').map(Number)
+                const [hours, minutes] = slotBooking.slotId.startTime.split(':').map(Number)
+                const slotStartTime = new Date(year, month - 1, day, hours, minutes)
+                const canDecide = slotStartTime <= new Date()
 
-              if (!canDecide) {
+                if (!canDecide) {
+                  return (
+                    <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg border border-blue-100 text-sm font-medium">
+                      <Clock className="h-4 w-4" />
+                      Buttons will appear during/after the meeting
+                    </div>
+                  )
+                }
+
                 return (
-                  <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg border border-blue-100 text-sm font-medium">
-                    <Clock className="h-4 w-4" />
-                    Buttons will appear during/after the meeting
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (confirm('Are you sure you want to approve this admission?')) {
+                          const res = await updateAdmission(admissionId, { status: 'approved' })
+                          if (res.success) {
+                            setSuccess('Admission approved successfully')
+                            fetchData()
+                          }
+                        }
+                      }}
+                      className="btn-primary bg-emerald-600 hover:bg-emerald-700 border-none px-6"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const reason = prompt('Please enter reason for rejection:')
+                        if (reason !== null) {
+                          const res = await updateAdmission(admissionId, { status: 'rejected', notes: reason })
+                          if (res.success) {
+                            setSuccess('Admission rejected')
+                            fetchData()
+                          }
+                        }
+                      }}
+                      className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Reject
+                    </button>
                   </div>
                 )
-              }
+              })()}
 
-              return (
-                <>
-                  <button
-                    onClick={async () => {
-                      if (confirm('Are you sure you want to approve this admission?')) {
-                        const res = await updateAdmission(admissionId, { status: 'approved' })
-                        if (res.success) {
-                          setSuccess('Admission approved successfully')
-                          fetchData()
-                        }
-                      }
-                    }}
-                    className="btn-primary bg-emerald-600 hover:bg-emerald-700 border-none px-6"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve Admission
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const reason = prompt('Please enter reason for rejection:')
-                      if (reason !== null) {
-                        const res = await updateAdmission(admissionId, { status: 'rejected', notes: reason })
-                        if (res.success) {
-                          setSuccess('Admission rejected')
-                          fetchData()
-                        }
-                      }
-                    }}
-                    className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Reject
-                  </button>
-                </>
-              )
-            })()}
-            {admission.status === 'submitted' && !slotBooking && (
-              <div className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 text-sm font-medium">
-                <CalendarIcon className="h-4 w-4" />
-                Book counselling to enable decisions
-              </div>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-secondary bg-white border-gray-200"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
+              {admission.status === 'submitted' && !slotBooking && (
+                <div className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 text-sm font-medium">
+                  <CalendarIcon className="h-4 w-4" />
+                  Book counselling to enable decisions
+                </div>
               )}
-              {admission.status === 'draft' ? 'Submit Form' : 'Save Changes'}
-            </button>
+
+              {!isPrincipal && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="btn-secondary bg-white border-gray-200"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  {admission.status === 'draft' ? 'Submit Form' : 'Save Changes'}
+                </button>
+              )}
+            </>
           </div>
         </div>
       </div>
@@ -479,133 +437,68 @@ export default function AdmissionDetailPage() {
       )}
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Main Form */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Basic Info (Read-only) */}
-          {((baseFields.studentName !== false) || (baseFields.grade !== false) || (baseFields.parentName !== false) || (baseFields.mobile !== false) || (baseFields.email !== false)) && (
-            <div className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Enquiry Information (Pre-filled)</h3>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {(baseFields.studentName !== false) && (
-                  <div>
-                    <label className="label">Student Name</label>
-                    <p className="input bg-gray-50">{admission.studentName}</p>
-                  </div>
-                )}
-                {(baseFields.grade !== false) && (
-                  <div>
-                    <label className="label">Grade</label>
-                    <p className="input bg-gray-50">{admission.grade}</p>
-                  </div>
-                )}
-                {(baseFields.parentName !== false) && (
-                  <div>
-                    <label className="label">Parent Name</label>
-                    <p className="input bg-gray-50">{admission.parentName}</p>
-                  </div>
-                )}
-                {(baseFields.mobile !== false) && (
-                  <div>
-                    <label className="label">Mobile</label>
-                    <p className="input bg-gray-50">{admission.mobile}</p>
-                  </div>
-                )}
-                {(baseFields.email !== false) && (
-                  <div className="sm:col-span-2">
-                    <label className="label">Email</label>
-                    <p className="input bg-gray-50">{admission.email}</p>
-                  </div>
-                )}
+          <div className="card">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Enquiry Information (Pre-filled)</h3>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Student Name</label>
+                <p className="input bg-gray-50">{admission.studentName}</p>
+              </div>
+              <div>
+                <label className="label">Grade</label>
+                <p className="input bg-gray-50">{admission.grade}</p>
+              </div>
+              <div>
+                <label className="label">Parent Name</label>
+                <p className="input bg-gray-50">{admission.parentName}</p>
+              </div>
+              <div>
+                <label className="label">Mobile</label>
+                <p className="input bg-gray-50">{admission.mobile}</p>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label">Email</label>
+                <p className="input bg-gray-50">{admission.email}</p>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Additional Info (Editable) */}
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
             <div className="grid sm:grid-cols-2 gap-4">
               {fields.map((field) => {
                 const isCore = ['studentDob', 'parentAddress', 'parentOccupation', 'emergencyContact'].includes(field.name)
+                let value = isCore ? (formData as any)[field.name] : formData.additionalFields[field.name]
+                value = value || ''
 
-                // Determine value based on whether it's a core field or additional field
-                let value = ''
-                if (isCore) {
-                  // Type safety casting for dynamic access
-                  value = (formData as any)[field.name] || ''
-                } else {
-                  value = formData.additionalFields[field.name] || ''
-                }
+                const handleChange = (e: any) => {
+                  let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+                  if (field.type === 'tel' || field.name === 'emergencyContact') val = val.replace(/\D/g, '')
 
-                // Handle change handler
-                const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-                  let val: any = e.target.value
-
-                  if (e.target.type === 'checkbox') {
-                    val = (e.target as HTMLInputElement).checked
-                  }
-
-                  // Filter non-numeric characters for tel type or specific fields
-                  if (field.type === 'tel' || field.name === 'emergencyContact' || field.name === 'mobile') {
-                    val = val.toString().replace(/\D/g, '')
-                  }
-
-                  if (isCore) {
-                    setFormData(prev => ({ ...prev, [field.name]: val }))
-                  } else {
-                    setFormData(prev => ({
-                      ...prev,
-                      additionalFields: { ...prev.additionalFields, [field.name]: val }
-                    }))
-                  }
+                  if (isCore) setFormData(p => ({ ...p, [field.name]: val }))
+                  else setFormData(p => ({ ...p, additionalFields: { ...p.additionalFields, [field.name]: val } }))
                 }
 
                 return (
-                  <div key={field.name} className={field.type === 'textarea' || field.type === 'address' ? 'sm:col-span-2' : ''}>
+                  <div key={field.name} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
                     {field.type !== 'checkbox' && (
-                      <label className="label">
-                        {field.label} {field.required && <span className="text-red-500">*</span>}
-                      </label>
+                      <label className="label">{field.label} {field.required && '*'}</label>
                     )}
                     {field.type === 'textarea' ? (
-                      <textarea
-                        className="input"
-                        rows={3}
-                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
-                        value={value}
-                        onChange={handleChange}
-                      />
+                      <textarea className="input" rows={3} value={value} onChange={handleChange} disabled={isPrincipal} />
                     ) : field.type === 'select' ? (
-                      <select
-                        className="input"
-                        value={value}
-                        onChange={handleChange}
-                      >
-                        <option value="">Select option</option>
-                        {field.options?.map((opt: string) => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
+                      <select className="input" value={value} onChange={handleChange} disabled={isPrincipal}>
+                        <option value="">Select</option>
+                        {field.options?.map((o: string) => <option key={o} value={o}>{o}</option>)}
                       </select>
                     ) : field.type === 'checkbox' ? (
-                      <div className="flex items-center gap-3 p-2 bg-gray-50 rounded border border-gray-200">
-                        <input
-                          type="checkbox"
-                          id={field.name}
-                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                          checked={!!value}
-                          onChange={handleChange}
-                        />
-                        <label htmlFor={field.name} className="text-sm font-medium text-gray-700 cursor-pointer">
-                          {field.label} {field.required && <span className="text-red-500">*</span>}
-                        </label>
+                      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded">
+                        <input type="checkbox" checked={!!value} onChange={handleChange} disabled={isPrincipal} />
+                        <label className="text-sm font-medium">{field.label}</label>
                       </div>
                     ) : (
-                      <input
-                        type={field.type}
-                        className="input"
-                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
-                        value={value}
-                        onChange={handleChange}
-                      />
+                      <input type={field.type} className="input" value={value} onChange={handleChange} disabled={isPrincipal} />
                     )}
                   </div>
                 )
@@ -613,295 +506,103 @@ export default function AdmissionDetailPage() {
             </div>
           </div>
 
-          {/* Documents */}
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Documents</h3>
-
-            {/* Required Documents List */}
-            {requiredDocs.length > 0 && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium text-blue-900 mb-2">Required Documents:</p>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  {requiredDocs.map((doc, i) => (
-                    <li key={i}>
-                      {doc.name} {doc.required && <span className="text-red-500">*</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Uploaded Documents */}
-            {admission.documents.length > 0 && (
-              <div className="space-y-2 mb-4">
-                {admission.documents.map((doc) => (
-                  <div key={doc._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">{doc.type}</p>
-                      <p className="text-sm text-gray-500">{doc.fileName}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <a
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-                      >
-                        View
-                      </a>
-                      <button
-                        onClick={() => handleDeleteDocument(doc._id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+            <div className="space-y-3 mb-4">
+              {admission.documents.map((doc) => (
+                <div key={doc._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{doc.type}</p>
+                    <p className="text-sm text-gray-500">{doc.fileName}</p>
                   </div>
-                ))}
+                  <div className="flex items-center gap-3">
+                    <a href={doc.url} target="_blank" rel="noreferrer" className="text-primary-600 text-sm font-medium">View</a>
+                    {!isPrincipal && <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {!isPrincipal && (
+              <div className="flex gap-3">
+                <select className="input flex-1" value={selectedDocType} onChange={e => setSelectedDocType(e.target.value)}>
+                  <option value="">Select type</option>
+                  {requiredDocs.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                  <option value="Other">Other</option>
+                </select>
+                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                <button onClick={() => fileInputRef.current?.click()} disabled={!selectedDocType || uploading} className="btn-secondary">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                </button>
               </div>
             )}
-
-            {/* Upload New */}
-            <div className="flex gap-3">
-              <select
-                className="input flex-1"
-                value={selectedDocType}
-                onChange={(e) => setSelectedDocType(e.target.value)}
-              >
-                <option value="">Select document type</option>
-                {requiredDocs.map((doc, i) => (
-                  <option key={i} value={doc.name}>{doc.name}</option>
-                ))}
-                <option value="Other">Other</option>
-              </select>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileUpload}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!selectedDocType || uploading}
-                className="btn-secondary"
-              >
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-              </button>
-            </div>
           </div>
 
-          {/* Notes */}
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Internal Notes</h3>
             <textarea
               className="input"
               rows={4}
-              placeholder="Admin notes (not visible to parents)"
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={e => setFormData({ ...formData, notes: e.target.value })}
+              disabled={isPrincipal}
             />
           </div>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-
-
-          {/* Counselling Slot */}
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Counselling Slot</h3>
-
             {slotBooking ? (
               <div className="p-3 bg-green-50 rounded-lg">
-                <div className="flex items-center text-green-700 mb-2">
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  <span className="font-medium">Slot Booked</span>
+                <div className="flex items-center text-green-700 mb-2 font-medium">
+                  <CheckCircle className="h-5 w-5 mr-2" /> Booked
                 </div>
-                <p className="text-sm text-green-600">
-                  {format(new Date(slotBooking.slotId.date), 'dd MMM yyyy')}
-                </p>
-                <p className="text-sm text-green-600">
-                  {slotBooking.slotId.startTime} - {slotBooking.slotId.endTime}
-                </p>
-                {(() => {
-                  const [year, month, day] = slotBooking.slotId.date.split('T')[0].split('-').map(Number)
-                  const [hours, minutes] = slotBooking.slotId.endTime.split(':').map(Number)
-                  const slotEndTime = new Date(year, month - 1, day, hours, minutes)
-                  const isPast = slotEndTime < new Date()
-
-                  if (isPast) {
-                    return (
-                      <div className="mt-3 p-2 bg-gray-100 rounded text-center">
-                        <span className="text-xs text-gray-500 font-medium italic">Session Completed</span>
-                      </div>
-                    )
-                  }
-
-                  return (
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={handleReschedule}
-                        className="text-xs bg-white text-green-700 border border-green-200 px-2 py-1.5 rounded hover:bg-green-100 transition-colors font-medium flex-1 text-center"
-                      >
-                        Reschedule
-                      </button>
-                      <button
-                        onClick={handleCancelBooking}
-                        disabled={cancelling}
-                        className="text-xs bg-white text-red-600 border border-red-100 px-2 py-1.5 rounded hover:bg-red-50 transition-colors font-medium flex-1 text-center flex items-center justify-center gap-1"
-                      >
-                        {cancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                        Cancel
-                      </button>
-                    </div>
-                  )
-                })()}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <button
-                  onClick={() => setShowSlotModal(true)}
-                  disabled={admission.status === 'draft'}
-                  className={`btn-primary w-full justify-center ${admission.status === 'draft' ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
-                >
-                  <CalendarIcon className="h-4 w-4 mr-2" />
-                  Book Counselling Slot
-                </button>
-                {admission.status === 'draft' && (
-                  <p className="text-xs text-amber-600 flex items-start gap-1 bg-amber-50 p-2 rounded border border-amber-100 italic">
-                    Form must be <strong>Submitted</strong> before booking a slot.
-                  </p>
+                <p className="text-sm text-green-600">{format(new Date(slotBooking.slotId.date), 'dd MMM yyyy')}</p>
+                <p className="text-sm text-green-600">{slotBooking.slotId.startTime} - {slotBooking.slotId.endTime}</p>
+                {!isPrincipal && (
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={handleReschedule} className="text-xs bg-white text-green-700 border border-green-200 px-2 py-1.5 rounded flex-1">Reschedule</button>
+                    <button onClick={handleCancelBooking} disabled={cancelling} className="text-xs bg-white text-red-600 border border-red-100 px-2 py-1.5 rounded flex-1">
+                      {cancelling ? '...' : 'Cancel'}
+                    </button>
+                  </div>
                 )}
               </div>
+            ) : (
+              <button
+                onClick={() => setShowSlotModal(true)}
+                disabled={admission.status !== 'submitted' || isPrincipal}
+                className="btn-primary w-full justify-center disabled:opacity-50"
+              >
+                <CalendarIcon className="h-4 w-4 mr-2" /> Book Slot
+              </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Slot Booking Modal with Calendar */}
       {showSlotModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
-            <button
-              onClick={() => setShowSlotModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <h2 className="text-xl font-semibold mb-4">Select Counselling Slot</h2>
-
-            {/* Admission Summary */}
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-              <h3 className="text-sm font-semibold text-blue-900 mb-3">Booking For:</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="flex items-center text-blue-800">
-                  <User className="h-4 w-4 mr-2" />
-                  <span><strong>Student:</strong> {admission.studentName}</span>
-                </div>
-                <div className="flex items-center text-blue-800">
-                  <GraduationCap className="h-4 w-4 mr-2" />
-                  <span><strong>Grade:</strong> {admission.grade}</span>
-                </div>
-                <div className="flex items-center text-blue-800">
-                  <User className="h-4 w-4 mr-2" />
-                  <span><strong>Parent:</strong> {admission.parentName}</span>
-                </div>
-                <div className="flex items-center text-blue-800">
-                  <Phone className="h-4 w-4 mr-2" />
-                  <span><strong>Mobile:</strong> {admission.mobile}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Calendar */}
-            {availableSlots.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No available slots</p>
-            ) : (
-              <div className="mb-6">
-                <SlotCalendar
-                  slots={availableSlots}
-                  type="available"
-                  onSelectSlot={handleSlotSelect}
-                  showStats={false}
-                  showFilters={false}
-                  view="week"
-                  height={500}
-                />
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowSlotModal(false)}
-              className="btn-secondary w-full"
-            >
-              Cancel
-            </button>
+            <button onClick={() => setShowSlotModal(false)} className="absolute top-4 right-4"><X /></button>
+            <h2 className="text-xl font-semibold mb-4">Select Slot</h2>
+            <SlotCalendar slots={availableSlots} type="available" onSelectSlot={handleSlotSelect} view="week" height={500} />
+            <button onClick={() => setShowSlotModal(false)} className="btn-secondary w-full mt-4">Cancel</button>
           </div>
         </div>
       )}
 
-      {/* Confirmation Dialog */}
       {showConfirmDialog && selectedSlot && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
-            <button
-              onClick={() => {
-                setShowConfirmDialog(false)
-                setSelectedSlot(null)
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-1"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <h3 className="text-lg font-semibold mb-4">Confirm Slot Booking</h3>
-
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Selected Slot:</p>
-              <p className="font-medium text-gray-900">
-                {format(new Date(selectedSlot.date), 'EEEE, dd MMMM yyyy')}
-              </p>
-              <p className="text-gray-700">
-                {selectedSlot.startTime} - {selectedSlot.endTime}
-              </p>
-              <p className="text-sm text-gray-600 mt-2">
-                <strong>Availability:</strong> {selectedSlot.capacity - selectedSlot.bookedCount}/{selectedSlot.capacity} slots left
-              </p>
-            </div>
-
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Student:</strong> {admission.studentName} ({admission.grade})
-              </p>
-              <p className="text-sm text-blue-800">
-                <strong>Parent:</strong> {admission.parentName}
-              </p>
-            </div>
-
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Confirm Booking</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Slot: {format(new Date(selectedSlot.date), 'dd MMM yyyy')} | {selectedSlot.startTime} - {selectedSlot.endTime}
+            </p>
             <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmDialog(false)
-                  setSelectedSlot(null)
-                }}
-                className="btn-secondary flex-1"
-                disabled={bookingSlot}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBookSlot}
-                disabled={bookingSlot}
-                className="btn-primary flex-1"
-              >
-                {bookingSlot ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : null}
-                Confirm Booking
+              <button onClick={() => setShowConfirmDialog(false)} className="btn-secondary flex-1">No</button>
+              <button onClick={handleBookSlot} disabled={bookingSlot} className="btn-primary flex-1">
+                {bookingSlot ? 'Booking...' : 'Yes, Book'}
               </button>
             </div>
           </div>

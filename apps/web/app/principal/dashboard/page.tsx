@@ -4,17 +4,19 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Calendar, Users, Clock } from 'lucide-react'
 import { format } from 'date-fns'
-import { api, updateAdmission, getSlots } from '@/lib/api'
+import { api, updateAdmission, getSlots, getAdmissions } from '@/lib/api'
 
 interface DashboardStats {
     sessionsToday: number
-    totalScheduled: number
+    approvedCount: number
+    rejectedCount: number
 }
 
 export default function PrincipalDashboardPage() {
     const [stats, setStats] = useState<DashboardStats>({
         sessionsToday: 0,
-        totalScheduled: 0
+        approvedCount: 0,
+        rejectedCount: 0
     })
     const [sessions, setSessions] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -43,15 +45,16 @@ export default function PrincipalDashboardPage() {
             setSessions(todayBookings)
             const sessionsToday = todayBookings.length
 
-            // Fetch all scheduled sessions (future slots with bookings)
-            const allResponse = await getSlots({ dateFrom: today })
-            const totalScheduled = allResponse.success
-                ? (allResponse.data?.reduce((acc: number, slot: any) => acc + (slot.bookedCount || 0), 0) || 0)
-                : 0
+            // Fetch Approved and Rejected counts
+            const [approvedRes, rejectedRes] = await Promise.all([
+                getAdmissions({ status: 'approved', limit: 1 }),
+                getAdmissions({ status: 'rejected', limit: 1 })
+            ])
 
             setStats({
                 sessionsToday,
-                totalScheduled
+                approvedCount: approvedRes.success ? approvedRes.data?.total || 0 : 0,
+                rejectedCount: rejectedRes.success ? rejectedRes.data?.total || 0 : 0
             })
         } catch (error) {
             console.error('Error fetching dashboard stats:', error)
@@ -96,11 +99,18 @@ export default function PrincipalDashboardPage() {
             href: '/principal/calendar?date=today'
         },
         {
-            name: 'TOTAL SCHEDULED',
-            value: stats.totalScheduled,
+            name: 'APPROVED',
+            value: stats.approvedCount,
             icon: Users,
-            color: 'bg-blue-500',
-            href: '/principal/calendar'
+            color: 'bg-emerald-500',
+            href: '/principal/admissions?status=approved'
+        },
+        {
+            name: 'REJECTED',
+            value: stats.rejectedCount,
+            icon: Users,
+            color: 'bg-red-500',
+            href: '/principal/admissions?status=rejected'
         }
     ]
 
@@ -113,7 +123,7 @@ export default function PrincipalDashboardPage() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 {statCards.map((stat) => (
                     <Link key={stat.name} href={stat.href}>
                         <div className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer relative overflow-hidden">
@@ -170,9 +180,12 @@ export default function PrincipalDashboardPage() {
                                                 <Users className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
                                                 Grade {session.admissionId?.grade || 'N/A'}
                                             </span>
-                                            <span className="text-xs font-mono bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">
+                                            <Link
+                                                href={`/principal/admissions/${session.admissionId?._id}`}
+                                                className="text-xs font-mono bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md hover:bg-blue-100 transition-colors font-bold"
+                                            >
                                                 {session.tokenId}
-                                            </span>
+                                            </Link>
                                         </div>
                                     </div>
                                 </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
-import { getAdmissions } from '@/lib/api'
+import { getAdmissions, getCurrentUser } from '@/lib/api'
 import { format } from 'date-fns'
 
 interface Admission {
@@ -39,6 +39,7 @@ export default function AdmissionsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
+  const [user, setUser] = useState<any>(null)
 
   const searchParams = useSearchParams()
   const statusParam = searchParams.get('status')
@@ -49,6 +50,11 @@ export default function AdmissionsPage() {
 
   useEffect(() => {
     fetchAdmissions()
+    const checkUser = async () => {
+      const res = await getCurrentUser()
+      if (res.success) setUser(res.data)
+    }
+    checkUser()
   }, [page, statusFilter, counsellingFilter])
 
   const fetchAdmissions = async () => {
@@ -97,8 +103,22 @@ export default function AdmissionsPage() {
             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
         >
-          All Admissions
+          {user?.role === 'principal' ? 'All Admissions' : 'All Admissions'}
         </button>
+        {user?.role === 'principal' && (
+          <button
+            onClick={() => {
+              setStatusFilter('submitted')
+              setPage(1)
+            }}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'submitted'
+              ? 'border-primary-600 text-primary-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Principal Review
+          </button>
+        )}
         <button
           onClick={() => {
             setStatusFilter('approved')
@@ -197,7 +217,12 @@ export default function AdmissionsPage() {
                 {admissions.map((admission) => (
                   <tr key={admission._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-mono text-sm text-gray-900">{admission.tokenId}</span>
+                      <Link
+                        href={`/admin/admissions/${admission._id}`}
+                        className="font-mono text-sm text-primary-600 hover:text-primary-900 font-bold hover:underline"
+                      >
+                        {admission.tokenId}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{admission.studentName}</div>

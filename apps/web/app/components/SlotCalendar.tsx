@@ -6,8 +6,10 @@ import { enUS } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import './calendar.css'
 import { Calendar as CalendarIcon, Clock, MapPin, User, ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
-import { useState } from 'react'
-import { updateAdmission } from '@/lib/api'
+import { useState, useEffect } from 'react'
+import { updateAdmission, getCurrentUser } from '@/lib/api'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 const locales = {
     'en-US': enUS,
@@ -71,6 +73,21 @@ export default function SlotCalendar({
     const [selectedGroup, setSelectedGroup] = useState<any[] | null>(null)
     const [currentDate, setCurrentDate] = useState(new Date())
     const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>(initialView)
+    const [user, setUser] = useState<any>(null)
+
+    const pathname = usePathname()
+    const isPrincipalPortal = pathname?.startsWith('/principal')
+    const linkPrefix = isPrincipalPortal ? '/principal/admissions' : '/admin/admissions'
+
+    useEffect(() => {
+        async function fetchUser() {
+            const result = await getCurrentUser()
+            if (result.success) {
+                setUser(result.data)
+            }
+        }
+        fetchUser()
+    }, [])
 
     // Navigation handlers
     const handleNavigate = (action: 'TODAY' | 'PREV' | 'NEXT') => {
@@ -113,13 +130,18 @@ export default function SlotCalendar({
                 const end = new Date(`${dateStr}T${slot.endTime}:00`)
 
                 const slotsLeft = slot.capacity - slot.bookedCount
+                let colorType = 'green'
+                if (slotsLeft === 0) colorType = 'red'
+                else if (slotsLeft === 1) colorType = 'orange'
+                else if (slotsLeft === 2) colorType = 'indigo'
+
                 return {
                     title: `${slotsLeft}/${slot.capacity} available`,
                     start,
                     end,
                     resource: slot,
                     isAvailable: true,
-                    colorType: slotsLeft === 0 ? 'red' : slotsLeft <= 1 ? 'yellow' : 'green'
+                    colorType
                 }
             })
         }
@@ -316,37 +338,79 @@ export default function SlotCalendar({
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                            {selectedGroup.map((item, idx) => (
-                                <div
-                                    key={idx}
-                                    onClick={() => {
-                                        setSelectedEvent({
-                                            start: new Date(`${item.slot.date.split('T')[0]}T${item.slot.startTime}`),
-                                            resource: item
-                                        })
-                                        setSelectedGroup(null)
-                                    }}
-                                    className="p-5 border border-gray-100 rounded-3xl hover:border-primary-200 hover:bg-primary-50/30 transition-all cursor-pointer group"
-                                >
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-black text-primary-600 bg-primary-50 px-2 py-1 rounded-lg uppercase tracking-tight">
-                                                {item.time}
-                                            </span>
-                                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider ${item.colorType === 'green' ? 'bg-green-100 text-green-700' :
-                                                item.colorType === 'red' ? 'bg-red-100 text-red-700' :
-                                                    'bg-blue-100 text-blue-700'
-                                                }`}>
-                                                {item.status}
-                                            </span>
+                        <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+                            {(() => {
+                                // Group items by time slot
+                                const timeGroups: Record<string, any[]> = {}
+                                selectedGroup.forEach(item => {
+                                    if (!timeGroups[item.time]) timeGroups[item.time] = []
+                                    timeGroups[item.time].push(item)
+                                })
+
+                                // Sort time slots and render
+                                return Object.entries(timeGroups)
+                                    .sort(([timeA], [timeB]) => timeA.localeCompare(timeB))
+                                    .map(([time, items], groupIdx) => (
+                                        <div key={groupIdx} className="space-y-3">
+                                            {/* Time Slot Header */}
+                                            <div className="flex items-center gap-3 px-1">
+                                                <div className="flex items-center gap-2 bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-100">
+                                                    <Clock className="h-3.5 w-3.5 text-primary-600" />
+                                                    <span className="text-xs font-black text-primary-700 tracking-tight">
+                                                        {time}
+                                                    </span>
+                                                </div>
+                                                <div className="h-px flex-1 bg-gradient-to-r from-gray-100 to-transparent" />
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                    {items.length} {items.length === 1 ? 'Booking' : 'Bookings'}
+                                                </span>
+                                            </div>
+
+                                            {/* Students in this slot */}
+                                            <div className="grid gap-3">
+                                                {items.map((item, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            setSelectedEvent({
+                                                                start: new Date(`${item.slot.date.split('T')[0]}T${item.slot.startTime}`),
+                                                                resource: item
+                                                            })
+                                                            setSelectedGroup(null)
+                                                        }}
+                                                        className="p-5 border border-gray-100 rounded-[24px] hover:border-primary-200 hover:bg-primary-50/40 transition-all cursor-pointer group bg-white shadow-sm hover:shadow-md"
+                                                    >
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider ${item.colorType === 'green' ? 'bg-green-100/80 text-green-700' :
+                                                                    item.colorType === 'red' ? 'bg-red-100/80 text-red-700' :
+                                                                        'bg-blue-100/80 text-blue-700'
+                                                                    }`}>
+                                                                    {item.status}
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
+                                                                <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-primary-600 transition-colors" />
+                                                            </div>
+                                                        </div>
+                                                        <h4 className="text-lg font-bold text-gray-900 group-hover:text-primary-700 transition-colors">{item.studentName}</h4>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <Link
+                                                                href={`${linkPrefix}/${item.booking.admissionId._id || item.booking.admissionId}`}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="text-sm text-primary-600 font-mono font-bold hover:underline"
+                                                            >
+                                                                {item.tokenId}
+                                                            </Link>
+                                                            <div className="w-1 h-1 rounded-full bg-gray-300" />
+                                                            <p className="text-sm text-gray-500 font-medium">Grade {item.grade}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-primary-400 transition-colors" />
-                                    </div>
-                                    <h4 className="text-lg font-bold text-gray-900">{item.studentName}</h4>
-                                    <p className="text-sm text-gray-500 font-medium">{item.tokenId} • Grade {item.grade}</p>
-                                </div>
-                            ))}
+                                    ))
+                            })()}
                         </div>
 
                         <button
@@ -382,7 +446,19 @@ export default function SlotCalendar({
                                 { icon: User, label: 'Parent Name', value: selectedEvent.resource.parentName },
                                 { icon: User, label: 'Grade', value: `Grade ${selectedEvent.resource.grade}` },
                                 { icon: Clock, label: 'Scheduled Time', value: `${format(selectedEvent.start, 'MMMM d')} at ${selectedEvent.resource.time}` },
-                                { icon: CalendarIcon, label: 'Token Identification', value: selectedEvent.resource.tokenId, isMono: true },
+                                {
+                                    icon: CalendarIcon,
+                                    label: 'Token Identification',
+                                    value: (
+                                        <Link
+                                            href={`${linkPrefix}/${selectedEvent.resource.booking.admissionId._id || selectedEvent.resource.booking.admissionId}`}
+                                            className="text-primary-600 hover:underline"
+                                        >
+                                            {selectedEvent.resource.tokenId}
+                                        </Link>
+                                    ),
+                                    isMono: true
+                                },
                                 { icon: MapPin, label: 'Location Room', value: selectedEvent.resource.location }
                             ].map((item, idx) => (
                                 <div key={idx} className="flex items-start gap-4">
@@ -391,15 +467,15 @@ export default function SlotCalendar({
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">{item.label}</p>
-                                        <p className={`text-base font-bold text-gray-900 mt-1 ${item.isMono ? 'font-mono bg-gray-50 px-2 py-0.5 rounded' : ''}`}>
+                                        <div className={`text-base font-bold text-gray-900 mt-1 ${item.isMono ? 'font-mono bg-gray-50 px-2 py-0.5 rounded w-fit' : ''}`}>
                                             {item.value}
-                                        </p>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Principal Action Section */}
+                        {/* Action Section */}
                         {(() => {
                             const slot = selectedEvent.resource.slot
                             const admissionStatus = selectedEvent.resource.status
@@ -408,22 +484,26 @@ export default function SlotCalendar({
                             const startTime = new Date(year, month - 1, day, hours, minutes)
                             const isTimePassed = new Date() >= startTime
 
-                            if (!isTimePassed) return (
-                                <div className="mt-8 p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 flex items-center justify-center gap-3">
-                                    <Clock className="h-5 w-5 text-gray-400 animate-pulse" />
-                                    <span className="text-sm font-bold text-gray-400">Meeting starts soon</span>
-                                </div>
-                            );
+                            if (!isTimePassed) {
+                                return (
+                                    <div className="mt-8 p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 flex items-center justify-center gap-3">
+                                        <Clock className="h-5 w-5 text-gray-400 animate-pulse" />
+                                        <span className="text-sm font-bold text-gray-400">Meeting starts soon</span>
+                                    </div>
+                                )
+                            }
 
                             if (admissionStatus !== 'submitted' && admissionStatus !== 'new') {
                                 return (
                                     <div className="mt-8 flex justify-center border-t border-gray-50 pt-8">
                                         <span className={`px-8 py-3 rounded-2xl text-sm font-black capitalize flex items-center gap-3 shadow-lg ${admissionStatus === 'approved'
                                             ? 'bg-green-600 text-white shadow-green-200'
-                                            : 'bg-red-600 text-white shadow-red-200'
+                                            : admissionStatus === 'rejected'
+                                                ? 'bg-red-600 text-white shadow-red-200'
+                                                : 'bg-blue-600 text-white shadow-blue-200'
                                             }`}>
                                             <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                                            Application {admissionStatus}
+                                            {admissionStatus === 'submitted' ? 'Application Submitted' : `Application ${admissionStatus}`}
                                         </span>
                                     </div>
                                 )

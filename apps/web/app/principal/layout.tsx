@@ -17,6 +17,7 @@ import { getCurrentUser, logout } from '@/lib/api'
 
 const navigation = [
     { name: 'Dashboard', href: '/principal/dashboard', icon: LayoutDashboard },
+    { name: 'Admissions', href: '/principal/admissions', icon: FileText },
     { name: 'Calendar', href: '/principal/calendar', icon: Calendar },
 ]
 

@@ -289,7 +289,7 @@ export default function SettingsPage() {
                       <option value="text">Text</option>
                       <option value="email">Email</option>
                       <option value="tel">Phone</option>
-                      <option value="select">Select</option>
+                      <option value="select">List</option>
                       <option value="textarea">Textarea</option>
                       <option value="date">Date</option>
                       <option value="number">Number</option>

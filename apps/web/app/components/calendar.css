@@ -121,6 +121,18 @@
     border-left-color: #f59e0b;
 }
 
+.event-capsule.orange {
+    background-color: #fff7ed;
+    color: #c2410c;
+    border-left-color: #f97316;
+}
+
+.event-capsule.indigo {
+    background-color: #eef2ff;
+    color: #3730a3;
+    border-left-color: #6366f1;
+}
+
 .rbc-time-view .rbc-event {
     border: none !important;
     min-height: 50px !important;

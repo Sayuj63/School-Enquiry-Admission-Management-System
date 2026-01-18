@@ -120,13 +120,13 @@ export default function AdminLayout({
                   key={item.name}
                   href={item.href}
                   className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-gray-700 hover:bg-gray-100'
                     }`}
                   onClick={() => setSidebarOpen(false)}
                 >
                   <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary-600' : 'text-gray-400'}`} />
-                  {item.name}
+                  {user.role === 'principal' && item.name === 'Admissions' ? 'Admissions Approval' : item.name}
                 </Link>
               )
             })}
