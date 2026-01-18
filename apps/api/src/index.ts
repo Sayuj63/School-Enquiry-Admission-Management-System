@@ -16,7 +16,7 @@ import templateRoutes from './routes/template';
 import otpRoutes from './routes/otp';
 
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5002;
 
 // Middleware
 app.use(cors({
@@ -29,7 +29,12 @@ app.use(express.urlencoded({ extended: true }));
 // Static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Health check
+// Minimal health route for Render
+app.get('/', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// Detailed health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -80,22 +85,45 @@ app.use((req, res) => {
 // Start server
 async function startServer() {
   try {
-    await connectDB();
-    await seedDatabase();
-
-    app.listen(PORT, () => {
+    // Start listening as soon as possible to satisfy Render's health check
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`\n========================================`);
       console.log(`  Server running on port ${PORT}`);
+      console.log(`  Binding to 0.0.0.0`);
       console.log(`========================================`);
       console.log(`  API URL:      http://localhost:${PORT}`);
       console.log(`  Health:       http://localhost:${PORT}/health`);
+      console.log(`  Minimal:      http://localhost:${PORT}/`);
       console.log(`  API Docs:     http://localhost:${PORT}/docs`);
-      console.log(`  OpenAPI JSON: http://localhost:${PORT}/openapi.json`);
       console.log(`========================================\n`);
     });
+
+    // Connect to DB and seed after starting the server
+    // This prevents Render from killing the process if DB connection is slow
+    await connectDB();
+    await seedDatabase();
+
+    console.log('Database connection and seeding complete.');
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received. Closing server...');
+      server.close(() => {
+        console.log('Server closed.');
+        process.exit(0);
+      });
+    });
+
   } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
+    console.error('Failed during server startup sequence:', error);
+    // We don't necessarily want to exit immediately if seeding fails but the server is up
+    // However, if DB connection fails, the app might be useless.
+    // For now, let's keep it running to allow debugging if needed, 
+    // or exit if it's a critical failure.
+    if (error instanceof Error && error.message.includes('MONGODB_URI')) {
+      console.error('CRITICAL: MONGODB_URI missing. Exiting...');
+      process.exit(1);
+    }
   }
 }
 

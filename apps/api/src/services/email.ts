@@ -136,6 +136,15 @@ ${schoolName} Admissions Team
   // Send via Resend
   try {
     if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
+      console.log('========================================');
+      console.log('EMAIL SERVICE (MOCK MODE)');
+      console.log('----------------------------------------');
+      console.log(`To: ${data.parentEmail}`);
+      console.log(`Subject: Counselling Slot Confirmation - ${data.tokenId}`);
+      console.log('Body:');
+      console.log(emailBody);
+      console.log('========================================');
+
       return {
         success: true,
         message: 'Email sent successfully (dev mode)',
@@ -146,7 +155,8 @@ ${schoolName} Admissions Team
 
     const resend = getResendClient();
     if (!resend) {
-      console.warn('Resend API key not configured or using default placeholder. Email will not be sent.');
+      console.warn('⚠️  Resend API key not configured or using default placeholder. Email will not be sent.');
+      console.warn('Set RESEND_API_KEY in environment variables to enable email sending.');
       return {
         success: false,
         message: 'Email service not configured. Please set RESEND_API_KEY in environment variables.'
@@ -158,6 +168,8 @@ ${schoolName} Admissions Team
     const fromAddress = schoolEmail === 'info@school.com' || !schoolEmail
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
+
+    console.log(`Attempting to send email from ${fromAddress} to ${data.parentEmail}...`);
 
     const { data: emailData, error } = await resend.emails.send({
       from: fromAddress,
@@ -173,20 +185,20 @@ ${schoolName} Admissions Team
     });
 
     if (error) {
-      console.error('Resend execution error details:', JSON.stringify(error, null, 2));
+      console.error('❌ Resend execution error details:', JSON.stringify(error, null, 2));
       return {
         success: false,
         message: `Failed to send email via Resend: ${error.name} - ${error.message}`
       };
     }
 
-    console.log('Email sent successfully via Resend:', emailData?.id);
+    console.log('✅ Email sent successfully via Resend. ID:', emailData?.id);
     return {
       success: true,
       message: 'Calendar invite email sent to parent'
     };
   } catch (error: any) {
-    console.error('Email sending error:', error);
+    console.error('❌ Email sending error:', error);
     return {
       success: false,
       message: `Failed to send email: ${error.message}`
@@ -250,6 +262,15 @@ Location: ${data.location}
   // Send via Resend
   try {
     if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
+      console.log('========================================');
+      console.log('EMAIL SERVICE (PRINCIPAL MOCK MODE)');
+      console.log('----------------------------------------');
+      console.log(`To: ${principalEmail}`);
+      console.log(`Subject: Counselling Session - ${data.slotStartTime} - ${data.studentName}`);
+      console.log('Body:');
+      console.log(emailBody);
+      console.log('========================================');
+
       return {
         success: true,
         message: 'Principal email sent successfully (dev mode)',
@@ -260,7 +281,8 @@ Location: ${data.location}
 
     const resend = getResendClient();
     if (!resend) {
-      console.warn('Resend API key not configured or using default placeholder. Email will not be sent.');
+      console.warn('⚠️  Resend API key not configured or using default placeholder. Email will not be sent.');
+      console.warn('Set RESEND_API_KEY in environment variables to enable email sending.');
       return {
         success: false,
         message: 'Email service not configured. Please set RESEND_API_KEY in environment variables.'
@@ -271,6 +293,8 @@ Location: ${data.location}
     const fromAddress = schoolEmail === 'info@school.com' || !schoolEmail
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
+
+    console.log(`Attempting to send principal email from ${fromAddress} to ${principalEmail}...`);
 
     const { data: emailData, error } = await resend.emails.send({
       from: fromAddress,
@@ -286,20 +310,20 @@ Location: ${data.location}
     });
 
     if (error) {
-      console.error('Resend execution error details (Principal):', JSON.stringify(error, null, 2));
+      console.error('❌ Resend execution error details (Principal):', JSON.stringify(error, null, 2));
       return {
         success: false,
         message: `Failed to send email to principal: ${error.name} - ${error.message}`
       };
     }
 
-    console.log('Email sent successfully via Resend:', emailData?.id);
+    console.log('✅ Principal email sent successfully via Resend. ID:', emailData?.id);
     return {
       success: true,
       message: 'Calendar invite email sent to principal'
     };
   } catch (error: any) {
-    console.error('Email sending error:', error);
+    console.error('❌ Email sending error:', error);
     return {
       success: false,
       message: `Failed to send email: ${error.message}`
