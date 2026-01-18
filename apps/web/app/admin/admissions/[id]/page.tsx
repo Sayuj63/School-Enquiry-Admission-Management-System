@@ -156,6 +156,9 @@ export default function AdmissionDetailPage() {
         if (val && val.length > 0 && val.length < 10) {
           missingFields.push('Emergency Contact Number must be at least 10 digits')
         }
+        if (val && val === admission?.mobile) {
+          missingFields.push('Emergency Contact Number cannot be the same as the primary Mobile number')
+        }
       }
     })
 

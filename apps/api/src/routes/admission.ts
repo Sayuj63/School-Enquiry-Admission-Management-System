@@ -208,7 +208,16 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (studentDob) updateData.studentDob = new Date(studentDob);
     if (parentAddress !== undefined) updateData.parentAddress = parentAddress;
     if (parentOccupation !== undefined) updateData.parentOccupation = parentOccupation;
-    if (emergencyContact !== undefined) updateData.emergencyContact = emergencyContact;
+    if (emergencyContact !== undefined) {
+      const currentAdmission = await Admission.findById(req.params.id);
+      if (currentAdmission && emergencyContact === currentAdmission.mobile) {
+        return res.status(400).json({
+          success: false,
+          error: 'Emergency contact number cannot be the same as the primary mobile number'
+        });
+      }
+      updateData.emergencyContact = emergencyContact;
+    }
     if (notes !== undefined) updateData.notes = notes;
 
     if (status && ['draft', 'submitted', 'approved', 'rejected'].includes(status)) {
