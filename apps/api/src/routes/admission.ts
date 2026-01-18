@@ -212,6 +212,29 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (notes !== undefined) updateData.notes = notes;
 
     if (status && ['draft', 'submitted', 'approved', 'rejected'].includes(status)) {
+      // Logic for status transitions
+      if (['approved', 'rejected'].includes(status)) {
+        // Must have a booked slot that has already started/passed
+        const booking = await SlotBooking.findOne({ admissionId: req.params.id }).populate('slotId');
+        if (!booking) {
+          return res.status(400).json({
+            success: false,
+            error: 'A counselling slot must be booked and attended before deciding admission'
+          });
+        }
+
+        const slot = booking.slotId as any;
+        const [hours, minutes] = slot.startTime.split(':').map(Number);
+        const slotStartTime = new Date(slot.date);
+        slotStartTime.setHours(hours, minutes, 0, 0);
+
+        if (slotStartTime > new Date()) {
+          return res.status(400).json({
+            success: false,
+            error: 'Admission cannot be decided before the scheduled counselling meeting'
+          });
+        }
+      }
       updateData.status = status;
     }
 

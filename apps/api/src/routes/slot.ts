@@ -504,15 +504,33 @@ router.delete('/:slotId/bookings/:bookingId', authenticate, async (req: AuthRequ
       });
     }
 
-    // Update slot count
     const slot = await CounsellingSlot.findById(slotId);
-    if (slot) {
-      slot.bookedCount = Math.max(0, slot.bookedCount - 1);
-      if (slot.bookedCount < slot.capacity && slot.status === 'full') {
-        slot.status = 'available';
-      }
-      await slot.save();
+    if (!slot) {
+      return res.status(404).json({
+        success: false,
+        error: 'Slot not found'
+      });
     }
+
+    // Check if slot is in the past
+    const todayStr = new Date().toISOString().split('T')[0];
+    const slotDateStr = slot.date.toISOString().split('T')[0];
+
+    const [hours, minutes] = slot.endTime.split(':').map(Number);
+    const slotEndTime = new Date(slot.date);
+    slotEndTime.setHours(hours, minutes, 0, 0);
+
+    if (slotEndTime < new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot cancel a booking for a past slot'
+      });
+    }
+    slot.bookedCount = Math.max(0, slot.bookedCount - 1);
+    if (slot.bookedCount < slot.capacity && slot.status === 'full') {
+      slot.status = 'available';
+    }
+    await slot.save();
 
     // Remove booking reference from admission
     await Admission.findByIdAndUpdate(booking.admissionId, {

@@ -68,6 +68,7 @@ export default function SlotCalendar({
 }: SlotCalendarProps) {
     const [filter, setFilter] = useState<FilterType>('all')
     const [selectedEvent, setSelectedEvent] = useState<any>(null)
+    const [selectedGroup, setSelectedGroup] = useState<any[] | null>(null)
     const [currentDate, setCurrentDate] = useState(new Date())
     const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>(initialView)
 
@@ -99,56 +100,81 @@ export default function SlotCalendar({
     }
 
     // Convert slots to calendar events
-    const events = slots.flatMap((slot): any[] => {
-        const slotDateObj = new Date(slot.date)
-        const year = slotDateObj.getUTCFullYear()
-        const month = String(slotDateObj.getUTCMonth() + 1).padStart(2, '0')
-        const day = String(slotDateObj.getUTCDate()).padStart(2, '0')
-        const dateStr = `${year}-${month}-${day}`
-
-        const start = new Date(`${dateStr}T${slot.startTime}:00`)
-        const end = new Date(`${dateStr}T${slot.endTime}:00`)
-
+    const events = (() => {
         if (type === 'available') {
-            const slotsLeft = slot.capacity - slot.bookedCount
-            return [{
-                title: `${slotsLeft}/${slot.capacity} available`,
-                start,
-                end,
-                resource: slot,
-                isAvailable: true,
-                colorType: slotsLeft === 0 ? 'red' : slotsLeft <= 1 ? 'yellow' : 'green'
-            }]
+            return slots.map((slot): any => {
+                const slotDateObj = new Date(slot.date)
+                const year = slotDateObj.getUTCFullYear()
+                const month = String(slotDateObj.getUTCMonth() + 1).padStart(2, '0')
+                const day = String(slotDateObj.getUTCDate()).padStart(2, '0')
+                const dateStr = `${year}-${month}-${day}`
+
+                const start = new Date(`${dateStr}T${slot.startTime}:00`)
+                const end = new Date(`${dateStr}T${slot.endTime}:00`)
+
+                const slotsLeft = slot.capacity - slot.bookedCount
+                return {
+                    title: `${slotsLeft}/${slot.capacity} available`,
+                    start,
+                    end,
+                    resource: slot,
+                    isAvailable: true,
+                    colorType: slotsLeft === 0 ? 'red' : slotsLeft <= 1 ? 'yellow' : 'green'
+                }
+            })
         }
 
-        if (!slot.bookings || slot.bookings.length === 0) return []
+        // type === 'bookings'
+        // Group all bookings by date
+        const grouped: Record<string, any[]> = {}
 
-        return slot.bookings.map((booking) => {
-            const status = booking.admissionId?.status || 'submitted'
-            let colorType = 'blue'
-            if (status === 'approved') colorType = 'green'
-            if (status === 'rejected') colorType = 'red'
+        slots.forEach(slot => {
+            const slotDateObj = new Date(slot.date)
+            const year = slotDateObj.getUTCFullYear()
+            const month = String(slotDateObj.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(slotDateObj.getUTCDate()).padStart(2, '0')
+            const dateStr = `${year}-${month}-${day}`
 
+            if (!grouped[dateStr]) grouped[dateStr] = []
+
+            if (slot.bookings) {
+                slot.bookings.forEach(booking => {
+                    const status = booking.admissionId?.status || 'submitted'
+                    let colorType = 'blue'
+                    if (status === 'approved') colorType = 'green'
+                    if (status === 'rejected') colorType = 'red'
+
+                    grouped[dateStr].push({
+                        slot,
+                        booking,
+                        status,
+                        colorType,
+                        studentName: booking.admissionId?.studentName || 'Unknown',
+                        tokenId: booking.tokenId,
+                        parentName: booking.admissionId?.parentName || 'Unknown',
+                        mobile: booking.admissionId?.mobile || 'N/A',
+                        grade: booking.admissionId?.grade || 'N/A',
+                        time: `${slot.startTime} - ${slot.endTime}`,
+                        location: 'Counselling Room'
+                    })
+                })
+            }
+        })
+
+        return Object.entries(grouped).map(([dateStr, items]): any => {
+            const date = new Date(`${dateStr}T10:00:00`) // Representative time
             return {
-                title: booking.admissionId?.studentName || 'Unknown Student',
-                start,
-                end,
+                title: `${items.length} ${items.length === 1 ? 'Meeting' : 'Meetings'} Today`,
+                start: date,
+                end: date,
                 resource: {
-                    slot,
-                    booking,
-                    studentName: booking.admissionId?.studentName || 'Unknown',
-                    tokenId: booking.tokenId,
-                    parentName: booking.admissionId?.parentName || 'Unknown',
-                    mobile: booking.admissionId?.mobile || 'N/A',
-                    grade: booking.admissionId?.grade || 'N/A',
-                    status: status,
-                    time: `${slot.startTime} - ${slot.endTime}`,
-                    location: 'Counselling Room',
-                    colorType
+                    type: 'grouped',
+                    items: items.sort((a, b) => a.time.localeCompare(b.time)),
+                    colorType: 'purple' // Special color for grouped items
                 }
             }
         })
-    })
+    })()
 
     const filteredEvents = events.filter((event) => {
         if (!showFilters) return true
@@ -258,6 +284,8 @@ export default function SlotCalendar({
                     onSelectEvent={(event) => {
                         if (type === 'available' && onSelectSlot) {
                             onSelectSlot(event.resource)
+                        } else if (event.resource?.type === 'grouped') {
+                            setSelectedGroup(event.resource.items)
                         } else {
                             setSelectedEvent(event)
                         }
@@ -269,9 +297,71 @@ export default function SlotCalendar({
                 />
             </div>
 
+            {/* Day Group Modal */}
+            {selectedGroup && (
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[32px] p-8 max-w-lg w-full mx-4 shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col max-h-[85vh]">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-2xl font-black text-gray-900 tracking-tight">Daily Schedule</h3>
+                                <p className="text-gray-400 font-medium text-sm mt-1">
+                                    {selectedGroup.length} {selectedGroup.length === 1 ? 'meeting' : 'meetings'} on {format(new Date(selectedGroup[0].slot.date), 'MMMM d, yyyy')}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedGroup(null)}
+                                className="h-10 w-10 flex items-center justify-center rounded-2xl bg-gray-50 text-gray-400 hover:text-gray-900 transition-colors"
+                            >
+                                <Plus className="h-6 w-6 rotate-45" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                            {selectedGroup.map((item, idx) => (
+                                <div
+                                    key={idx}
+                                    onClick={() => {
+                                        setSelectedEvent({
+                                            start: new Date(`${item.slot.date.split('T')[0]}T${item.slot.startTime}`),
+                                            resource: item
+                                        })
+                                        setSelectedGroup(null)
+                                    }}
+                                    className="p-5 border border-gray-100 rounded-3xl hover:border-primary-200 hover:bg-primary-50/30 transition-all cursor-pointer group"
+                                >
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black text-primary-600 bg-primary-50 px-2 py-1 rounded-lg uppercase tracking-tight">
+                                                {item.time}
+                                            </span>
+                                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider ${item.colorType === 'green' ? 'bg-green-100 text-green-700' :
+                                                item.colorType === 'red' ? 'bg-red-100 text-red-700' :
+                                                    'bg-blue-100 text-blue-700'
+                                                }`}>
+                                                {item.status}
+                                            </span>
+                                        </div>
+                                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-primary-400 transition-colors" />
+                                    </div>
+                                    <h4 className="text-lg font-bold text-gray-900">{item.studentName}</h4>
+                                    <p className="text-sm text-gray-500 font-medium">{item.tokenId} • Grade {item.grade}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => setSelectedGroup(null)}
+                            className="mt-6 w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-sm hover:bg-gray-800 transition-all active:scale-95 shadow-xl shadow-gray-200"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Event Detail Modal */}
             {selectedEvent && type === 'bookings' && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[110] animate-in fade-in duration-200">
                     <div className="bg-white rounded-[32px] p-8 max-w-md w-full mx-4 shadow-2xl animate-in zoom-in-95 duration-200 border border-gray-100">
                         <div className="flex justify-between items-start mb-8">
                             <div>
@@ -325,7 +415,7 @@ export default function SlotCalendar({
                                 </div>
                             );
 
-                            if (admissionStatus !== 'submitted') {
+                            if (admissionStatus !== 'submitted' && admissionStatus !== 'new') {
                                 return (
                                     <div className="mt-8 flex justify-center border-t border-gray-50 pt-8">
                                         <span className={`px-8 py-3 rounded-2xl text-sm font-black capitalize flex items-center gap-3 shadow-lg ${admissionStatus === 'approved'
@@ -344,7 +434,7 @@ export default function SlotCalendar({
                                     <button
                                         onClick={async () => {
                                             if (window.confirm('Are you sure you want to REJECT this application?')) {
-                                                const admissionId = selectedEvent.resource.booking.admissionId._id;
+                                                const admissionId = selectedEvent.resource.booking.admissionId._id || selectedEvent.resource.booking.admissionId;
                                                 try {
                                                     const res = await updateAdmission(admissionId, { status: 'rejected' });
                                                     if (res.success) {
@@ -364,7 +454,7 @@ export default function SlotCalendar({
                                     <button
                                         onClick={async () => {
                                             if (window.confirm('Are you sure you want to APPROVE this application?')) {
-                                                const admissionId = selectedEvent.resource.booking.admissionId._id;
+                                                const admissionId = selectedEvent.resource.booking.admissionId._id || selectedEvent.resource.booking.admissionId;
                                                 try {
                                                     const res = await updateAdmission(admissionId, { status: 'approved' });
                                                     if (res.success) {

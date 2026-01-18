@@ -124,15 +124,21 @@ export default function DashboardPage() {
             const slotDateStr = `${slotDate.getUTCFullYear()}-${String(slotDate.getUTCMonth() + 1).padStart(2, '0')}-${String(slotDate.getUTCDate()).padStart(2, '0')}`
 
             if (slotDateStr === todayStr && slot.bookings && slot.bookings.length > 0) {
+              const [hours, minutes] = slot.endTime.split(':').map(Number)
+              const slotEndTime = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), hours, minutes)
+              const isPast = slotEndTime < new Date()
+
               slot.bookings.forEach((booking: any) => {
-                allBookings.push({
-                  id: booking._id,
-                  studentName: booking.admissionId?.studentName || 'Unknown Student',
-                  time: `${slot.startTime} - ${slot.endTime}`,
-                  startTime: slot.startTime,
-                  location: 'Virtual Room',
-                  admissionId: booking.admissionId?._id
-                })
+                if (!isPast) {
+                  allBookings.push({
+                    id: booking._id,
+                    studentName: booking.admissionId?.studentName || 'Unknown Student',
+                    time: `${slot.startTime} - ${slot.endTime}`,
+                    startTime: slot.startTime,
+                    location: 'Virtual Room',
+                    admissionId: booking.admissionId?._id
+                  })
+                }
 
                 // Add to activities feed
                 const bookedDate = new Date(booking.bookedAt || slot.date)

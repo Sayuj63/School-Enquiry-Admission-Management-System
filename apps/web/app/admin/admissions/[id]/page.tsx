@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X } from 'lucide-react'
+import { ArrowLeft, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X, Clock } from 'lucide-react'
 import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking } from '@/lib/api'
 import { startOfWeek, getDay, parse, format } from 'date-fns'
 import SlotCalendar from '../../../components/SlotCalendar'
@@ -374,40 +374,62 @@ export default function AdmissionDetailPage() {
             <p className="font-mono text-gray-500">{admission.tokenId}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {admission.status === 'submitted' && (
-              <>
-                <button
-                  onClick={async () => {
-                    if (confirm('Are you sure you want to approve this admission?')) {
-                      const res = await updateAdmission(admissionId, { status: 'approved' })
-                      if (res.success) {
-                        setSuccess('Admission approved successfully')
-                        fetchData()
+            {admission.status === 'submitted' && slotBooking && (() => {
+              const [year, month, day] = slotBooking.slotId.date.split('T')[0].split('-').map(Number)
+              const [hours, minutes] = slotBooking.slotId.startTime.split(':').map(Number)
+              const slotStartTime = new Date(year, month - 1, day, hours, minutes)
+              const canDecide = slotStartTime <= new Date()
+
+              if (!canDecide) {
+                return (
+                  <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg border border-blue-100 text-sm font-medium">
+                    <Clock className="h-4 w-4" />
+                    Buttons will appear during/after the meeting
+                  </div>
+                )
+              }
+
+              return (
+                <>
+                  <button
+                    onClick={async () => {
+                      if (confirm('Are you sure you want to approve this admission?')) {
+                        const res = await updateAdmission(admissionId, { status: 'approved' })
+                        if (res.success) {
+                          setSuccess('Admission approved successfully')
+                          fetchData()
+                        }
                       }
-                    }
-                  }}
-                  className="btn-primary bg-emerald-600 hover:bg-emerald-700 border-none px-6"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Approve Admission
-                </button>
-                <button
-                  onClick={async () => {
-                    const reason = prompt('Please enter reason for rejection:')
-                    if (reason !== null) {
-                      const res = await updateAdmission(admissionId, { status: 'rejected', notes: reason })
-                      if (res.success) {
-                        setSuccess('Admission rejected')
-                        fetchData()
+                    }}
+                    className="btn-primary bg-emerald-600 hover:bg-emerald-700 border-none px-6"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve Admission
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const reason = prompt('Please enter reason for rejection:')
+                      if (reason !== null) {
+                        const res = await updateAdmission(admissionId, { status: 'rejected', notes: reason })
+                        if (res.success) {
+                          setSuccess('Admission rejected')
+                          fetchData()
+                        }
                       }
-                    }
-                  }}
-                  className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Reject
-                </button>
-              </>
+                    }}
+                    className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Reject
+                  </button>
+                </>
+              )
+            })()}
+            {admission.status === 'submitted' && !slotBooking && (
+              <div className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 text-sm font-medium">
+                <CalendarIcon className="h-4 w-4" />
+                Book counselling to enable decisions
+              </div>
             )}
             <button
               onClick={handleSave}
@@ -706,22 +728,39 @@ export default function AdmissionDetailPage() {
                 <p className="text-sm text-green-600">
                   {slotBooking.slotId.startTime} - {slotBooking.slotId.endTime}
                 </p>
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={handleReschedule}
-                    className="text-xs bg-white text-green-700 border border-green-200 px-2 py-1.5 rounded hover:bg-green-100 transition-colors font-medium flex-1 text-center"
-                  >
-                    Reschedule
-                  </button>
-                  <button
-                    onClick={handleCancelBooking}
-                    disabled={cancelling}
-                    className="text-xs bg-white text-red-600 border border-red-100 px-2 py-1.5 rounded hover:bg-red-50 transition-colors font-medium flex-1 text-center flex items-center justify-center gap-1"
-                  >
-                    {cancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                    Cancel
-                  </button>
-                </div>
+                {(() => {
+                  const [year, month, day] = slotBooking.slotId.date.split('T')[0].split('-').map(Number)
+                  const [hours, minutes] = slotBooking.slotId.endTime.split(':').map(Number)
+                  const slotEndTime = new Date(year, month - 1, day, hours, minutes)
+                  const isPast = slotEndTime < new Date()
+
+                  if (isPast) {
+                    return (
+                      <div className="mt-3 p-2 bg-gray-100 rounded text-center">
+                        <span className="text-xs text-gray-500 font-medium italic">Session Completed</span>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={handleReschedule}
+                        className="text-xs bg-white text-green-700 border border-green-200 px-2 py-1.5 rounded hover:bg-green-100 transition-colors font-medium flex-1 text-center"
+                      >
+                        Reschedule
+                      </button>
+                      <button
+                        onClick={handleCancelBooking}
+                        disabled={cancelling}
+                        className="text-xs bg-white text-red-600 border border-red-100 px-2 py-1.5 rounded hover:bg-red-50 transition-colors font-medium flex-1 text-center flex items-center justify-center gap-1"
+                      >
+                        {cancelling ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                        Cancel
+                      </button>
+                    </div>
+                  )
+                })()}
               </div>
             ) : (
               <div className="space-y-3">
