@@ -10,7 +10,7 @@ function getResendClient(): Resend | null {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || apiKey === 're_your_api_key') {
     return null;
   }
 
@@ -146,31 +146,37 @@ ${schoolName} Admissions Team
 
     const resend = getResendClient();
     if (!resend) {
-      console.error('Resend API key not configured');
+      console.warn('Resend API key not configured or using default placeholder. Email will not be sent.');
       return {
         success: false,
-        message: 'Email service not configured'
+        message: 'Email service not configured. Please set RESEND_API_KEY in environment variables.'
       };
     }
 
+    // Resend requires a verified domain or onboarding@resend.dev
+    // If you haven't verified a domain, you MUST use onboarding@resend.dev as 'from'
+    const fromAddress = schoolEmail === 'info@school.com' || !schoolEmail
+      ? 'onboarding@resend.dev'
+      : `${schoolName} <${schoolEmail}>`;
+
     const { data: emailData, error } = await resend.emails.send({
-      from: `${schoolName} <${schoolEmail}>`,
+      from: fromAddress,
       to: [data.parentEmail],
       subject: `Counselling Slot Confirmation - ${data.tokenId}`,
       text: emailBody,
       attachments: [
         {
           filename: 'counselling-session.ics',
-          content: Buffer.from(icsContent).toString('base64'),
+          content: Buffer.from(icsContent),
         },
       ],
     });
 
     if (error) {
-      console.error('Resend error:', error);
+      console.error('Resend execution error details:', JSON.stringify(error, null, 2));
       return {
         success: false,
-        message: `Failed to send email: ${error.message}`
+        message: `Failed to send email via Resend: ${error.name} - ${error.message}`
       };
     }
 
@@ -254,31 +260,36 @@ Location: ${data.location}
 
     const resend = getResendClient();
     if (!resend) {
-      console.error('Resend API key not configured');
+      console.warn('Resend API key not configured or using default placeholder. Email will not be sent.');
       return {
         success: false,
-        message: 'Email service not configured'
+        message: 'Email service not configured. Please set RESEND_API_KEY in environment variables.'
       };
     }
 
+    // Resend requires a verified domain or onboarding@resend.dev
+    const fromAddress = schoolEmail === 'info@school.com' || !schoolEmail
+      ? 'onboarding@resend.dev'
+      : `${schoolName} <${schoolEmail}>`;
+
     const { data: emailData, error } = await resend.emails.send({
-      from: `${schoolName} <${schoolEmail}>`,
+      from: fromAddress,
       to: [principalEmail],
       subject: `Counselling Session - ${data.slotStartTime} - ${data.studentName}`,
       text: emailBody,
       attachments: [
         {
           filename: 'counselling-session.ics',
-          content: Buffer.from(icsContent).toString('base64'),
+          content: Buffer.from(icsContent),
         },
       ],
     });
 
     if (error) {
-      console.error('Resend error:', error);
+      console.error('Resend execution error details (Principal):', JSON.stringify(error, null, 2));
       return {
         success: false,
-        message: `Failed to send email: ${error.message}`
+        message: `Failed to send email to principal: ${error.name} - ${error.message}`
       };
     }
 
