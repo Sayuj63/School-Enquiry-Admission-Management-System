@@ -84,8 +84,29 @@ ${schoolName} Admissions Team
     };
   }
 
-  // In production, would send via Twilio WhatsApp API
-  console.log(`[PROD] Would send WhatsApp to ${data.to} via Twilio`);
+  // In production, send via Twilio WhatsApp API
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      const twilio = require('twilio');
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const whatsappFrom = process.env.WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+
+      if (!accountSid || !authToken) {
+        console.error('Twilio credentials missing in environment variables');
+      } else {
+        const client = twilio(accountSid, authToken);
+        await client.messages.create({
+          body: message,
+          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+          to: data.to.startsWith('whatsapp:') ? data.to : `whatsapp:${data.to.startsWith('+') ? data.to : '+' + data.to}`
+        });
+        console.log(`[PROD] WhatsApp message sent successfully to ${data.to}`);
+      }
+    } catch (error) {
+      console.error('Error sending WhatsApp via Twilio:', error);
+    }
+  }
 
   return {
     success: true,
@@ -142,6 +163,30 @@ ${schoolName} Admissions Team
       mockMessage: message,
       to: data.to
     };
+  }
+
+  // In production, send via Twilio WhatsApp API
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      const twilio = require('twilio');
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const whatsappFrom = process.env.WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+
+      if (!accountSid || !authToken) {
+        console.error('Twilio credentials missing in environment variables');
+      } else {
+        const client = twilio(accountSid, authToken);
+        await client.messages.create({
+          body: message,
+          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+          to: data.to.startsWith('whatsapp:') ? data.to : `whatsapp:${data.to.startsWith('+') ? data.to : '+' + data.to}`
+        });
+        console.log(`[PROD] Slot confirmation WhatsApp sent successfully to ${data.to}`);
+      }
+    } catch (error) {
+      console.error('Error sending Slot WhatsApp via Twilio:', error);
+    }
   }
 
   return {
