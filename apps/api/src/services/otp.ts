@@ -19,17 +19,22 @@ interface VerifyOTPResult {
 }
 
 /**
+ * Normalize mobile number: remove all non-digits and add +91 prefix for 10-digit numbers
+ */
+function normalizeMobile(mobile: string): string {
+  let normalized = mobile.replace(/\D/g, '');
+  if (normalized.length === 10) {
+    normalized = '91' + normalized;
+  }
+  return normalized;
+}
+
+/**
  * Send OTP to mobile number
  * In development mode, OTP is logged to console instead of being sent via SMS
  */
 export async function sendOTP(mobile: string): Promise<SendOTPResult> {
-  // Normalize mobile number: remove all non-digits
-  let normalizedMobile = mobile.replace(/\D/g, '');
-
-  // If it's a 10-digit number, assume India (+91)
-  if (normalizedMobile.length === 10) {
-    normalizedMobile = '91' + normalizedMobile;
-  }
+  const normalizedMobile = normalizeMobile(mobile);
 
   // Check for existing unexpired OTP (cooldown)
   const existingOTP = await OTP.findOne({
@@ -119,7 +124,7 @@ export async function sendOTP(mobile: string): Promise<SendOTPResult> {
  * Verify OTP for mobile number
  */
 export async function verifyOTP(mobile: string, otpCode: string): Promise<VerifyOTPResult> {
-  const normalizedMobile = mobile.replace(/\s+/g, '').replace(/^\+/, '');
+  const normalizedMobile = normalizeMobile(mobile);
 
   // Find the latest unexpired OTP for this mobile
   const otpRecord = await OTP.findOne({
@@ -174,7 +179,7 @@ export async function verifyOTP(mobile: string, otpCode: string): Promise<Verify
  * Check if mobile is verified
  */
 export async function isMobileVerified(mobile: string): Promise<boolean> {
-  const normalizedMobile = mobile.replace(/\s+/g, '').replace(/^\+/, '');
+  const normalizedMobile = normalizeMobile(mobile);
 
   const verifiedOTP = await OTP.findOne({
     mobile: normalizedMobile,
