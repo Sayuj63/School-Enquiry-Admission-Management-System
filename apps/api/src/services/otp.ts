@@ -23,8 +23,13 @@ interface VerifyOTPResult {
  * In development mode, OTP is logged to console instead of being sent via SMS
  */
 export async function sendOTP(mobile: string): Promise<SendOTPResult> {
-  // Normalize mobile number
-  const normalizedMobile = mobile.replace(/\s+/g, '').replace(/^\+/, '');
+  // Normalize mobile number: remove all non-digits
+  let normalizedMobile = mobile.replace(/\D/g, '');
+
+  // If it's a 10-digit number, assume India (+91)
+  if (normalizedMobile.length === 10) {
+    normalizedMobile = '91' + normalizedMobile;
+  }
 
   // Check for existing unexpired OTP (cooldown)
   const existingOTP = await OTP.findOne({
@@ -92,9 +97,9 @@ export async function sendOTP(mobile: string): Promise<SendOTPResult> {
         await client.messages.create({
           body: `Your OTP for Sayuj School Admission is ${otp}. Valid for 10 minutes.`,
           from: twilioNumber,
-          to: mobile.startsWith('+') ? mobile : `+${mobile}`
+          to: `+${normalizedMobile}`
         });
-        console.log(`[PROD] OTP SMS sent successfully to ${mobile}`);
+        console.log(`[PROD] OTP SMS sent successfully to +${normalizedMobile}`);
       }
     } catch (error) {
       console.error('Error sending OTP via Twilio:', error);

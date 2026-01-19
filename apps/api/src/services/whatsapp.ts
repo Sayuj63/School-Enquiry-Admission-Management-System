@@ -30,6 +30,17 @@ async function getDocumentsList(): Promise<string> {
 }
 
 /**
+ * Normalize phone number for Twilio WhatsApp
+ */
+function normalizeWhatsAppNumber(mobile: string): string {
+  let digits = mobile.replace(/\D/g, '');
+  if (digits.length === 10) {
+    digits = '91' + digits;
+  }
+  return `whatsapp:+${digits}`;
+}
+
+/**
  * Send WhatsApp message with brochure and documents list
  * In development mode, message is logged to console instead of being sent
  */
@@ -99,7 +110,7 @@ ${schoolName} Admissions Team
         await client.messages.create({
           body: message,
           from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: data.to.startsWith('whatsapp:') ? data.to : `whatsapp:${data.to.startsWith('+') ? data.to : '+' + data.to}`
+          to: normalizeWhatsAppNumber(data.to)
         });
         console.log(`[PROD] WhatsApp message sent successfully to ${data.to}`);
       }
@@ -180,7 +191,7 @@ ${schoolName} Admissions Team
         await client.messages.create({
           body: message,
           from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: data.to.startsWith('whatsapp:') ? data.to : `whatsapp:${data.to.startsWith('+') ? data.to : '+' + data.to}`
+          to: normalizeWhatsAppNumber(data.to)
         });
         console.log(`[PROD] Slot confirmation WhatsApp sent successfully to ${data.to}`);
       }
