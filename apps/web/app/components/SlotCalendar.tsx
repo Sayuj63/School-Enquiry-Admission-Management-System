@@ -374,7 +374,8 @@ export default function SlotCalendar({
                                                         onClick={() => {
                                                             setSelectedEvent({
                                                                 start: new Date(`${item.slot.date.split('T')[0]}T${item.slot.startTime}`),
-                                                                resource: item
+                                                                resource: item,
+                                                                previousGroup: selectedGroup // Store the group to return to
                                                             })
                                                             setSelectedGroup(null)
                                                         }}
@@ -557,7 +558,16 @@ export default function SlotCalendar({
 
                         <div className="mt-4">
                             <button
-                                onClick={() => setSelectedEvent(null)}
+                                onClick={() => {
+                                    if (selectedEvent.previousGroup) {
+                                        // Return to the group modal
+                                        setSelectedGroup(selectedEvent.previousGroup)
+                                        setSelectedEvent(null)
+                                    } else {
+                                        // Just close the modal
+                                        setSelectedEvent(null)
+                                    }
+                                }}
                                 className="w-full py-4 text-gray-400 hover:text-gray-600 font-bold text-sm transition-colors"
                             >
                                 Go back
