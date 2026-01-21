@@ -50,6 +50,7 @@ router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Re
       parentName: enquiry.parentName,
       mobile: enquiry.mobile,
       email: enquiry.email,
+      city: enquiry.city,
       grade: enquiry.grade,
       status: 'draft',
       documents: [],
@@ -87,7 +88,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const admission = await Admission.findById(req.params.id);
+    const admission = await Admission.findById(req.params.id).populate('enquiryId', 'createdAt city');
 
     if (!admission) {
       return res.status(404).json({
@@ -134,13 +135,27 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     if (status) {
       query.status = status;
-    } else {
-      // By default, only show submitted admissions (Approved move to Accepted, Rejected to Rejected)
-      query.status = 'submitted';
     }
+    // Removed default status='submitted' to allow viewing 'draft' admissions in "All Admissions"
+
 
     if (counselling === 'booked') {
       query.slotBookingId = { $exists: true };
+    } else if (counselling === 'interview_pending') {
+      query.slotBookingId = { $exists: true };
+
+      if (query.status) {
+        // If status is already filtered, we need to ensure we don't return approved/rejected
+        // ignoring the fact that if query.status is 'approved', this will result in 0 docs (correct)
+        const currentStatus = query.status;
+        delete query.status; // Remove pure key to use $and
+        query.$and = [
+          { status: currentStatus },
+          { status: { $nin: ['approved', 'rejected'] } }
+        ];
+      } else {
+        query.status = { $nin: ['approved', 'rejected'] };
+      }
     } else if (counselling === 'pending' || noSlot) {
       query.slotBookingId = { $exists: false };
       // Status is already handled above or passed explicitly

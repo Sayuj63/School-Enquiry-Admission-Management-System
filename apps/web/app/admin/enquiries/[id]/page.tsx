@@ -131,9 +131,9 @@ export default function EnquiryDetailPage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-2 gap-6">
         {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           {/* Student Info */}
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Student Information</h3>

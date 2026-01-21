@@ -178,13 +178,15 @@ export default function SlotsPage() {
     return new Date(year, month - 1, day)
   }
 
+  const isSlotPast = (slot: Slot) => {
+    const [year, month, day] = slot.date.split('T')[0].split('-').map(Number)
+    const [hours, minutes] = slot.endTime.split(':').map(Number)
+    const slotEndTime = new Date(year, month - 1, day, hours, minutes)
+    return slotEndTime < new Date()
+  }
+
   const slotsByDate = slots.reduce((acc, slot) => {
-    const isPast = (() => {
-      const [year, month, day] = slot.date.split('T')[0].split('-').map(Number)
-      const [hours, minutes] = slot.endTime.split(':').map(Number)
-      const slotEndTime = new Date(year, month - 1, day, hours, minutes)
-      return slotEndTime < new Date()
-    })()
+    const isPast = isSlotPast(slot)
     const isDisabled = slot.status === 'disabled'
     if (statusFilter === 'active' && (isDisabled || isPast)) return acc
     if (statusFilter === 'disabled' && slot.status !== 'disabled') return acc
@@ -244,50 +246,72 @@ export default function SlotsPage() {
         <CalendarView slots={slots} />
       ) : (
         <div className="space-y-6">
-          {Object.entries(slotsByDate).map(([dateKey, daySlots]) => (
-            <div key={dateKey} className="card">
-              <h3 className="text-lg font-semibold mb-4">{format(parseLocalDate(dateKey), 'EEEE, dd MMMM yyyy')}</h3>
-              <div className="space-y-3">
-                {daySlots.map(slot => (
-                  <div key={slot._id} className={`p-4 rounded-lg border ${statusColors[slot.status]}`}>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center"><Clock className="h-4 w-4 mr-2" />{slot.startTime} - {slot.endTime}</div>
-                        <div className="flex items-center"><Users className="h-4 w-4 mr-2" />{slot.bookedCount}/{slot.capacity} booked</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm capitalize font-medium">{slot.status}</span>
-                        {!isPrincipal && (
-                          <>
-                            <button
-                              onClick={() => handleToggleSlot(slot._id, slot.status)}
-                              className="btn-secondary text-xs px-2 py-1"
-                              disabled={slot.status !== 'disabled' && slot.bookedCount > 0}
-                            >
-                              {slot.status === 'disabled' ? 'Enable' : 'Disable'}
-                            </button>
-                            {slot.status === 'available' && (
-                              <button
-                                onClick={() => { setSelectedSlot(slot); setShowAssignModal(true); fetchEligibleAdmissions(); }}
-                                className="bg-primary-600 text-white text-xs px-2 py-1 rounded hover:bg-primary-700"
-                              >
-                                Assign
-                              </button>
-                            )}
-                            {slot.bookedCount === 0 && (
-                              <button onClick={() => handleDeleteRequest(slot._id)} className="text-red-600 hover:bg-red-50 p-1 rounded">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {Object.keys(slotsByDate).length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
+              <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-gray-900">No {statusFilter === 'all' ? '' : statusFilter} slots found</h3>
+              <p className="text-gray-500 max-w-sm mx-auto">
+                {statusFilter === 'completed'
+                  ? "There are no completed counselling slots yet."
+                  : "There are no slots matching your criteria."}
+              </p>
             </div>
-          ))}
+          ) : (
+            Object.entries(slotsByDate).map(([dateKey, daySlots]) => (
+              <div key={dateKey} className="card">
+                <h3 className="text-lg font-semibold mb-4">{format(parseLocalDate(dateKey), 'EEEE, dd MMMM yyyy')}</h3>
+                <div className="space-y-3">
+                  {daySlots.map(slot => {
+                    const isPast = isSlotPast(slot)
+                    return (
+                      <div key={slot._id} className={`p-4 rounded-lg border ${statusColors[slot.status]} ${isPast ? 'opacity-75' : ''}`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center"><Clock className="h-4 w-4 mr-2" />{slot.startTime} - {slot.endTime}</div>
+                            <div className="flex items-center"><Users className="h-4 w-4 mr-2" />{slot.bookedCount}/{slot.capacity} booked</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm capitalize font-medium">
+                              {isPast ? 'Completed' : slot.status}
+                            </span>
+                            {!isPrincipal && !isPast && (
+                              <>
+                                <button
+                                  onClick={() => handleToggleSlot(slot._id, slot.status)}
+                                  className="btn-secondary text-xs px-2 py-1"
+                                  disabled={slot.status !== 'disabled' && slot.bookedCount > 0}
+                                >
+                                  {slot.status === 'disabled' ? 'Enable' : 'Disable'}
+                                </button>
+                                {slot.status === 'available' && (
+                                  <button
+                                    onClick={() => { setSelectedSlot(slot); setShowAssignModal(true); fetchEligibleAdmissions(); }}
+                                    className="bg-primary-600 text-white text-xs px-2 py-1 rounded hover:bg-primary-700"
+                                  >
+                                    Assign
+                                  </button>
+                                )}
+                                {slot.bookedCount === 0 && (
+                                  <button onClick={() => handleDeleteRequest(slot._id)} className="text-red-600 hover:bg-red-50 p-1 rounded">
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {!isPrincipal && isPast && (
+                              <span className="text-xs text-gray-500 font-medium px-2 py-1 bg-gray-100 rounded">
+                                Archived
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 

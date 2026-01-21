@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, UserPlus, FileText, Calendar, Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Bell, UserPlus, FileText, Calendar, Clock, ArrowRight, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import { getEnquiries, getAdmissions, getSlots } from '@/lib/api'
 import { format, formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
@@ -96,6 +96,11 @@ export default function NotificationsPage() {
 
     return (
         <div className="space-y-6">
+            <Link href="/admin/dashboard" className="inline-flex items-center text-primary-600 hover:text-primary-700 mb-2 group transition-all">
+                <ArrowLeft className="h-4 w-4 mr-1.5 group-hover:-translate-x-1 transition-transform" />
+                <span className="text-sm font-bold uppercase tracking-wider">Back to Dashboard</span>
+            </Link>
+
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -114,8 +119,8 @@ export default function NotificationsPage() {
                         {activities.map((activity) => (
                             <div key={activity.id} className="p-6 hover:bg-gray-50 transition-colors flex gap-5 items-start">
                                 <div className={`p-3 rounded-2xl ${activity.type === 'enquiry' ? 'bg-blue-50 text-blue-600' :
-                                        activity.type === 'admission' ? 'bg-orange-50 text-orange-600' :
-                                            'bg-purple-50 text-purple-600'
+                                    activity.type === 'admission' ? 'bg-orange-50 text-orange-600' :
+                                        'bg-purple-50 text-purple-600'
                                     }`}>
                                     {activity.type === 'enquiry' ? <UserPlus className="h-5 w-5" /> :
                                         activity.type === 'admission' ? <FileText className="h-5 w-5" /> :
@@ -135,7 +140,7 @@ export default function NotificationsPage() {
                                         <div className="flex items-center gap-2">
                                             {activity.status && (
                                                 <span className={`text-[10px] px-2.5 py-1 rounded-lg font-black uppercase tracking-wider ${activity.status === 'new' || activity.status === 'submitted' || activity.status === 'booked' ? 'bg-emerald-50 text-emerald-700' :
-                                                        'bg-amber-50 text-amber-700'
+                                                    'bg-amber-50 text-amber-700'
                                                     }`}>
                                                     {activity.status}
                                                 </span>

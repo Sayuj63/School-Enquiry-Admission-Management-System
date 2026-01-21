@@ -18,6 +18,7 @@ export interface IAdmission extends Document {
   parentName: string;
   mobile: string;
   email: string;
+  city: string;
   grade: string;
 
   // Additional fields (admin fills)
@@ -79,6 +80,11 @@ const admissionSchema = new Schema<IAdmission>(
       required: true,
       lowercase: true,
       trim: true
+    },
+    city: {
+      type: String,
+      trim: true,
+      default: ''
     },
     grade: {
       type: String,

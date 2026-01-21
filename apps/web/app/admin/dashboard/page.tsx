@@ -263,9 +263,9 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="grid lg:grid-cols-2 gap-8">
         {/* Notifications / Activity Feed */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <Bell className="h-5 w-5 text-primary-600" />

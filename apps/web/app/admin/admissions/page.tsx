@@ -105,20 +105,30 @@ export default function AdmissionsPage() {
         >
           {user?.role === 'principal' ? 'All Admissions' : 'All Admissions'}
         </button>
-        {user?.role === 'principal' && (
-          <button
-            onClick={() => {
-              setStatusFilter('submitted')
-              setPage(1)
-            }}
-            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'submitted'
-              ? 'border-primary-600 text-primary-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            Principal Review
-          </button>
-        )}
+        <button
+          onClick={() => {
+            setStatusFilter('draft')
+            setPage(1)
+          }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'draft'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+        >
+          Draft
+        </button>
+        <button
+          onClick={() => {
+            setStatusFilter('submitted')
+            setPage(1)
+          }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'submitted'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+        >
+          Submitted
+        </button>
         <button
           onClick={() => {
             setStatusFilter('approved')
@@ -169,8 +179,9 @@ export default function AdmissionsPage() {
             }}
           >
             <option value="">All Counselling</option>
-            <option value="booked">In booked</option>
-            <option value="pending">Pending</option>
+            <option value="booked">Booked</option>
+            <option value="interview_pending">Interview Done (Decision Pending)</option>
+            <option value="pending">Not Booked</option>
           </select>
         </div>
       </div>
@@ -207,6 +218,9 @@ export default function AdmissionsPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Created
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -246,6 +260,11 @@ export default function AdmissionsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {format(new Date(admission.createdAt), 'dd MMM yyyy')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[admission.status]}`}>
+                        {statusLabels[admission.status]}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link

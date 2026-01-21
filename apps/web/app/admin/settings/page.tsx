@@ -32,6 +32,7 @@ const ADMISSION_BASE_FIELDS = [
   { name: 'parentName', label: 'Parent Name' },
   { name: 'mobile', label: 'Mobile Number' },
   { name: 'email', label: 'Email Address' },
+  { name: 'city', label: 'City' },
   { name: 'grade', label: 'Grade/Class' }
 ]
 
@@ -43,15 +44,35 @@ export default function SettingsPage() {
   const [error, setError] = useState('')
 
   const [enquiryFields, setEnquiryFields] = useState<FormField[]>([])
+  const [initialEnquiryFields, setInitialEnquiryFields] = useState<FormField[]>([])
+
   const [admissionFields, setAdmissionFields] = useState<FormField[]>([])
+  const [initialAdmissionFields, setInitialAdmissionFields] = useState<FormField[]>([])
+
   const [admissionBaseFields, setAdmissionBaseFields] = useState<Record<string, boolean>>({
     studentName: true,
     parentName: true,
     mobile: true,
     email: true,
+    city: true,
     grade: true
   })
+  const [initialAdmissionBaseFields, setInitialAdmissionBaseFields] = useState<Record<string, boolean>>({
+    studentName: true,
+    parentName: true,
+    mobile: true,
+    email: true,
+    city: true,
+    grade: true
+  })
+
   const [documents, setDocuments] = useState<RequiredDocument[]>([])
+  const [initialDocuments, setInitialDocuments] = useState<RequiredDocument[]>([])
+
+  // Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [currentAddType, setCurrentAddType] = useState<'enquiry' | 'admission'>('enquiry')
+  const [newFieldData, setNewFieldData] = useState({ label: '', type: 'text' })
 
   useEffect(() => {
     fetchData()
@@ -68,22 +89,31 @@ export default function SettingsPage() {
 
     if (enquiryResult.success && enquiryResult.data) {
       setEnquiryFields(enquiryResult.data.fields || [])
+      setInitialEnquiryFields(enquiryResult.data.fields || [])
     }
 
     if (admissionResult.success && admissionResult.data) {
       setAdmissionFields(admissionResult.data.fields || [])
+      setInitialAdmissionFields(admissionResult.data.fields || [])
+
       if (admissionResult.data.baseFields) {
-        // Map might come as an object or a Map depending on how it's serialized
         const bf = admissionResult.data.baseFields
-        setAdmissionBaseFields(prev => ({
+        const newBaseFields = (prev: Record<string, boolean>) => ({
           ...prev,
           ...(bf instanceof Map ? Object.fromEntries(bf) : bf)
-        }))
+        })
+        setAdmissionBaseFields(newBaseFields)
+        // We need the computed value for initial state
+        setAdmissionBaseFields(prev => {
+          setInitialAdmissionBaseFields(prev)
+          return prev
+        })
       }
     }
 
     if (docsResult.success && docsResult.data) {
       setDocuments(docsResult.data.documents || [])
+      setInitialDocuments(docsResult.data.documents || [])
     }
 
     setLoading(false)
@@ -98,6 +128,7 @@ export default function SettingsPage() {
 
     if (result.success) {
       setSuccess('Enquiry template saved successfully')
+      setInitialEnquiryFields(enquiryFields)
     } else {
       setError(result.error || 'Failed to save')
     }
@@ -114,6 +145,8 @@ export default function SettingsPage() {
 
     if (result.success) {
       setSuccess('Admission template saved successfully')
+      setInitialAdmissionFields(admissionFields)
+      setInitialAdmissionBaseFields(admissionBaseFields)
     } else {
       setError(result.error || 'Failed to save')
     }
@@ -130,6 +163,7 @@ export default function SettingsPage() {
 
     if (result.success) {
       setSuccess('Documents list saved successfully')
+      setInitialDocuments(documents)
     } else {
       setError(result.error || 'Failed to save')
     }
@@ -137,20 +171,29 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
-  const addField = (type: 'enquiry' | 'admission') => {
+  const openAddModal = (type: 'enquiry' | 'admission') => {
+    setCurrentAddType(type)
+    setNewFieldData({ label: '', type: 'text' })
+    setIsAddModalOpen(true)
+  }
+
+  const handleAddField = () => {
+    if (!newFieldData.label.trim()) return
+
     const newField: FormField = {
       name: `field_${Date.now()}`,
-      label: 'New Field',
-      type: 'text',
+      label: newFieldData.label,
+      type: newFieldData.type,
       required: false,
-      order: type === 'enquiry' ? enquiryFields.length : admissionFields.length
+      order: currentAddType === 'enquiry' ? enquiryFields.length : admissionFields.length
     }
 
-    if (type === 'enquiry') {
+    if (currentAddType === 'enquiry') {
       setEnquiryFields([...enquiryFields, newField])
     } else {
       setAdmissionFields([...admissionFields, newField])
     }
+    setIsAddModalOpen(false)
   }
 
   const updateField = (type: 'enquiry' | 'admission', index: number, updates: Partial<FormField>) => {
@@ -255,11 +298,15 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold">Enquiry Form Fields</h3>
             <div className="flex gap-3">
-              <button onClick={() => addField('enquiry')} className="btn-secondary">
+              <button onClick={() => openAddModal('enquiry')} className="btn-secondary">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Field
               </button>
-              <button onClick={handleSaveEnquiry} disabled={saving} className="btn-primary">
+              <button
+                onClick={handleSaveEnquiry}
+                disabled={saving || JSON.stringify(enquiryFields) === JSON.stringify(initialEnquiryFields)}
+                className={`btn-primary transition-all ${JSON.stringify(enquiryFields) === JSON.stringify(initialEnquiryFields) ? 'bg-gray-300 border-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300 opacity-70' : ''}`}
+              >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Changes
               </button>
@@ -336,6 +383,24 @@ export default function SettingsPage() {
       {/* Admission Form Tab */}
       {activeTab === 'admission' && (
         <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Admission Setup</h2>
+              <p className="text-gray-500 text-sm">Configure fields for the admission application form</p>
+            </div>
+            <button
+              onClick={handleSaveAdmission}
+              disabled={saving || (JSON.stringify(admissionFields) === JSON.stringify(initialAdmissionFields) && JSON.stringify(admissionBaseFields) === JSON.stringify(initialAdmissionBaseFields))}
+              className={`btn-primary transition-all ${(JSON.stringify(admissionFields) === JSON.stringify(initialAdmissionFields) && JSON.stringify(admissionBaseFields) === JSON.stringify(initialAdmissionBaseFields))
+                ? 'bg-gray-300 border-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300 opacity-70'
+                : ''
+                }`}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Save Changes
+            </button>
+          </div>
+
           {/* Base Fields Visibility */}
           <div className="card">
             <div className="flex items-center justify-between mb-6">
@@ -367,13 +432,9 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold">Additional Form Fields</h3>
               <div className="flex gap-3">
-                <button onClick={() => addField('admission')} className="btn-secondary">
+                <button onClick={() => openAddModal('admission')} className="btn-secondary">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Field
-                </button>
-                <button onClick={handleSaveAdmission} disabled={saving} className="btn-primary">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Changes
                 </button>
               </div>
             </div>
@@ -463,7 +524,11 @@ export default function SettingsPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Document
               </button>
-              <button onClick={handleSaveDocuments} disabled={saving} className="btn-primary">
+              <button
+                onClick={handleSaveDocuments}
+                disabled={saving || JSON.stringify(documents) === JSON.stringify(initialDocuments)}
+                className={`btn-primary transition-all ${JSON.stringify(documents) === JSON.stringify(initialDocuments) ? 'bg-gray-300 border-gray-300 text-gray-500 cursor-not-allowed hover:bg-gray-300 opacity-70' : ''}`}
+              >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                 Save Changes
               </button>
@@ -506,6 +571,62 @@ export default function SettingsPage() {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+      {/* Add Field Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h2 className="text-xl font-semibold mb-4">Add New Field</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="label">Field Label</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="e.g. Date of Birth"
+                  value={newFieldData.label}
+                  onChange={(e) => setNewFieldData({ ...newFieldData, label: e.target.value })}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="label">Field Type</label>
+                <select
+                  className="input w-full"
+                  value={newFieldData.type}
+                  onChange={(e) => setNewFieldData({ ...newFieldData, type: e.target.value })}
+                >
+                  <option value="text">Text</option>
+                  <option value="email">Email</option>
+                  <option value="tel">Phone</option>
+                  <option value="select">Select (List)</option>
+                  <option value="textarea">Textarea</option>
+                  <option value="date">Date</option>
+                  <option value="number">Number</option>
+                  <option value="checkbox">Checkbox</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddField}
+                disabled={!newFieldData.label.trim()}
+                className="btn-primary flex-1"
+              >
+                Add Field
+              </button>
+            </div>
           </div>
         </div>
       )}

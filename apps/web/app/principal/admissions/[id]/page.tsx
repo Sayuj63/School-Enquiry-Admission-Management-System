@@ -126,8 +126,8 @@ export default function PrincipalAdmissionDetailPage() {
                             <div className="flex items-center gap-3">
                                 <h2 className="text-2xl font-black text-gray-900">{admission.studentName}</h2>
                                 <span className={`px-2.5 py-0.5 text-[10px] font-black uppercase rounded-lg border ${admission.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                                        admission.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
-                                            'bg-blue-100 text-blue-700 border-blue-200'
+                                    admission.status === 'rejected' ? 'bg-red-100 text-red-700 border-red-200' :
+                                        'bg-blue-100 text-blue-700 border-blue-200'
                                     }`}>
                                     {admission.status === 'approved' ? 'Accepted' : admission.status === 'rejected' ? 'Rejected' : 'Submitted'}
                                 </span>
@@ -214,8 +214,8 @@ export default function PrincipalAdmissionDetailPage() {
                             {admission.documents.map((doc) => (
                                 <div key={doc._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-black text-gray-900 truncate">{doc.type}</p>
-                                        <p className="text-xs text-gray-500 truncate">{doc.fileName}</p>
+                                        <p className="text-sm font-black text-gray-900 truncate" title={doc.type}>{doc.type}</p>
+                                        <p className="text-xs text-gray-500 truncate" title={doc.fileName}>{doc.fileName}</p>
                                     </div>
                                     <a
                                         href={doc.url}

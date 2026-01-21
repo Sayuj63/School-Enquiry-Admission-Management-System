@@ -16,6 +16,7 @@ interface Admission {
   parentName: string
   mobile: string
   email: string
+  city?: string
   grade: string
   studentDob?: string
   parentAddress?: string
@@ -32,6 +33,11 @@ interface Admission {
   status: 'draft' | 'submitted' | 'approved' | 'rejected'
   notes?: string
   slotBookingId?: string
+  enquiryId?: {
+    _id: string
+    createdAt: string
+    city?: string
+  }
 }
 
 interface Slot {
@@ -439,31 +445,55 @@ export default function AdmissionDetailPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Enquiry Information (Pre-filled)</h3>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Student Name</label>
-                <p className="input bg-gray-50">{admission.studentName}</p>
-              </div>
-              <div>
-                <label className="label">Grade</label>
-                <p className="input bg-gray-50">{admission.grade}</p>
-              </div>
-              <div>
-                <label className="label">Parent Name</label>
-                <p className="input bg-gray-50">{admission.parentName}</p>
-              </div>
-              <div>
-                <label className="label">Mobile</label>
-                <p className="input bg-gray-50">{admission.mobile}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">Email</label>
-                <p className="input bg-gray-50">{admission.email}</p>
-              </div>
+              {admission.enquiryId && typeof admission.enquiryId === 'object' && (
+                <div className="sm:col-span-2">
+                  <label className="label">Date of Enquiry</label>
+                  <p className="input bg-gray-50 font-medium text-primary-700">
+                    {format(new Date(admission.enquiryId.createdAt), 'dd MMMM yyyy, h:mm a')}
+                  </p>
+                </div>
+              )}
+              {(baseFields.studentName !== false) && (
+                <div>
+                  <label className="label">Student Name</label>
+                  <p className="input bg-gray-50">{admission.studentName}</p>
+                </div>
+              )}
+              {(baseFields.grade !== false) && (
+                <div>
+                  <label className="label">Grade</label>
+                  <p className="input bg-gray-50">{admission.grade}</p>
+                </div>
+              )}
+              {(baseFields.parentName !== false) && (
+                <div>
+                  <label className="label">Parent Name</label>
+                  <p className="input bg-gray-50">{admission.parentName}</p>
+                </div>
+              )}
+              {(baseFields.mobile !== false) && (
+                <div>
+                  <label className="label">Mobile</label>
+                  <p className="input bg-gray-50">{admission.mobile}</p>
+                </div>
+              )}
+              {(baseFields.email !== false) && (
+                <div className="sm:col-span-2">
+                  <label className="label">Email</label>
+                  <p className="input bg-gray-50">{admission.email}</p>
+                </div>
+              )}
+              {(baseFields.city !== false) && (
+                <div>
+                  <label className="label">City</label>
+                  <p className="input bg-gray-50">{admission.city || (admission.enquiryId as any)?.city || ''}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -514,11 +544,11 @@ export default function AdmissionDetailPage() {
             <div className="space-y-3 mb-4">
               {admission.documents.map((doc) => (
                 <div key={doc._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{doc.type}</p>
-                    <p className="text-sm text-gray-500">{doc.fileName}</p>
+                  <div className="min-w-0 flex-1 mr-4">
+                    <p className="font-medium text-gray-900 truncate">{doc.type}</p>
+                    <p className="text-sm text-gray-500 truncate" title={doc.fileName}>{doc.fileName}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <a href={doc.url} target="_blank" rel="noreferrer" className="text-primary-600 text-sm font-medium">View</a>
                     {!isPrincipal && <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></button>}
                   </div>
