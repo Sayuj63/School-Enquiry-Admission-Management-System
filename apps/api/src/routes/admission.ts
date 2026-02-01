@@ -82,15 +82,18 @@ router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Re
  */
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const id = req.params.id.trim();
+
     // Validate ObjectId format
-    if (!Types.ObjectId.isValid(req.params.id)) {
+    if (!Types.ObjectId.isValid(id)) {
+      console.log(`[Admission] Invalid ID format attempt: "${req.params.id}" (trimmed: "${id}")`);
       return res.status(400).json({
         success: false,
         error: 'Invalid admission ID format'
       });
     }
 
-    const admission = await Admission.findById(req.params.id).populate('enquiryId', 'createdAt city dob');
+    const admission = await Admission.findById(id).populate('enquiryId', 'createdAt city dob');
 
     if (!admission) {
       return res.status(404).json({

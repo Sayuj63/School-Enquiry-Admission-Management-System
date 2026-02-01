@@ -146,6 +146,8 @@ export default function AdmissionDetailPage() {
         notes: adm.notes || '',
         additionalFields: adm.additionalFields || {}
       })
+    } else {
+      setError(admissionResult.error || 'Failed to load admission details')
     }
 
     if (slotsResult.success && slotsResult.data) {
