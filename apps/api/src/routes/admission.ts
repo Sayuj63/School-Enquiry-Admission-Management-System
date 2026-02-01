@@ -14,7 +14,7 @@ const router: Router = Router();
  */
 router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { enquiryId } = req.params;
+    const enquiryId = req.params.enquiryId.trim().split(':')[0];
 
     // Validate ObjectId format
     if (!Types.ObjectId.isValid(enquiryId)) {
@@ -82,7 +82,7 @@ router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Re
  */
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const id = req.params.id.trim();
+    const id = req.params.id.trim().split(':')[0];
 
     // Validate ObjectId format
     if (!Types.ObjectId.isValid(id)) {

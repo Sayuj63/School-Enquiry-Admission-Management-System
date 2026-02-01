@@ -54,7 +54,7 @@ interface Slot {
 export default function AdmissionDetailPage() {
   const router = useRouter()
   const params = useParams()
-  const admissionId = params.id as string
+  const admissionId = (params.id as string).split(':')[0]
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [admission, setAdmission] = useState<Admission | null>(null)
@@ -412,7 +412,7 @@ export default function AdmissionDetailPage() {
                 const [year, month, day] = slotBooking.slotId.date.split('T')[0].split('-').map(Number)
                 const [hours, minutes] = slotBooking.slotId.startTime.split(':').map(Number)
                 const slotStartTime = new Date(year, month - 1, day, hours, minutes)
-                const canDecide = slotStartTime <= new Date()
+                const canDecide = !isPrincipal || slotStartTime <= new Date()
 
                 if (!canDecide) {
                   return (
