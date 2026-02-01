@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { Enquiry, Admission, CounsellingSlot, SlotBooking } from '../models';
-import { generateTokenId } from '@sayuj/shared';
+import { generateTokenId } from '../utils/token';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { Types } from 'mongoose';
 import { sendEnquiryWhatsApp, sendSlotConfirmationWhatsApp, isMobileVerified, sendParentCalendarInvite, sendPrincipalCalendarInvite, sendWaitlistEmail } from '../services';
@@ -261,7 +261,7 @@ router.post('/', async (req, res: Response) => {
       try {
         await sendEnquiryWhatsApp({
           to: enquiry.mobile,
-          tokenId: enquiry.tokenId,
+          tokenId: enquiry.tokenId || '',
           studentName: enquiry.childName,
           parentName: enquiry.parentName
         });
@@ -273,7 +273,7 @@ router.post('/', async (req, res: Response) => {
 
           await sendSlotConfirmationWhatsApp({
             to: enquiry.mobile,
-            tokenId: enquiry.tokenId,
+            tokenId: enquiry.tokenId || '',
             studentName: enquiry.childName,
             slotDate: slotDateFormatted,
             slotTime: `${slot.startTime} - ${slot.endTime}`,
@@ -296,7 +296,7 @@ router.post('/', async (req, res: Response) => {
               parentEmail: enquiry.email,
               parentName: enquiry.parentName,
               studentName: enquiry.childName,
-              tokenId: enquiry.tokenId,
+              tokenId: enquiry.tokenId || '',
               grade: enquiry.grade
             });
           }

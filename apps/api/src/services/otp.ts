@@ -1,5 +1,5 @@
 import { OTP } from '../models';
-import { generateOTP } from '@sayuj/shared';
+import { generateOTP } from '../utils/token';
 
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_ATTEMPTS = 3;
