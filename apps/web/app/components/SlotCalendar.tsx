@@ -68,7 +68,7 @@ interface Slot {
     endTime: string
     capacity: number
     bookedCount: number
-    status: string
+    status: 'available' | 'full' | 'disabled'
     bookings?: Booking[]
 }
 

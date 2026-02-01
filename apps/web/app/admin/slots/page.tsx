@@ -383,7 +383,14 @@ export default function SlotsPage() {
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-primary-600" /></div>
       ) : view === 'calendar' ? (
-        <CalendarView slots={slots} />
+        <CalendarView
+          slots={slots}
+          onSlotSelect={(slot) => {
+            setSelectedSlot(slot);
+            setShowAssignModal(true);
+            fetchEligibleAdmissions();
+          }}
+        />
       ) : (
         <div className="space-y-6">
           {Object.keys(slotsByDate).length === 0 ? (
