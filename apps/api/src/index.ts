@@ -64,13 +64,20 @@ app.use(helmet({
   contentSecurityPolicy: false, // Disabled for API docs flexibility, enable if needed
 }));
 
-// Rate Limiting
+// Rate Limiting - More permissive for production use
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: process.env.NODE_ENV === 'development' ? 5000 : 100, // Higher limit in development
+  limit: process.env.NODE_ENV === 'development' ? 5000 : 500, // 500 requests per 15 min in production
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { success: false, error: 'Too many requests' }
+  skip: (req) => {
+    // Skip rate limiting for public enquiry endpoints using originalUrl to catch prefixes
+    const url = req.originalUrl;
+    return url.includes('/enquiry/lookup') ||
+      url.includes('/otp/') ||
+      url.includes('/enquiry/mobile/');
+  },
+  message: { success: false, error: 'Too many requests, please try again later' }
 });
 
 // 3. Apply rate limiting to all requests (can also be applied to specific routes)

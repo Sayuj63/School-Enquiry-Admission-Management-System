@@ -787,7 +787,7 @@ export default function AdmissionDetailPage() {
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
             <button onClick={() => setShowSlotModal(false)} className="absolute top-4 right-4"><X /></button>
             <h2 className="text-xl font-semibold mb-4">Select Slot</h2>
-            <SlotCalendar slots={availableSlots} type="available" onSelectSlot={handleSlotSelect} view="week" height={500} />
+            <SlotCalendar slots={availableSlots as any} type="available" onSelectSlot={handleSlotSelect as any} view="week" height={500} />
             <button onClick={() => setShowSlotModal(false)} className="btn-secondary w-full mt-4">Cancel</button>
           </div>
         </div>
