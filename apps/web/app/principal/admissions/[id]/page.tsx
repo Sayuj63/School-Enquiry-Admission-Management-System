@@ -139,18 +139,38 @@ export default function PrincipalAdmissionDetailPage() {
                     <div className="flex items-center gap-3">
                         {admission.status === 'submitted' && (
                             <>
-                                <button
-                                    onClick={() => handleDecision('rejected')}
-                                    className="btn-secondary h-11 px-6 text-red-600 border-red-200 hover:bg-red-50 font-bold"
-                                >
-                                    Reject
-                                </button>
-                                <button
-                                    onClick={() => handleDecision('approved')}
-                                    className="btn-primary h-11 px-8 bg-emerald-600 hover:bg-emerald-700 border-none shadow-lg shadow-emerald-100 font-bold"
-                                >
-                                    Approve Admission
-                                </button>
+                                {!slotBooking ? (
+                                    <div className="text-xs font-black text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-100 flex items-center gap-2">
+                                        <Clock className="h-4 w-4" />
+                                        Slot booking pending by admin
+                                    </div>
+                                ) : !(() => {
+                                    const slotDate = new Date(slotBooking.slotId.date);
+                                    const [h, m] = slotBooking.slotId.endTime.split(':').map(Number);
+                                    const slotEnd = new Date(slotDate);
+                                    slotEnd.setHours(h, m, 0, 0);
+                                    return new Date() > slotEnd;
+                                })() ? (
+                                    <div className="text-xs font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 flex items-center gap-2">
+                                        <Clock className="h-4 w-4" />
+                                        Session ends at {slotBooking.slotId.endTime} today
+                                    </div>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={() => handleDecision('rejected')}
+                                            className="btn-secondary h-11 px-6 text-red-600 border-red-200 hover:bg-red-50 font-bold"
+                                        >
+                                            Reject
+                                        </button>
+                                        <button
+                                            onClick={() => handleDecision('approved')}
+                                            className="btn-primary h-11 px-8 bg-emerald-600 hover:bg-emerald-700 border-none shadow-lg shadow-emerald-100 font-bold"
+                                        >
+                                            Approve Admission
+                                        </button>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>
@@ -243,7 +263,17 @@ export default function PrincipalAdmissionDetailPage() {
                         {slotBooking ? (
                             <div className="p-4 bg-primary-50 rounded-2xl border border-primary-100">
                                 <div className="flex items-center text-primary-700 mb-3 font-black text-sm uppercase">
-                                    <CheckCircle className="h-4 w-4 mr-2" /> Interview Conducted
+                                    {(() => {
+                                        const slotDate = new Date(slotBooking.slotId.date);
+                                        const [h, m] = slotBooking.slotId.endTime.split(':').map(Number);
+                                        const slotEnd = new Date(slotDate);
+                                        slotEnd.setHours(h, m, 0, 0);
+                                        return new Date() > slotEnd;
+                                    })() ? (
+                                        <><CheckCircle className="h-4 w-4 mr-2" /> Session Conducted</>
+                                    ) : (
+                                        <><Clock className="h-4 w-4 mr-2" /> Session Scheduled</>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-xs">

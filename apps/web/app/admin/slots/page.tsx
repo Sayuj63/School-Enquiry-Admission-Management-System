@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Calendar, Users, Clock, Loader2, List, CalendarDays, Search, Trash2, AlertTriangle, X } from 'lucide-react'
-import { getSlots, createSlot, updateSlot, getAdmissions, bookSlot, deleteSlot, getCurrentUser } from '@/lib/api'
-import { format } from 'date-fns'
+import { Plus, Calendar, Users, Clock, Loader2, List, CalendarDays, Search, Trash2, AlertTriangle, X, User } from 'lucide-react'
+import { getSlots, createSlot, updateSlot, getAdmissions, bookSlot, deleteSlot, getCurrentUser, generateSaturdaySlots, bulkGenerateSlots, markNoShow, cancelSlotBySchool, api } from '@/lib/api'
+import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
 import CalendarView from './CalendarView'
 
 export interface Slot {
@@ -28,7 +28,8 @@ export interface Slot {
 const statusColors = {
   available: 'bg-green-100 text-green-800 border-green-200',
   full: 'bg-red-100 text-red-800 border-red-200',
-  disabled: 'bg-gray-100 text-gray-800 border-gray-200'
+  disabled: 'bg-gray-100 text-gray-800 border-gray-200',
+  completed: 'bg-blue-100 text-blue-800 border-blue-200'
 }
 
 export default function SlotsPage() {
@@ -58,13 +59,37 @@ export default function SlotsPage() {
   const [newSlot, setNewSlot] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '10:00',
-    endTime: '10:30'
+    endTime: '10:30',
+    capacity: 3
   })
+
+  // Bulk Generation State
+  const [showBulkModal, setShowBulkModal] = useState(false)
+  const [bulkAvailability, setBulkAvailability] = useState<Array<{ date: string; startTime: string; endTime: string }>>([
+    { date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '12:00' }
+  ])
+
+  // Booking Management State
+  const [selectedSlotForBookings, setSelectedSlotForBookings] = useState<Slot | null>(null)
+  const [showBookingsModal, setShowBookingsModal] = useState(false)
+  const [slotBookings, setSlotBookings] = useState<any[]>([])
+  const [fetchingBookings, setFetchingBookings] = useState(false)
 
   useEffect(() => {
     fetchSlots()
     fetchUser()
   }, [])
+
+  // Auto-clear alerts after 5 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('')
+        setSuccess('')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, success])
 
   const fetchUser = async () => {
     const result = await getCurrentUser()
@@ -114,7 +139,8 @@ export default function SlotsPage() {
       setNewSlot({
         date: format(new Date(), 'yyyy-MM-dd'),
         startTime: '10:00',
-        endTime: '10:30'
+        endTime: '10:30',
+        capacity: 3
       })
       fetchSlots()
     } else {
@@ -128,6 +154,28 @@ export default function SlotsPage() {
     const result = await updateSlot(slotId, { status: newStatus })
     if (result.success) fetchSlots()
     else setError(result.error || 'Failed to update slot')
+  }
+
+  const handleUpdateCapacity = async (slotId: string, newCapacity: number) => {
+    const result = await updateSlot(slotId, { capacity: newCapacity })
+    if (result.success) {
+      setSuccess('Capacity updated')
+      fetchSlots()
+    } else {
+      setError(result.error || 'Failed to update capacity')
+    }
+  }
+
+  const handleGenerateSaturdaySlots = async () => {
+    setLoading(true)
+    const result = await generateSaturdaySlots()
+    if (result.success) {
+      setSuccess(`Successfully generated ${result.data.length} Saturday slots`)
+      fetchSlots()
+    } else {
+      setError(result.error || 'Failed to generate Saturday slots')
+    }
+    setLoading(false)
   }
 
   const handleDeleteRequest = (slotId: string) => {
@@ -150,6 +198,33 @@ export default function SlotsPage() {
     setDeleting(false)
   }
 
+  const handleBulkGenerate = async () => {
+    setCreating(true)
+    const result = await bulkGenerateSlots(bulkAvailability)
+    if (result.success) {
+      setSuccess(`Successfully generated ${(result as any).count} slots`)
+      setShowBulkModal(false)
+      fetchSlots()
+    } else {
+      setError(result.error || 'Failed to generate slots')
+    }
+    setCreating(false)
+  }
+
+  const addBulkRow = () => {
+    setBulkAvailability([...bulkAvailability, { date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '12:00' }])
+  }
+
+  const removeBulkRow = (index: number) => {
+    setBulkAvailability(bulkAvailability.filter((_, i) => i !== index))
+  }
+
+  const updateBulkRow = (index: number, updates: any) => {
+    const updated = [...bulkAvailability]
+    updated[index] = { ...updated[index], ...updates }
+    setBulkAvailability(updated)
+  }
+
   const fetchEligibleAdmissions = async () => {
     setFetchingAdmissions(true)
     const result = await getAdmissions({ noSlot: true, limit: 100 })
@@ -157,6 +232,42 @@ export default function SlotsPage() {
       setEligibleAdmissions(result.data.admissions)
     }
     setFetchingAdmissions(false)
+  }
+
+  const handleCancelSlotBySchool = async (slotId: string) => {
+    if (!confirm('This will CANCEL the slot and AUTOMATICALLY reschedule all parents to the next available date. Original capacities will be adjusted +1. Proceed?')) return
+    setLoading(true)
+    const result = await cancelSlotBySchool(slotId)
+    if (result.success) {
+      setSuccess(result.message || 'Slot cancelled')
+      fetchSlots()
+    } else {
+      setError(result.error || 'Failed to cancel slot')
+    }
+    setLoading(false)
+  }
+
+  const handleFetchBookings = async (slot: Slot) => {
+    setSelectedSlotForBookings(slot)
+    setFetchingBookings(true)
+    setShowBookingsModal(true)
+    const result = await api.get<any>(`/api/slots/${slot._id}/bookings`)
+    if (result.success) {
+      setSlotBookings(result.data)
+    }
+    setFetchingBookings(false)
+  }
+
+  const handleMarkNoShow = async (bookingId: string) => {
+    if (!confirm('Marking this as No-Show will automatically move the parent to the next available slot (First No-Show) or to the Waitlist (Second No-Show). Proceed?')) return
+    const result = await markNoShow(bookingId)
+    if (result.success) {
+      setSuccess(result.message || 'Marked as no-show')
+      if (selectedSlotForBookings) handleFetchBookings(selectedSlotForBookings)
+      fetchSlots()
+    } else {
+      setError(result.error || 'Failed to mark no-show')
+    }
   }
 
   const handleAssignSlot = async (admissionId: string) => {
@@ -178,17 +289,34 @@ export default function SlotsPage() {
     return new Date(year, month - 1, day)
   }
 
-  const isSlotPast = (slot: Slot) => {
+  const getSlotTimeState = (slot: Slot) => {
     const [year, month, day] = slot.date.split('T')[0].split('-').map(Number)
-    const [hours, minutes] = slot.endTime.split(':').map(Number)
-    const slotEndTime = new Date(year, month - 1, day, hours, minutes)
-    return slotEndTime < new Date()
+    const [startH, startM] = slot.startTime.split(':').map(Number)
+    const [endH, endM] = slot.endTime.split(':').map(Number)
+
+    const now = new Date()
+    const startTime = new Date(year, month - 1, day, startH, startM)
+    const endTime = new Date(year, month - 1, day, endH, endM)
+
+    if (now > endTime) return 'past'
+    if (now >= startTime && now <= endTime) return 'ongoing'
+    return 'upcoming'
   }
 
+  const isSlotPast = (slot: Slot) => getSlotTimeState(slot) === 'past'
+
   const slotsByDate = slots.reduce((acc, slot) => {
-    const isPast = isSlotPast(slot)
+    const timeState = getSlotTimeState(slot)
+    const isPast = timeState === 'past'
     const isDisabled = slot.status === 'disabled'
-    if (statusFilter === 'active' && (isDisabled || isPast)) return acc
+
+    // For active filter: include upcoming, ongoing, and today's completed slots
+    if (statusFilter === 'active') {
+      const isToday = isSameDay(parseLocalDate(slot.date), new Date())
+      if (isDisabled) return acc;
+      if (isPast && !isToday) return acc;
+    }
+
     if (statusFilter === 'disabled' && slot.status !== 'disabled') return acc
     if (statusFilter === 'completed' && !isPast) return acc
 
@@ -207,12 +335,24 @@ export default function SlotsPage() {
           <h2 className="text-2xl font-bold text-gray-900">Counselling Slots</h2>
           <p className="text-gray-600">Manage available slots for counselling sessions</p>
         </div>
-        {!isPrincipal && (
-          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Slot
-          </button>
-        )}
+        <div className="flex gap-2">
+          {!isPrincipal && (
+            <>
+              <button onClick={() => setShowBulkModal(true)} className="btn-secondary bg-primary-50 border-primary-100 text-primary-700 hover:bg-primary-100">
+                <Calendar className="h-4 w-4 mr-2" />
+                Configure Principal Availability
+              </button>
+              <button onClick={handleGenerateSaturdaySlots} className="btn-secondary">
+                <Calendar className="h-4 w-4 mr-2" />
+                Release Sat Slots
+              </button>
+              <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Slot
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -262,17 +402,34 @@ export default function SlotsPage() {
                 <h3 className="text-lg font-semibold mb-4">{format(parseLocalDate(dateKey), 'EEEE, dd MMMM yyyy')}</h3>
                 <div className="space-y-3">
                   {daySlots.map(slot => {
-                    const isPast = isSlotPast(slot)
+                    const timeState = getSlotTimeState(slot)
+                    const isPast = timeState === 'past'
+                    const isOngoing = timeState === 'ongoing'
+
+                    let bgClass = statusColors[slot.status]
+                    if (isPast) bgClass = statusColors.completed
+                    if (isOngoing) bgClass = 'bg-amber-100 text-amber-800 border-amber-200'
+
                     return (
-                      <div key={slot._id} className={`p-4 rounded-lg border ${statusColors[slot.status]} ${isPast ? 'opacity-75' : ''}`}>
+                      <div key={slot._id} className={`p-4 rounded-lg border ${bgClass} ${isPast ? 'opacity-75' : ''}`}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                           <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center"><Clock className="h-4 w-4 mr-2" />{slot.startTime} - {slot.endTime}</div>
-                            <div className="flex items-center"><Users className="h-4 w-4 mr-2" />{slot.bookedCount}/{slot.capacity} booked</div>
+                            <div className="flex items-center font-bold text-gray-900"><Clock className="h-4 w-4 mr-2" />{slot.startTime} - {slot.endTime}</div>
+                            <div className="flex items-center bg-white px-2 py-1 rounded border shadow-sm">
+                              <Users className="h-3 w-3 mr-2 text-gray-400" />
+                              <span className="mr-2 font-medium">{slot.bookedCount} /</span>
+                              <input
+                                type="number"
+                                className="w-10 bg-transparent border-none p-0 text-sm font-bold focus:ring-0"
+                                value={slot.capacity}
+                                onChange={(e) => handleUpdateCapacity(slot._id, parseInt(e.target.value))}
+                                min={slot.bookedCount}
+                              />
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm capitalize font-medium">
-                              {isPast ? 'Completed' : slot.status}
+                            <span className="text-sm capitalize font-black tracking-tight">
+                              {isPast ? '✓ Completed' : isOngoing ? '● Ongoing' : slot.status}
                             </span>
                             {!isPrincipal && !isPast && (
                               <>
@@ -289,6 +446,22 @@ export default function SlotsPage() {
                                     className="bg-primary-600 text-white text-xs px-2 py-1 rounded hover:bg-primary-700"
                                   >
                                     Assign
+                                  </button>
+                                )}
+                                {slot.bookedCount > 0 && (
+                                  <button
+                                    onClick={() => handleFetchBookings(slot)}
+                                    className="text-primary-600 hover:bg-primary-50 text-xs px-2 py-1 rounded border border-primary-100"
+                                  >
+                                    Bookings ({slot.bookedCount}p)
+                                  </button>
+                                )}
+                                {slot.bookedCount > 0 && (
+                                  <button
+                                    onClick={() => handleCancelSlotBySchool(slot._id)}
+                                    className="text-amber-600 hover:bg-amber-50 text-xs px-2 py-1 rounded border border-amber-100"
+                                  >
+                                    Cancel & Reschedule
                                   </button>
                                 )}
                                 {slot.bookedCount === 0 && (
@@ -325,6 +498,7 @@ export default function SlotsPage() {
                 <div><label className="label">Start</label><input type="time" className="input" value={newSlot.startTime} onChange={e => setNewSlot({ ...newSlot, startTime: e.target.value })} /></div>
                 <div><label className="label">End</label><input type="time" className="input" value={newSlot.endTime} onChange={e => setNewSlot({ ...newSlot, endTime: e.target.value })} /></div>
               </div>
+              <div><label className="label">Capacity (Parents)</label><input type="number" className="input" value={newSlot.capacity} onChange={e => setNewSlot({ ...newSlot, capacity: parseInt(e.target.value) })} min="1" /></div>
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowCreateModal(false)} className="btn-secondary flex-1">Cancel</button>
@@ -343,6 +517,57 @@ export default function SlotsPage() {
               <button onClick={() => setShowDeleteModal(false)} className="btn-secondary flex-1">Cancel</button>
               <button onClick={handleDeleteSlot} disabled={deleting} className="btn-primary bg-red-600 hover:bg-red-700 border-none flex-1 font-bold">
                 {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-black uppercase tracking-tighter">Configure Principal Availability</h2>
+              <button onClick={() => setShowBulkModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 mb-6 font-medium">
+              Specify the time periods when the Principal is available for counselling. The system will automatically generate 30-minute slots (or as configured in settings) within these periods.
+            </p>
+
+            <div className="space-y-4">
+              {bulkAvailability.map((row, index) => (
+                <div key={index} className="flex flex-col sm:flex-row gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100 items-end">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold uppercase text-gray-400">Date</label>
+                    <input type="date" className="input text-sm" value={row.date} onChange={e => updateBulkRow(index, { date: e.target.value })} />
+                  </div>
+                  <div className="w-32">
+                    <label className="text-[10px] font-bold uppercase text-gray-400">Start Time</label>
+                    <input type="time" className="input text-sm" value={row.startTime} onChange={e => updateBulkRow(index, { startTime: e.target.value })} />
+                  </div>
+                  <div className="w-32">
+                    <label className="text-[10px] font-bold uppercase text-gray-400">End Time</label>
+                    <input type="time" className="input text-sm" value={row.endTime} onChange={e => updateBulkRow(index, { endTime: e.target.value })} />
+                  </div>
+                  <button onClick={() => removeBulkRow(index)} className="p-2 text-red-500 hover:bg-red-50 rounded" disabled={bulkAvailability.length === 1}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+
+              <button onClick={addBulkRow} className="text-sm text-primary-600 font-medium hover:underline flex items-center">
+                <Plus className="h-4 w-4 mr-1" /> Add Period
+              </button>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setShowBulkModal(false)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={handleBulkGenerate} disabled={creating} className="btn-primary flex-1 py-3 grad-primary shadow-lg border-none font-black uppercase tracking-widest text-xs">
+                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Calendar className="h-4 w-4 mr-2" />}
+                Set Availability & Create Slots
               </button>
             </div>
           </div>
@@ -375,6 +600,56 @@ export default function SlotsPage() {
               ))}
             </div>
             <button onClick={() => setShowAssignModal(false)} className="btn-secondary mt-4 w-full font-bold">Cancel</button>
+          </div>
+        </div>
+      )}
+      {showBookingsModal && selectedSlotForBookings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-xl font-bold">Bookings</h2>
+                <p className="text-xs text-gray-500">{format(parseLocalDate(selectedSlotForBookings.date), 'dd MMM yyyy')} • {selectedSlotForBookings.startTime} - {selectedSlotForBookings.endTime}</p>
+              </div>
+              <button onClick={() => setShowBookingsModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {fetchingBookings ? (
+              <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-primary-600" /></div>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-4">
+                {slotBookings.map((booking) => (
+                  <div key={booking._id} className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-between group">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-white p-2.5 rounded-xl shadow-sm">
+                        <User className="h-5 w-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900">{(booking.admissionId as any)?.studentName || 'Student'}</p>
+                        <p className="text-xs text-gray-500">{(booking.admissionId as any)?.parentName} • {booking.tokenId}</p>
+                        {(booking.admissionId as any)?.noShowCount > 0 && (
+                          <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase bg-red-100 text-red-700">
+                            No-Show #{(booking.admissionId as any).noShowCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleMarkNoShow(booking._id)}
+                        className="text-[10px] font-black uppercase px-3 py-1.5 bg-white text-red-600 border border-red-100 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        No-Show
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button onClick={() => setShowBookingsModal(false)} className="btn-secondary mt-6 w-full py-3 font-black uppercase tracking-widest text-xs">Close</button>
           </div>
         </div>
       )}

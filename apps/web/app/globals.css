@@ -44,4 +44,28 @@
   .error-text {
     @apply mt-1 text-sm text-red-600;
   }
+
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20;
+  }
+
+  .grad-primary {
+    @apply bg-gradient-to-br from-primary-600 to-primary-800 text-white;
+  }
+
+  .grad-indigo {
+    @apply bg-gradient-to-br from-indigo-500 to-indigo-700 text-white;
+  }
+
+  .grad-emerald {
+    @apply bg-gradient-to-br from-emerald-500 to-emerald-700 text-white;
+  }
+
+  .grad-orange {
+    @apply bg-gradient-to-br from-orange-500 to-orange-700 text-white;
+  }
+
+  .grad-purple {
+    @apply bg-gradient-to-br from-purple-500 to-purple-700 text-white;
+  }
 }

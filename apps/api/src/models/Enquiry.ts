@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IEnquiry extends Document {
-  tokenId: string;
+  tokenId?: string;
   parentName: string;
   childName: string;
   mobile: string;
@@ -9,8 +9,10 @@ export interface IEnquiry extends Document {
   email: string;
   city: string;
   grade: string;
+  dob?: Date;
+  status: 'draft' | 'new' | 'in_progress' | 'converted';
+  slotBookingId?: mongoose.Types.ObjectId;
   message: string;
-  status: 'new' | 'in_progress' | 'converted';
   additionalFields?: Record<string, any>;
   whatsappSent: boolean;
   createdAt: Date;
@@ -21,18 +23,17 @@ const enquirySchema = new Schema<IEnquiry>(
   {
     tokenId: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       index: true
     },
     parentName: {
       type: String,
-      required: true,
       trim: true
     },
     childName: {
       type: String,
-      required: true,
       trim: true
     },
     mobile: {
@@ -46,7 +47,6 @@ const enquirySchema = new Schema<IEnquiry>(
     },
     email: {
       type: String,
-      required: true,
       lowercase: true,
       trim: true
     },
@@ -56,8 +56,10 @@ const enquirySchema = new Schema<IEnquiry>(
       default: ''
     },
     grade: {
-      type: String,
-      required: true
+      type: String
+    },
+    dob: {
+      type: Date
     },
     message: {
       type: String,
@@ -66,8 +68,12 @@ const enquirySchema = new Schema<IEnquiry>(
     },
     status: {
       type: String,
-      enum: ['new', 'in_progress', 'converted'],
+      enum: ['draft', 'new', 'in_progress', 'converted'],
       default: 'new'
+    },
+    slotBookingId: {
+      type: Schema.Types.ObjectId,
+      ref: 'SlotBooking'
     },
     whatsappSent: {
       type: Boolean,

@@ -15,7 +15,7 @@ interface Enquiry {
   mobile: string
   email: string
   grade: string
-  status: 'new' | 'half_filled' | 'pending_admission' | 'converted'
+  status: 'new' | 'draft' | 'pending_admission' | 'converted'
   createdAt: string
   slotBooked?: boolean
   bookedCount?: number
@@ -24,14 +24,14 @@ interface Enquiry {
 
 const statusColors: any = {
   new: 'bg-blue-100 text-blue-800',
-  half_filled: 'bg-orange-100 text-orange-800',
+  draft: 'bg-orange-100 text-orange-800',
   pending_admission: 'bg-yellow-100 text-yellow-800',
   converted: 'bg-green-100 text-green-800'
 }
 
 const statusLabels = {
   new: 'New',
-  half_filled: 'Half Filled',
+  draft: 'Draft (Incomplete)',
   pending_admission: 'Pending Admission',
   converted: 'Admission Approved'
 }
@@ -88,6 +88,17 @@ export default function EnquiriesPage() {
   useEffect(() => {
     fetchEnquiries()
   }, [page])
+
+  // Auto-clear alerts after 5 seconds
+  useEffect(() => {
+    if (modalError || modalSuccess) {
+      const timer = setTimeout(() => {
+        setModalError('')
+        setModalSuccess('')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [modalError, modalSuccess])
 
   const fetchEnquiries = async () => {
     setLoading(true)
@@ -319,7 +330,7 @@ export default function EnquiriesPage() {
             >
               <option value="">All Status</option>
               <option value="new">New</option>
-              <option value="half_filled">Half Filled</option>
+              <option value="draft">Incomplete (Draft)</option>
               <option value="pending_admission">Pending Admission</option>
               <option value="converted">Completed</option>
             </select>
@@ -388,8 +399,8 @@ export default function EnquiriesPage() {
                         </span>
                       ) : (enquiry as any).status === 'in_progress' || enquiry.status === 'pending_admission' ? (
                         enquiry.admissionStatus === 'draft' ? (
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.half_filled}`}>
-                            {statusLabels.half_filled}
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.draft}`}>
+                            {statusLabels.draft}
                           </span>
                         ) : (
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.pending_admission}`}>

@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Phone, Mail, MapPin, Calendar, CheckCircle, Loader2 } from 'lucide-react'
-import { getEnquiry, createAdmission, getEnquiryTemplate } from '@/lib/api'
+import { ArrowLeft, FileText, Phone, Mail, MapPin, Calendar, CheckCircle, Loader2, MessageCircle } from 'lucide-react'
+import { getEnquiry, createAdmission, getEnquiryTemplate, resendNotification } from '@/lib/api'
 import { format } from 'date-fns'
+import toast from 'react-hot-toast'
 
 interface Enquiry {
   _id: string
@@ -18,7 +19,7 @@ interface Enquiry {
   city: string
   grade: string
   message: string
-  status: 'new' | 'in_progress' | 'converted'
+  status: 'new' | 'draft' | 'in_progress' | 'converted' | 'pending_admission'
   additionalFields?: Record<string, any>
   whatsappSent: boolean
   createdAt: string
@@ -26,14 +27,18 @@ interface Enquiry {
 
 const statusColors = {
   new: 'bg-blue-100 text-blue-800',
-  in_progress: 'bg-yellow-100 text-yellow-800',
+  draft: 'bg-orange-100 text-orange-800',
+  in_progress: 'bg-orange-100 text-orange-800',
+  pending_admission: 'bg-yellow-100 text-yellow-800',
   converted: 'bg-green-100 text-green-800'
 }
 
 const statusLabels = {
   new: 'New',
-  in_progress: 'In Progress',
-  converted: 'Converted'
+  draft: 'Draft (Incomplete)',
+  in_progress: 'Draft (Incomplete)',
+  pending_admission: 'Pending Admission',
+  converted: 'Admission Approved'
 }
 
 export default function EnquiryDetailPage() {
@@ -130,6 +135,29 @@ export default function EnquiryDetailPage() {
           </span>
         </div>
       </div>
+
+      {enquiry.status === 'draft' && (
+        <div className="mb-6 bg-orange-50 border border-orange-100 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-orange-900">Draft In Progress</p>
+              <p className="text-xs text-orange-700">The parent has saved this enquiry as a draft and yet to submit.</p>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <div className="text-xs font-bold text-orange-800 uppercase tracking-wider">Completion</div>
+            <div className="w-48 h-2 bg-orange-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-orange-500 transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.round(((dynamicFields.length + 7) / (templateFields.length || 1)) * 100))}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Main Info */}
@@ -254,6 +282,32 @@ export default function EnquiryDetailPage() {
                     Generate Admission Form
                   </>
                 )}
+              </button>
+            )}
+
+            {enquiry.status !== 'draft' && (
+              <button
+                onClick={async () => {
+                  setCreating(true)
+                  const res = await resendNotification(enquiryId)
+                  setCreating(false)
+                  if (res.success) {
+                    toast.success('Notifications resent successfully!')
+                    // Update local state is optional as the Enquiry detail already shows whatsappSent status
+                    setEnquiry(prev => prev ? { ...prev, whatsappSent: true } : null)
+                  } else {
+                    setError(res.error || 'Failed to resend notifications')
+                  }
+                }}
+                disabled={creating}
+                className="btn-secondary w-full justify-center mt-3"
+              >
+                {creating ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                )}
+                Resend Notifications
               </button>
             )}
           </div>

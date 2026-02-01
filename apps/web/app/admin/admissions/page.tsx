@@ -13,23 +13,28 @@ interface Admission {
   studentName: string
   parentName: string
   grade: string
-  status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'waitlisted' | 'confirmed'
   slotBookingId?: string
   createdAt: string
+  documents: any[]
 }
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-800',
   submitted: 'bg-blue-100 text-blue-800',
   approved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800'
+  confirmed: 'bg-emerald-100 text-emerald-800',
+  rejected: 'bg-red-100 text-red-800',
+  waitlisted: 'bg-amber-100 text-amber-800'
 }
 
 const statusLabels = {
   draft: 'Draft',
-  submitted: 'Submitted',
+  submitted: 'Pending Review',
   approved: 'Accepted',
-  rejected: 'Rejected'
+  confirmed: 'Admission Confirmed',
+  rejected: 'Rejected',
+  waitlisted: 'Waitlisted'
 }
 
 export default function AdmissionsPage() {
@@ -143,6 +148,18 @@ export default function AdmissionsPage() {
         </button>
         <button
           onClick={() => {
+            setStatusFilter('confirmed')
+            setPage(1)
+          }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'confirmed'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+        >
+          Confirmed
+        </button>
+        <button
+          onClick={() => {
             setStatusFilter('rejected')
             setPage(1)
           }}
@@ -152,6 +169,18 @@ export default function AdmissionsPage() {
             }`}
         >
           Rejected
+        </button>
+        <button
+          onClick={() => {
+            setStatusFilter('waitlisted')
+            setPage(1)
+          }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${statusFilter === 'waitlisted'
+            ? 'border-primary-600 text-primary-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+        >
+          Waitlisted
         </button>
       </div>
 
@@ -220,6 +249,9 @@ export default function AdmissionsPage() {
                     Created
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Docs
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -260,6 +292,11 @@ export default function AdmissionsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {format(new Date(admission.createdAt), 'dd MMM yyyy')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${admission.documents?.length > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-50 text-gray-400'}`}>
+                        {admission.documents?.length || 0} files
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[admission.status]}`}>

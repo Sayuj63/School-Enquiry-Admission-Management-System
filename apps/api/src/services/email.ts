@@ -165,7 +165,7 @@ ${schoolName} Admissions Team
 
     // Resend requires a verified domain or onboarding@resend.dev
     // If you haven't verified a domain, you MUST use onboarding@resend.dev as 'from'
-    const fromAddress = schoolEmail === 'info@school.com' || !schoolEmail
+    const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 
@@ -186,9 +186,15 @@ ${schoolName} Admissions Team
 
     if (error) {
       console.error('❌ Resend execution error details:', JSON.stringify(error, null, 2));
+      let errorMessage = `Failed to send email via Resend: ${error.name} - ${error.message}`;
+
+      if ((error as any).statusCode === 403) {
+        errorMessage = "Resend 403 Error: You are likely using an unverified domain or trying to send to a non-authorized recipient while on the testing tier. Please verify your domain at resend.com or send only to the owner email (nes22193@gmail.com).";
+      }
+
       return {
         success: false,
-        message: `Failed to send email via Resend: ${error.name} - ${error.message}`
+        message: errorMessage
       };
     }
 
@@ -290,7 +296,7 @@ Location: ${data.location}
     }
 
     // Resend requires a verified domain or onboarding@resend.dev
-    const fromAddress = schoolEmail === 'info@school.com' || !schoolEmail
+    const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 
@@ -311,9 +317,15 @@ Location: ${data.location}
 
     if (error) {
       console.error('❌ Resend execution error details (Principal):', JSON.stringify(error, null, 2));
+      let errorMessage = `Failed to send email to principal: ${error.name} - ${error.message}`;
+
+      if ((error as any).statusCode === 403) {
+        errorMessage = "Resend 403 Error (Principal): You are likely using an unverified domain or trying to send to a non-authorized recipient while on the testing tier.";
+      }
+
       return {
         success: false,
-        message: `Failed to send email to principal: ${error.name} - ${error.message}`
+        message: errorMessage
       };
     }
 
@@ -324,6 +336,82 @@ Location: ${data.location}
     };
   } catch (error: any) {
     console.error('❌ Email sending error:', error);
+    return {
+      success: false,
+      message: `Failed to send email: ${error.message}`
+    };
+  }
+}
+/**
+ * Send waitlist joining confirmation email to parent using Resend
+ */
+export async function sendWaitlistEmail(data: {
+  parentEmail: string;
+  parentName: string;
+  studentName: string;
+  tokenId: string;
+  grade: string;
+}): Promise<SendEmailResult> {
+  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@school.com';
+
+  const emailBody = `
+Dear ${data.parentName},
+
+Thank you for your interest in ${schoolName}.
+
+This is to confirm that ${data.studentName} has been added to our waitlist for Grade ${data.grade}.
+
+Token ID: ${data.tokenId}
+
+We have currently reached our maximum capacity for this grade. Should a seat become available, our admissions team will contact you directly to proceed with the next steps.
+
+Best regards,
+${schoolName} Admissions Team
+  `.trim();
+
+  try {
+    if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
+      console.log('========================================');
+      console.log('EMAIL SERVICE (WAITLIST MOCK MODE)');
+      console.log('----------------------------------------');
+      console.log(`To: ${data.parentEmail}`);
+      console.log(`Subject: Waitlist Application Confirmation - ${data.tokenId}`);
+      console.log('Body:');
+      console.log(emailBody);
+      console.log('========================================');
+
+      return {
+        success: true,
+        message: 'Waitlist email sent successfully (dev mode)',
+        mockMessage: emailBody,
+        to: data.parentEmail
+      };
+    }
+
+    const resend = getResendClient();
+    if (!resend) {
+      return { success: false, message: 'Email service not configured' };
+    }
+
+    const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
+      ? 'onboarding@resend.dev'
+      : `${schoolName} <${schoolEmail}>`;
+
+    await resend.emails.send({
+      from: fromAddress,
+      to: [data.parentEmail],
+      subject: `Waitlist Application Confirmation - ${data.tokenId}`,
+      text: emailBody
+    });
+
+    console.log('✅ Waitlist email sent successfully via Resend.');
+    return {
+      success: true,
+      message: 'Waitlist confirmation email sent to parent'
+    };
+  } catch (error: any) {
+    console.error('❌ Waitlist email sending error:', error);
     return {
       success: false,
       message: `Failed to send email: ${error.message}`

@@ -1,5 +1,7 @@
 import './env';
 import express from 'express';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import cors from 'cors';
 import path from 'path';
 import { apiReference } from '@scalar/express-api-reference';
@@ -14,15 +16,58 @@ import admissionRoutes from './routes/admission';
 import slotRoutes from './routes/slot';
 import templateRoutes from './routes/template';
 import otpRoutes from './routes/otp';
+import settingsRoutes from './routes/settings';
+import { startReminderJob } from './services/reminder';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5002;
 
-// Middleware
+// 1. CORS MUST be first to handle preflights and ensure headers are on all responses
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',')
+  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // In development, allow any localhost origin
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+
+    if (allowedOrigins.indexOf(origin) !== -1 || (process.env.NODE_ENV === 'development' && isLocalhost)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked for origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // 24 hours
 }));
+
+// 2. Helmet for security
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // Disabled for API docs flexibility, enable if needed
+}));
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: process.env.NODE_ENV === 'development' ? 5000 : 100, // Higher limit in development
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests' }
+});
+
+// 3. Apply rate limiting to all requests (can also be applied to specific routes)
+app.use('/api/', limiter);
+
+// 4. Body Parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -64,6 +109,7 @@ app.use('/api/admission', admissionRoutes);
 app.use('/api/admissions', admissionRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -87,11 +133,11 @@ async function startServer() {
   try {
     // Start listening as soon as possible to satisfy Render's health check
     const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`\n========================================`);
-      console.log(`  Server running on port ${PORT}`);
+      console.log(`\n ========================================`);
+      console.log(`  Server running on port ${PORT} `);
       console.log(`  Binding to 0.0.0.0`);
       console.log(`========================================`);
-      console.log(`  API URL:      http://localhost:${PORT}`);
+      console.log(`  API URL: http://localhost:${PORT}`);
       console.log(`  Health:       http://localhost:${PORT}/health`);
       console.log(`  Minimal:      http://localhost:${PORT}/`);
       console.log(`  API Docs:     http://localhost:${PORT}/docs`);
@@ -102,6 +148,9 @@ async function startServer() {
     // This prevents Render from killing the process if DB connection is slow
     await connectDB();
     await seedDatabase();
+
+    // Start automated background tasks
+    startReminderJob();
 
     console.log('Database connection and seeding complete.');
 

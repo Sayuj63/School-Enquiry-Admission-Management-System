@@ -15,7 +15,8 @@ import {
   Clock,
   User,
   MapPin,
-  BarChart3
+  BarChart3,
+  Settings
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { getEnquiries, getAdmissions, getSlots, getDashboardStats } from '@/lib/api'
@@ -25,6 +26,7 @@ interface DashboardStats {
   totalAdmissions: number
   admissionsThisMonth: number
   scheduledCounselling: number
+  waitlistedCount: number
 }
 
 interface Activity {
@@ -42,7 +44,8 @@ export default function DashboardPage() {
     totalEnquiriesToday: 0,
     totalAdmissions: 0,
     admissionsThisMonth: 0,
-    scheduledCounselling: 0
+    scheduledCounselling: 0,
+    waitlistedCount: 0
   })
   const [activities, setActivities] = useState<Activity[]>([])
   const [upcomingSlots, setUpcomingSlots] = useState<any[]>([])
@@ -57,13 +60,14 @@ export default function DashboardPage() {
         const day = String(now.getDate()).padStart(2, '0')
         const todayStr = `${year}-${month}-${day}`
 
-        // Use a 5-minute buffer for "upcoming" meetings within today
-        const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+        const tomorrow = new Date(now)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`
 
         // Fetch Stats and Data
         const [statsRes, slotsRes] = await Promise.all([
           getDashboardStats(),
-          getSlots({ dateFrom: todayStr, dateTo: todayStr })
+          getSlots({ dateFrom: todayStr, dateTo: tomorrowStr })
         ])
 
         // 2. Process Activities (Notifications) - FILTER TO TODAY ONLY
@@ -77,7 +81,8 @@ export default function DashboardPage() {
             totalEnquiriesToday: s.enquiriesToday || 0,
             totalAdmissions: s.totalAdmissions || 0,
             admissionsThisMonth: s.admissionsThisMonth || 0,
-            scheduledCounselling: s.scheduledCounselling || 0
+            scheduledCounselling: s.scheduledCounselling || 0,
+            waitlistedCount: s.waitlistedCount || 0
           })
 
           // Add Enquiries from today
@@ -105,7 +110,12 @@ export default function DashboardPage() {
                 recentActivities.push({
                   id: adm._id,
                   type: 'admission',
-                  title: adm.status === 'submitted' ? 'Admission Submitted' : 'Admission Feed',
+                  title:
+                    adm.status === 'submitted' ? 'Admission Submitted' :
+                      adm.status === 'confirmed' ? 'Admission Confirmed' :
+                        adm.status === 'waitlisted' ? 'Added to Waitlist' :
+                          adm.status === 'rejected' ? 'Admission Rejected' :
+                            'Admission Updated',
                   description: `${adm.studentName}`,
                   time: date,
                   status: adm.status
@@ -115,28 +125,33 @@ export default function DashboardPage() {
           }
         }
 
-        // 3. Process Upcoming Slots and Flatten Booked Sessions (TODAY ONLY)
+        // 3. Process Upcoming Slots and Flatten Booked Sessions (NEXT 2 DAYS)
         if (slotsRes.success) {
           const allBookings: any[] = []
           slotsRes.data.forEach((slot: any) => {
-            // Only include today's slots (extra safety)
             const slotDate = new Date(slot.date)
-            const slotDateStr = `${slotDate.getUTCFullYear()}-${String(slotDate.getUTCMonth() + 1).padStart(2, '0')}-${String(slotDate.getUTCDate()).padStart(2, '0')}`
+            // Use local date string comparison to avoid TZ issues
+            const slotDateStr = slot.date.split('T')[0];
 
-            if (slotDateStr === todayStr && slot.bookings && slot.bookings.length > 0) {
+            if (slot.bookings && slot.bookings.length > 0) {
               const [hours, minutes] = slot.endTime.split(':').map(Number)
+              // Construct slot end time in local time
               const slotEndTime = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), hours, minutes)
               const isPast = slotEndTime < new Date()
 
               slot.bookings.forEach((booking: any) => {
-                if (!isPast) {
+                // Modified Requirement: Keep today's past slots visible in dashboard for the whole day
+                if (!isPast || slotDateStr === todayStr) {
                   allBookings.push({
                     id: booking._id,
                     studentName: booking.admissionId?.studentName || 'Unknown Student',
                     time: `${slot.startTime} - ${slot.endTime}`,
                     startTime: slot.startTime,
-                    location: 'Virtual Room',
-                    admissionId: booking.admissionId?._id
+                    date: slotDateStr,
+                    isToday: slotDateStr === todayStr,
+                    isPast: isPast,
+                    admissionId: booking.admissionId?._id,
+                    location: slot.location || 'School Campus'
                   })
                 }
 
@@ -156,8 +171,11 @@ export default function DashboardPage() {
             }
           })
 
-          // Sort by time
-          allBookings.sort((a, b) => a.startTime.localeCompare(b.startTime))
+          // Sort by date then time
+          allBookings.sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return a.startTime.localeCompare(b.startTime);
+          })
           setUpcomingSlots(allBookings)
         }
 
@@ -190,16 +208,18 @@ export default function DashboardPage() {
       color: 'bg-blue-600',
       textColor: 'text-blue-600',
       bgColor: 'bg-blue-50',
+      grad: 'grad-indigo',
       href: '/admin/enquiries?date=today'
     },
     {
-      name: 'ACCEPTED ADMISSIONS',
+      name: 'CONFIRMED ADMISSIONS',
       value: stats.totalAdmissions,
-      icon: Users,
+      icon: CheckCircle2,
       color: 'bg-emerald-600',
       textColor: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
-      href: '/admin/admissions?status=approved'
+      grad: 'grad-emerald',
+      href: '/admin/admissions?status=confirmed'
     },
     {
       name: 'ADMISSIONS THIS MONTH',
@@ -208,16 +228,28 @@ export default function DashboardPage() {
       color: 'bg-orange-600',
       textColor: 'text-orange-600',
       bgColor: 'bg-orange-50',
+      grad: 'grad-orange',
       href: '/admin/admissions'
     },
     {
       name: 'COUNSELLING TODAY',
       value: stats.scheduledCounselling,
-      icon: Users,
+      icon: Calendar,
       color: 'bg-purple-600',
       textColor: 'text-purple-600',
       bgColor: 'bg-purple-50',
+      grad: 'grad-purple',
       href: '/admin/slots?date=today'
+    },
+    {
+      name: 'WAITLISTED',
+      value: stats.waitlistedCount,
+      icon: Clock,
+      color: 'bg-amber-600',
+      textColor: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      grad: 'grad-orange',
+      href: '/admin/admissions?status=waitlisted'
     }
   ]
 
@@ -242,25 +274,77 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {statCards.map((stat) => (
           <Link key={stat.name} href={stat.href} className="group">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 group-hover:shadow-md group-hover:border-primary-200 transition-all">
+            <div className={`p-6 rounded-2xl shadow-lg border-none hover:shadow-xl transition-all h-full ${stat.grad}`}>
               <div className="flex items-center justify-between mb-4">
-                <div className={`${stat.bgColor} p-2.5 rounded-xl`}>
-                  <stat.icon className={`h-6 w-6 ${stat.textColor}`} />
+                <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm">
+                  <stat.icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-xs font-semibold text-gray-400 group-hover:text-primary-600 transition-colors uppercase tracking-wider">
-                  Details &rarr;
+                <span className="text-[10px] font-black text-white/70 group-hover:text-white transition-colors uppercase tracking-widest">
+                  View List &rarr;
                 </span>
               </div>
               <div>
-                <p className="text-sm text-gray-500 font-medium mb-1">{stat.name}</p>
-                <p className="text-3xl font-extrabold text-gray-900">{stat.value}</p>
+                <p className="text-xs text-white/80 font-bold uppercase tracking-widest mb-1">{stat.name}</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-black">{stat.value}</p>
+                  {stat.name.includes('TODAY') && <span className="text-[10px] font-bold px-1.5 py-0.5 bg-white/20 rounded">LIVE</span>}
+                </div>
               </div>
             </div>
           </Link>
         ))}
+      </div>
+
+      {/* Management Flow Quick Links */}
+      <div className="card border-none shadow-md overflow-hidden relative group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary-100 rounded-full blur-3xl opacity-30 -mr-32 -mt-32 transition-all group-hover:bg-primary-200"></div>
+        <div className="relative z-10">
+          <h2 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-widest">
+            <BarChart3 className="h-5 w-5 text-primary-600" />
+            Management Workflow
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Link href="/admin/slots" className="flex items-center p-4 bg-gray-50 rounded-xl hover:bg-primary-50 hover:shadow-sm border border-transparent hover:border-primary-100 transition-all group/flow">
+              <div className="bg-white p-3 rounded-lg shadow-sm group-hover/flow:scale-110 transition-transform">
+                <Calendar className="h-5 w-5 text-primary-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-black text-gray-900 uppercase tracking-tighter">Set Availability</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">Auto-create 30m slots</p>
+              </div>
+            </Link>
+            <Link href="/admin/admissions" className="flex items-center p-4 bg-gray-50 rounded-xl hover:bg-indigo-50 hover:shadow-sm border border-transparent hover:border-indigo-100 transition-all group/flow">
+              <div className="bg-white p-3 rounded-lg shadow-sm group-hover/flow:scale-110 transition-transform">
+                <FileText className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-black text-gray-900 uppercase tracking-tighter">Manage List</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">View & Sort Applications</p>
+              </div>
+            </Link>
+            <Link href="/admin/admissions" className="flex items-center p-4 bg-gray-50 rounded-xl hover:bg-emerald-50 hover:shadow-sm border border-transparent hover:border-emerald-100 transition-all group/flow">
+              <div className="bg-white p-3 rounded-lg shadow-sm group-hover/flow:scale-110 transition-transform">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-black text-gray-900 uppercase tracking-tighter">Review & Approve</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">Decision Management</p>
+              </div>
+            </Link>
+            <Link href="/admin/settings?tab=slots" className="flex items-center p-4 bg-gray-50 rounded-xl hover:bg-purple-50 hover:shadow-sm border border-transparent hover:border-purple-100 transition-all group/flow">
+              <div className="bg-white p-3 rounded-lg shadow-sm group-hover/flow:scale-110 transition-transform">
+                <Settings className="h-5 w-5 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-black text-gray-900 uppercase tracking-tighter">Configure Rules</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">Durations & Gap logic</p>
+              </div>
+            </Link>
+          </div>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
@@ -357,9 +441,16 @@ export default function DashboardPage() {
                     <div key={booking.id} className="group relative pl-4 border-l-2 border-purple-200 hover:border-purple-400 transition-all">
                       <div className="absolute left-[-2px] top-0 bottom-0 w-0.5 bg-purple-600 group-hover:w-1 transition-all"></div>
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{booking.studentName}</p>
-                        <span className="text-[10px] font-black text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100 uppercase tracking-tighter">
-                          {booking.time.split(' - ')[0]}
+                        <div>
+                          <p className="text-sm font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{booking.studentName}</p>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                            {booking.isToday ? 'Today' : format(new Date(booking.date), 'EEE, MMM d')}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-tighter ${booking.isPast ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                            'bg-purple-50 text-purple-600 border-purple-100'
+                          }`}>
+                          {booking.isPast ? '✓ Completed' : booking.time.split(' - ')[0]}
                         </span>
                       </div>
                       <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-500 font-bold uppercase tracking-widest">

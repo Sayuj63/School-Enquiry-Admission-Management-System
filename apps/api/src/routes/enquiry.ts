@@ -1,11 +1,78 @@
 import { Router, Response } from 'express';
-import { Enquiry, Admission, CounsellingSlot } from '../models';
+import { Enquiry, Admission, CounsellingSlot, SlotBooking } from '../models';
 import { generateTokenId } from '@sayuj/shared';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { Types } from 'mongoose';
-import { sendEnquiryWhatsApp, isMobileVerified } from '../services';
+import { sendEnquiryWhatsApp, sendSlotConfirmationWhatsApp, isMobileVerified, sendParentCalendarInvite, sendPrincipalCalendarInvite, sendWaitlistEmail } from '../services';
 
 const router: Router = Router();
+
+/**
+ * GET /api/enquiry/draft/:id
+ * Fetch a draft enquiry for resuming (verified by OTP)
+ */
+router.get('/draft/:id', async (req, res: Response) => {
+  try {
+    const enquiry = await Enquiry.findById(req.params.id);
+    if (!enquiry) {
+      return res.status(404).json({ success: false, error: 'Enquiry not found' });
+    }
+
+    // Security: check if mobile is recently verified
+    const isVerified = await isMobileVerified(enquiry.mobile);
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    res.json({ success: true, data: enquiry });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to fetch draft' });
+  }
+});
+
+/**
+ * GET /api/enquiry/lookup/:mobile
+ * Check if a mobile number has existing enquiries (public but verified by recent OTP)
+ */
+router.get('/lookup/:mobile', async (req, res: Response) => {
+  try {
+    const { mobile } = req.params;
+
+    if (!mobile) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mobile number is required'
+      });
+    }
+
+    // Check if mobile is verified
+    const isVerified = await isMobileVerified(mobile);
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({
+        success: false,
+        error: 'Mobile number not verified'
+      });
+    }
+
+    const enquiries = await Enquiry.find({ mobile })
+      .sort({ createdAt: -1 })
+      .select('_id tokenId childName grade status createdAt');
+
+    res.json({
+      success: true,
+      data: {
+        enquiries,
+        count: enquiries.length
+      }
+    });
+  } catch (error) {
+    console.error('Lookup enquiry error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to lookup enquiries'
+    });
+  }
+});
 
 /**
  * POST /api/enquiry
@@ -13,34 +80,48 @@ const router: Router = Router();
  */
 router.post('/', async (req, res: Response) => {
   try {
+    const isDraft = req.body.status === 'draft';
+
     // Support both snake_case (external) and camelCase (internal) formats
-    const data = {
+    const data: any = {
       parentName: req.body.parentName || req.body.parent_name,
       childName: req.body.childName || req.body.child_name,
       mobile: req.body.mobile,
       email: req.body.email,
       city: req.body.city || '',
       grade: req.body.grade,
-      message: req.body.message || ''
+      dob: req.body.dob,
+      message: req.body.message || '',
+      status: isDraft ? 'draft' : 'new'
     };
 
-    // Validate required fields
-    if (!data.parentName || !data.childName || !data.mobile || !data.email || !data.grade) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: parentName, childName, mobile, email, grade'
-      });
+    if (!data.mobile) {
+      return res.status(400).json({ success: false, error: 'Mobile number is required' });
     }
 
-    // Check if mobile is verified (skip in development for testing)
+    // Check if mobile is verified
     const isVerified = await isMobileVerified(data.mobile);
-    const mobileVerified = process.env.NODE_ENV === 'development' ? true : isVerified;
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({ success: false, error: 'Mobile number not verified' });
+    }
 
-    // Generate unique token ID
-    const tokenId = generateTokenId();
+    // If it's a final submission, validate required fields
+    if (!isDraft) {
+      if (!data.parentName || !data.childName || !data.email || !data.grade) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing required fields for submission'
+        });
+      }
+
+      // Slot selection is no longer checked here, it's checked below after determining waitlist status
+    }
 
     // Extract additional fields
-    const standardKeys = ['parentName', 'parent_name', 'childName', 'child_name', 'mobile', 'email', 'city', 'grade', 'message'];
+    const standardKeys = [
+      'parentName', 'parent_name', 'childName', 'child_name', 'mobile', 'email', 'city', 'grade', 'message', 'status', 'dob', 'slotId',
+      '_id', 'mobileVerified', 'whatsappSent', 'createdAt', 'updatedAt', '__v', 'waitlist', 'tokenId', 'status', 'slotBookingId'
+    ];
     const additionalFields: Record<string, any> = {};
 
     Object.keys(req.body).forEach(key => {
@@ -49,51 +130,260 @@ router.post('/', async (req, res: Response) => {
       }
     });
 
-    // Create enquiry
-    const enquiry = await Enquiry.create({
-      ...data,
-      additionalFields,
-      tokenId,
-      mobileVerified,
-      status: 'new'
+    // Check for duplicate submitted enquiries (Requirement: Prevent double entry)
+    const existingEnquiry = await Enquiry.findOne({
+      mobile: data.mobile,
+      childName: { $regex: new RegExp(`^${data.childName}$`, 'i') }, // Case insensitive
+      status: { $ne: 'draft' }
     });
 
-    let mockNotification;
-    try {
-      const whatsappResult = await sendEnquiryWhatsApp({
-        to: data.mobile,
-        tokenId,
-        studentName: data.childName,
-        parentName: data.parentName
+    if (existingEnquiry) {
+      return res.status(400).json({
+        success: false,
+        error: `An enquiry for "${data.childName}" has already been submitted from this mobile number.`
       });
-
-      enquiry.whatsappSent = whatsappResult.success;
-      await enquiry.save();
-
-      if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && whatsappResult.mockMessage) {
-        mockNotification = {
-          type: 'whatsapp',
-          to: whatsappResult.to,
-          content: whatsappResult.mockMessage
-        };
-      }
-    } catch (whatsappError) {
-      console.error('WhatsApp notification failed:', whatsappError);
     }
 
-    res.status(201).json({
+    let enquiry;
+    // Check if there's an existing draft for this mobile and child (simplified)
+    const existingDraft = await Enquiry.findOne({
+      mobile: data.mobile,
+      status: 'draft',
+      childName: { $regex: new RegExp(`^${data.childName}$`, 'i') }
+    });
+
+    let slot = null;
+    let isWaitlist = false;
+
+    if (!isDraft) {
+      const { GradeRule } = require('../models');
+      const gradeRule = await GradeRule.findOne({ grade: data.grade });
+
+      if (gradeRule) {
+        const occupiedCount = await Admission.countDocuments({
+          grade: data.grade,
+          status: { $in: ['confirmed', 'approved', 'submitted', 'draft'] }
+        });
+
+        const totalSeats = gradeRule.totalSeats ?? 50;
+
+        // Respect frontend explicit waitlist request OR backend capacity check
+        if (req.body.waitlist || occupiedCount >= totalSeats) {
+          isWaitlist = true;
+
+          // If grade is full and parent DID NOT request waitlist, error out
+          // (This handles the case where the grade becomes full between page load and submission)
+          if (occupiedCount >= totalSeats && !req.body.waitlist) {
+            return res.status(400).json({
+              success: false,
+              errorCode: 'GRADE_FULL',
+              error: `Sorry, admissions for ${data.grade} are currently full.`
+            });
+          }
+        }
+      }
+
+      if (!isWaitlist) {
+        if (!req.body.slotId) {
+          return res.status(400).json({
+            success: false,
+            error: 'Counselling slot selection is mandatory for submission'
+          });
+        }
+        slot = await CounsellingSlot.findById(req.body.slotId);
+        if (!slot || slot.status !== 'available' || slot.bookedCount >= slot.capacity) {
+          return res.status(400).json({ success: false, error: 'Selected slot is no longer available' });
+        }
+      }
+    }
+
+    if (existingDraft) {
+      Object.assign(existingDraft, data, { additionalFields });
+      enquiry = await existingDraft.save();
+    } else {
+      enquiry = await Enquiry.create({
+        ...data,
+        additionalFields,
+        mobileVerified: true
+      });
+    }
+
+    // If final submission
+    if (!isDraft && (slot || isWaitlist)) {
+      // 1. Generate unique token ID
+      enquiry.tokenId = generateTokenId();
+      enquiry.status = 'new';
+
+      let bookingId = null;
+      if (slot) {
+        // 2. Book the slot
+        const booking = await SlotBooking.create({
+          slotId: slot._id,
+          enquiryId: enquiry._id,
+          tokenId: enquiry.tokenId,
+          parentEmail: enquiry.email
+        });
+        bookingId = booking._id;
+        enquiry.slotBookingId = bookingId as any;
+
+        // Update slot count
+        slot.bookedCount += 1;
+        if (slot.bookedCount >= slot.capacity) slot.status = 'full';
+        await slot.save();
+      }
+
+      await enquiry.save();
+
+      // 4. Automatically create Admission record
+      const admission = await Admission.create({
+        enquiryId: enquiry._id,
+        tokenId: enquiry.tokenId,
+        studentName: enquiry.childName,
+        parentName: enquiry.parentName,
+        mobile: enquiry.mobile,
+        email: enquiry.email,
+        city: enquiry.city,
+        grade: enquiry.grade,
+        status: isWaitlist ? 'waitlisted' : 'draft',
+        waitlistType: isWaitlist ? 'parent' : undefined,
+        waitlistDate: isWaitlist ? new Date() : undefined,
+        documents: [],
+        slotBookingId: bookingId as any,
+        additionalFields: new Map()
+      });
+
+      // 5. Link Admission back to SlotBooking
+      if (bookingId) {
+        await SlotBooking.findByIdAndUpdate(bookingId, { admissionId: admission._id });
+      }
+
+      // 3. Send Notifications
+      try {
+        await sendEnquiryWhatsApp({
+          to: enquiry.mobile,
+          tokenId: enquiry.tokenId,
+          studentName: enquiry.childName,
+          parentName: enquiry.parentName
+        });
+
+        if (enquiry.slotBookingId && slot) {
+          const slotDateFormatted = slot.date.toLocaleDateString('en-IN', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+          });
+
+          await sendSlotConfirmationWhatsApp({
+            to: enquiry.mobile,
+            tokenId: enquiry.tokenId,
+            studentName: enquiry.childName,
+            slotDate: slotDateFormatted,
+            slotTime: `${slot.startTime} - ${slot.endTime}`,
+            location: 'School Campus'
+          });
+        }
+
+        if (isWaitlist) {
+          const { sendStatusUpdateWhatsApp } = require('../services/whatsapp');
+          await sendStatusUpdateWhatsApp({
+            to: enquiry.mobile,
+            tokenId: enquiry.tokenId,
+            studentName: enquiry.childName,
+            status: 'waitlisted'
+          });
+
+          // Send Email Notification for Waitlist
+          if (enquiry.email) {
+            await sendWaitlistEmail({
+              parentEmail: enquiry.email,
+              parentName: enquiry.parentName,
+              studentName: enquiry.childName,
+              tokenId: enquiry.tokenId,
+              grade: enquiry.grade
+            });
+          }
+        }
+        await Enquiry.findByIdAndUpdate(enquiry._id, { whatsappSent: true });
+      } catch (err) {
+        console.error('Notification failed', err);
+      }
+    }
+
+    res.status(isDraft ? 200 : 201).json({
       success: true,
       data: {
         tokenId: enquiry.tokenId,
-        message: 'Enquiry submitted successfully',
-        mockNotification
+        message: isDraft ? 'Draft saved successfully' : 'Enquiry submitted successfully'
+      }
+    });
+  } catch (error: any) {
+    console.error('Enquiry processing error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process enquiry'
+    });
+  }
+});
+
+/**
+ * GET /api/enquiry/token/:tokenId
+ * Get single enquiry details by Token ID (public but verified by recent OTP)
+ */
+router.get('/token/:tokenId', async (req, res: Response) => {
+  try {
+    const { tokenId } = req.params;
+
+    const enquiry = await Enquiry.findOne({ tokenId });
+
+    if (!enquiry) {
+      return res.status(404).json({
+        success: false,
+        error: 'Enquiry not found'
+      });
+    }
+
+    // Security check: must match a verified mobile in recent session
+    // In a real app, we'd check session/JWT. For now, check if the enquiry's mobile is verified.
+    const isVerified = await isMobileVerified(enquiry.mobile);
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized access to this enquiry'
+      });
+    }
+
+    // Check if admission exists for this enquiry to show slot info
+    const admission = await Admission.findOne({ enquiryId: enquiry._id })
+      .populate('slotBookingId');
+
+    let slotInfo = null;
+    if (admission && (admission as any).slotBookingId) {
+      const slotBooking = (admission as any).slotBookingId;
+      const slot = await CounsellingSlot.findById(slotBooking.slotId);
+      if (slot) {
+        slotInfo = {
+          date: slot.date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          location: 'School Campus, Counselling Room 101' // Default or dynamic
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        enquiry,
+        admission: admission ? {
+          status: admission.status,
+          documents: admission.documents
+        } : null,
+        slot: slotInfo
       }
     });
   } catch (error) {
-    console.error('Create enquiry error:', error);
+    console.error('Get enquiry by token error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to submit enquiry'
+      error: 'Failed to fetch enquiry details'
     });
   }
 });
@@ -119,6 +409,36 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
         success: false,
         error: 'Missing required fields'
       });
+    }
+
+    // Check for duplicate submitted enquiries
+    const existingEnquiry = await Enquiry.findOne({
+      mobile: data.mobile,
+      childName: { $regex: new RegExp(`^${data.childName}$`, 'i') },
+      status: { $ne: 'draft' }
+    });
+
+    if (existingEnquiry) {
+      return res.status(400).json({
+        success: false,
+        error: `An enquiry for "${data.childName}" has already been submitted from this mobile number.`
+      });
+    }
+
+    // Seat availability check (3.6.2)
+    const { GradeRule } = require('../models');
+    const gradeRule = await GradeRule.findOne({ grade: data.grade });
+    if (gradeRule) {
+      const confirmedCount = await Admission.countDocuments({
+        grade: data.grade,
+        status: { $in: ['confirmed', 'approved'] }
+      });
+      if (confirmedCount >= gradeRule.totalSeats) {
+        return res.status(400).json({
+          success: false,
+          error: `Admissions for ${data.grade} are currently full.`
+        });
+      }
     }
 
     // Check if mobile is verified
@@ -326,6 +646,81 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 /**
+ * POST /api/enquiry/:id/notify
+ * Resend notifications for an enquiry
+ */
+router.post('/:id/notify', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const enquiry = await Enquiry.findById(req.params.id);
+    if (!enquiry) {
+      return res.status(404).json({ success: false, error: 'Enquiry not found' });
+    }
+
+    if (enquiry.status === 'draft') {
+      return res.status(400).json({ success: false, error: 'Cannot send notifications for draft enquiries' });
+    }
+
+    // Send Enquiry WhatsApp
+    await sendEnquiryWhatsApp({
+      to: enquiry.mobile,
+      tokenId: enquiry.tokenId!,
+      studentName: enquiry.childName,
+      parentName: enquiry.parentName
+    });
+
+    // If slot is booked, send slot confirmation too
+    if (enquiry.slotBookingId) {
+      const booking = await SlotBooking.findById(enquiry.slotBookingId).populate('slotId');
+      if (booking && booking.slotId) {
+        const slot = booking.slotId as any; // Cast to any or ICounsellingSlot for simplicity in this context
+        const slotDateFormatted = new Date(slot.date).toLocaleDateString('en-IN', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        await sendSlotConfirmationWhatsApp({
+          to: enquiry.mobile,
+          tokenId: enquiry.tokenId!,
+          studentName: enquiry.childName,
+          slotDate: slotDateFormatted,
+          slotTime: `${slot.startTime} - ${slot.endTime}`,
+          location: 'School Campus'
+        });
+
+        // Also resend calendar invites (Emails)
+        await Promise.all([
+          sendParentCalendarInvite({
+            parentEmail: enquiry.email,
+            parentName: enquiry.parentName,
+            studentName: enquiry.childName,
+            tokenId: enquiry.tokenId!,
+            slotDate: new Date(slot.date),
+            slotStartTime: slot.startTime,
+            slotEndTime: slot.endTime,
+            location: 'School Campus'
+          }),
+          sendPrincipalCalendarInvite({
+            studentName: enquiry.childName,
+            parentName: enquiry.parentName,
+            tokenId: enquiry.tokenId!,
+            slotDate: new Date(slot.date),
+            slotStartTime: slot.startTime,
+            slotEndTime: slot.endTime,
+            location: 'School Campus'
+          })
+        ]);
+      }
+    }
+
+    await Enquiry.findByIdAndUpdate(enquiry._id, { whatsappSent: true });
+
+    res.json({ success: true, message: 'Notifications resent successfully' });
+  } catch (error) {
+    console.error('Resend notification error:', error);
+    res.status(500).json({ success: false, error: 'Failed to resend notifications' });
+  }
+});
+
+/**
  * PUT /api/enquiry/:id/status
  * Update enquiry status (admin only)
  */
@@ -393,6 +788,7 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
       enquiriesThisMonth,
       admissionsThisMonth,
       totalAdmissions,
+      waitlistedCount,
       recentEnquiries,
       todaySlots,
       recentAdmissions
@@ -401,7 +797,8 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
       Enquiry.countDocuments({ createdAt: { $gte: today } }),
       Enquiry.countDocuments({ createdAt: { $gte: startOfMonth } }),
       Admission.countDocuments({ createdAt: { $gte: startOfMonth } }),
-      Admission.countDocuments({ status: 'approved' }),
+      Admission.countDocuments({ status: { $in: ['approved', 'confirmed', 'submitted'] } }),
+      Admission.countDocuments({ status: 'waitlisted' }),
       Enquiry.find()
         .sort({ createdAt: -1 })
         .limit(5)
@@ -425,6 +822,7 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
         enquiriesThisMonth,
         admissionsThisMonth,
         totalAdmissions,
+        waitlistedCount,
         scheduledCounselling,
         recentEnquiries,
         recentAdmissions

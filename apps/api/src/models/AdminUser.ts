@@ -5,7 +5,7 @@ export interface IAdminUser extends Document {
   username: string;
   email: string;
   passwordHash: string;
-  role: 'admin' | 'superadmin';
+  role: 'admin' | 'superadmin' | 'principal';
   createdAt: Date;
   comparePassword(password: string): Promise<boolean>;
 }
@@ -30,7 +30,7 @@ const adminUserSchema = new Schema<IAdminUser>(
     },
     role: {
       type: String,
-      enum: ['admin', 'superadmin'],
+      enum: ['admin', 'superadmin', 'principal'],
       default: 'admin'
     }
   },

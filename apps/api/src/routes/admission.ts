@@ -4,6 +4,7 @@ import { Enquiry, Admission, SlotBooking } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import cloudinary from '../config/cloudinary';
+import { isMobileVerified } from '../services';
 
 const router: Router = Router();
 
@@ -52,6 +53,7 @@ router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Re
       email: enquiry.email,
       city: enquiry.city,
       grade: enquiry.grade,
+      studentDob: enquiry.dob,
       status: 'draft',
       documents: [],
       additionalFields: new Map()
@@ -88,7 +90,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const admission = await Admission.findById(req.params.id).populate('enquiryId', 'createdAt city');
+    const admission = await Admission.findById(req.params.id).populate('enquiryId', 'createdAt city dob');
 
     if (!admission) {
       return res.status(404).json({
@@ -157,7 +159,10 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         query.status = { $nin: ['approved', 'rejected'] };
       }
     } else if (counselling === 'pending' || noSlot) {
-      query.slotBookingId = { $exists: false };
+      query.$or = [
+        { slotBookingId: { $exists: false } },
+        { slotBookingId: null }
+      ];
       // Status is already handled above or passed explicitly
     }
 
@@ -209,6 +214,12 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     const {
+      studentName,
+      parentName,
+      email,
+      mobile,
+      grade,
+      city,
       studentDob,
       parentAddress,
       parentOccupation,
@@ -220,6 +231,12 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
     const updateData: any = {};
 
+    if (studentName) updateData.studentName = studentName;
+    if (parentName) updateData.parentName = parentName;
+    if (email) updateData.email = email.toLowerCase();
+    if (mobile) updateData.mobile = mobile;
+    if (grade) updateData.grade = grade;
+    if (city !== undefined) updateData.city = city;
     if (studentDob) updateData.studentDob = new Date(studentDob);
     if (parentAddress !== undefined) updateData.parentAddress = parentAddress;
     if (parentOccupation !== undefined) updateData.parentOccupation = parentOccupation;
@@ -235,29 +252,93 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     }
     if (notes !== undefined) updateData.notes = notes;
 
-    if (status && ['draft', 'submitted', 'approved', 'rejected'].includes(status)) {
+    const currentAdmission = await Admission.findById(req.params.id);
+    if (!currentAdmission) {
+      return res.status(404).json({ success: false, error: 'Admission not found' });
+    }
+
+    if (status && ['draft', 'submitted', 'approved', 'rejected', 'waitlisted', 'confirmed'].includes(status)) {
       // Logic for status transitions
-      if (['approved', 'rejected'].includes(status)) {
-        // Must have a booked slot that has already started/passed
+      if (['approved', 'rejected', 'confirmed', 'waitlisted', 'submitted'].includes(status) && currentAdmission.status !== status) {
+        // Requirement: A counselling slot must exist (but maybe not for waitlisted initially if parent does it)
+        // However, if ADMIN marks as waitlisted after counselling:
         const booking = await SlotBooking.findOne({ admissionId: req.params.id }).populate('slotId');
-        if (!booking) {
-          return res.status(400).json({
-            success: false,
-            error: 'A counselling slot must be booked and attended before deciding admission'
-          });
+
+        if (status !== 'waitlisted' || (status === 'waitlisted' && currentAdmission.noShowCount > 0)) {
+          // Basic validation: confirmed/rejected usually happen after counselling
+          if (!booking && !['draft', 'submitted', 'waitlisted'].includes(status)) {
+            return res.status(400).json({
+              success: false,
+              error: 'A counselling slot must be booked before deciding admission'
+            });
+          }
+
+          // New Requirement: Counselling must be COMPLETED before decision
+          if (['approved', 'rejected', 'confirmed'].includes(status) && booking && (booking as any).slotId) {
+            const slot = (booking as any).slotId;
+            const slotDate = new Date(slot.date);
+            const [h, m] = slot.endTime.split(':').map(Number);
+
+            // Set end time on the slot date (stored as UTC midnight)
+            // Using same logic as document deletion check
+            const slotEnd = new Date(slotDate);
+            slotEnd.setHours(h, m, 0, 0);
+
+            if (new Date() < slotEnd) {
+              return res.status(400).json({
+                success: false,
+                error: `Decision not allowed yet. The counselling session is scheduled for ${slotDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} until ${slot.endTime}. Decisions can only be made after the session is completed.`
+              });
+            }
+          }
         }
 
-        const slot = booking.slotId as any;
-        const [hours, minutes] = slot.startTime.split(':').map(Number);
-        const slotStartTime = new Date(slot.date);
-        slotStartTime.setHours(hours, minutes, 0, 0);
+        // New Requirement: Field Completion Check for Promoting/Confirming
+        if (['submitted', 'confirmed', 'approved'].includes(status)) {
+          const fieldsToVerify = [
+            { key: 'studentDob', label: 'Date of Birth' },
+            { key: 'parentAddress', label: 'Parent Address' },
+            { key: 'parentOccupation', label: 'Parent Occupation' },
+            { key: 'emergencyContact', label: 'Emergency Contact' }
+          ];
 
-        if (slotStartTime > new Date()) {
-          return res.status(400).json({
-            success: false,
-            error: 'Admission cannot be decided before the scheduled counselling meeting'
-          });
+          for (const field of fieldsToVerify) {
+            const value = updateData[field.key] || currentAdmission[field.key as keyof typeof currentAdmission];
+            if (!value) {
+              return res.status(400).json({
+                success: false,
+                error: `Promotion failed: ${field.label} is required. Please fill all fields in the form first.`
+              });
+            }
+          }
         }
+
+        // Seat availability check (3.6.2)
+        // Seat availability check (3.6.2)
+        if (status === 'confirmed' || status === 'approved' || (status === 'submitted' && currentAdmission.status === 'waitlisted')) {
+          const { GradeRule } = require('../models');
+          const targetGrade = grade || currentAdmission.grade;
+          const gradeRule = await GradeRule.findOne({ grade: targetGrade });
+          if (gradeRule) {
+            const occupiedCount = await Admission.countDocuments({
+              grade: targetGrade,
+              status: { $in: ['confirmed', 'approved', 'submitted', 'draft'] },
+              _id: { $ne: currentAdmission._id }
+            });
+            const totalSeats = gradeRule.totalSeats ?? 50;
+            if (occupiedCount >= totalSeats) {
+              return res.status(400).json({
+                success: false,
+                error: `Cannot ${status === 'submitted' ? 'promote' : 'confirm'} admission. Seat limit for ${targetGrade} (${totalSeats}) has been reached.`
+              });
+            }
+          }
+        }
+      }
+      if (status === 'waitlisted' && currentAdmission.status !== 'waitlisted') {
+        updateData.waitlistDate = new Date();
+        updateData.waitlistType = 'school';
+        updateData.waitlistRemindersSent = [];
       }
       updateData.status = status;
     }
@@ -279,8 +360,35 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // If admission is submitted, approved, or rejected, update enquiry status to converted
-    if (status && ['submitted', 'approved', 'rejected'].includes(status)) {
+    // ERP INTEGRATION MOCK
+    if (status === 'confirmed' || status === 'approved') {
+      console.log('========================================');
+      console.log('ERP INTEGRATION (MOCK)');
+      console.log(`Sending data for student: ${admission.studentName}`);
+      console.log(`Payload:`, {
+        studentName: admission.studentName,
+        parentName: admission.parentName,
+        mobile: admission.mobile,
+        grade: admission.grade,
+        tokenId: admission.tokenId
+      });
+      console.log('Response: { success: true, erp_id: "ERP_' + Math.floor(Math.random() * 10000) + '" }');
+      console.log('========================================');
+    }
+
+    // WHATSAPP NOTIFICATION
+    if (status && status !== currentAdmission.status && ['confirmed', 'approved', 'rejected', 'waitlisted'].includes(status)) {
+      const { sendStatusUpdateWhatsApp } = require('../services/whatsapp');
+      await sendStatusUpdateWhatsApp({
+        to: admission.mobile,
+        tokenId: admission.tokenId,
+        studentName: admission.studentName,
+        status: status as any
+      });
+    }
+
+    // If admission is submitted, approved, confirmed, or rejected, update enquiry status to converted
+    if (status && ['submitted', 'approved', 'confirmed', 'rejected'].includes(status)) {
       await Enquiry.findByIdAndUpdate(admission.enquiryId, { status: 'converted' });
     }
 
@@ -357,6 +465,13 @@ router.post('/:id/documents', authenticate, upload.single('document'), async (re
       return res.status(404).json({
         success: false,
         error: 'Admission not found'
+      });
+    }
+
+    if (admission.status === 'rejected' || admission.status === 'confirmed') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot upload documents for ${admission.status} admission`
       });
     }
 
@@ -444,6 +559,135 @@ router.delete('/:id/documents/:docId', authenticate, async (req: AuthRequest, re
       success: false,
       error: 'Failed to delete document'
     });
+  }
+});
+
+/**
+ * POST /api/admission/parent/:tokenId/documents
+ * Upload document by parent (verified by OTP)
+ */
+router.post('/parent/:tokenId/documents', upload.single('document'), async (req, res: Response) => {
+  try {
+    const { tokenId } = req.params;
+    const { documentType } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    if (!documentType) {
+      return res.status(400).json({ success: false, error: 'Document type is required' });
+    }
+
+    const admission = await Admission.findOne({ tokenId });
+    if (!admission) {
+      return res.status(404).json({ success: false, error: 'Admission record not found' });
+    }
+
+    // Security check: verify ownership
+    const isVerified = await isMobileVerified(admission.mobile);
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Requirement 1.3.3: Upload allowed until 1 day before counselling
+    if (admission.slotBookingId) {
+      const booking = await SlotBooking.findById(admission.slotBookingId).populate('slotId');
+      if (booking && booking.slotId) {
+        const slot = booking.slotId as any;
+        const slotDate = new Date(slot.date);
+        const [h, m] = slot.startTime.split(':').map(Number);
+        slotDate.setHours(h, m, 0, 0);
+
+        const deadline = new Date(slotDate.getTime() - (24 * 60 * 60 * 1000));
+        if (new Date() > deadline) {
+          return res.status(400).json({
+            success: false,
+            error: 'Document upload is only allowed until 24 hours before your counselling session.'
+          });
+        }
+      }
+    }
+
+    const file = req.file as any;
+    admission.documents.push({
+      type: documentType,
+      fileName: req.file.originalname,
+      fileId: file.filename,
+      url: file.path,
+      uploadedAt: new Date()
+    });
+
+    await admission.save();
+
+    res.json({
+      success: true,
+      data: {
+        document: admission.documents[admission.documents.length - 1]
+      }
+    });
+  } catch (error) {
+    console.error('Parent upload document error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload document' });
+  }
+});
+
+/**
+ * DELETE /api/admission/parent/:tokenId/documents/:docId
+ * Delete document by parent (verified by OTP)
+ */
+router.delete('/parent/:tokenId/documents/:docId', async (req, res: Response) => {
+  try {
+    const { tokenId, docId } = req.params;
+
+    const admission = await Admission.findOne({ tokenId });
+    if (!admission) {
+      return res.status(404).json({ success: false, error: 'Admission record not found' });
+    }
+
+    // Security check
+    const isVerified = await isMobileVerified(admission.mobile);
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Requirement 1.3.3: Delete allowed until 1 day before counselling
+    if (admission.slotBookingId) {
+      const booking = await SlotBooking.findById(admission.slotBookingId).populate('slotId');
+      if (booking && booking.slotId) {
+        const slot = booking.slotId as any;
+        const slotDate = new Date(slot.date);
+        const [h, m] = slot.startTime.split(':').map(Number);
+        slotDate.setHours(h, m, 0, 0);
+
+        const deadline = new Date(slotDate.getTime() - (24 * 60 * 60 * 1000));
+        if (new Date() > deadline) {
+          return res.status(400).json({
+            success: false,
+            error: 'Modifying documents is only allowed until 24 hours before your counselling session.'
+          });
+        }
+      }
+    }
+
+    const docIndex = admission.documents.findIndex(d => d._id?.toString() === docId);
+    if (docIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    const doc = admission.documents[docIndex];
+    try {
+      await cloudinary.uploader.destroy(doc.fileId);
+    } catch (err) {
+      console.error('Cloudinary destroy error:', err);
+    }
+
+    admission.documents.splice(docIndex, 1);
+    await admission.save();
+
+    res.json({ success: true, message: 'Document deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to delete document' });
   }
 });
 

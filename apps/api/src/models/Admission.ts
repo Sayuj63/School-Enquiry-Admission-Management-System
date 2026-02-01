@@ -33,9 +33,13 @@ export interface IAdmission extends Document {
   // Documents
   documents: IAdmissionDocument[];
 
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'waitlisted' | 'confirmed';
+  noShowCount: number;
   notes?: string;
   slotBookingId?: Types.ObjectId;
+  waitlistDate?: Date;
+  waitlistType?: 'parent' | 'school';
+  waitlistRemindersSent: number[]; // days sent: [2, 5]
   createdAt: Date;
   updatedAt: Date;
 }
@@ -112,8 +116,12 @@ const admissionSchema = new Schema<IAdmission>(
     documents: [documentSchema],
     status: {
       type: String,
-      enum: ['draft', 'submitted', 'approved', 'rejected'],
+      enum: ['draft', 'submitted', 'approved', 'rejected', 'waitlisted', 'confirmed'],
       default: 'draft'
+    },
+    noShowCount: {
+      type: Number,
+      default: 0
     },
     notes: {
       type: String,
@@ -122,6 +130,17 @@ const admissionSchema = new Schema<IAdmission>(
     slotBookingId: {
       type: Schema.Types.ObjectId,
       ref: 'SlotBooking'
+    },
+    waitlistDate: {
+      type: Date
+    },
+    waitlistType: {
+      type: String,
+      enum: ['parent', 'school']
+    },
+    waitlistRemindersSent: {
+      type: [Number],
+      default: []
     }
   },
   {

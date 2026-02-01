@@ -43,9 +43,12 @@ class ApiClient {
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
       ...options.headers,
     };
+
+    if (!(options.body instanceof FormData)) {
+      (headers as any)['Content-Type'] = 'application/json';
+    }
 
     // Always get fresh token from localStorage before each request
     const token = this.getToken();
@@ -137,14 +140,14 @@ class ApiClient {
   async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
     });
   }
 
   async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
     });
   }
 
@@ -241,6 +244,11 @@ export async function adminSubmitEnquiry(data: any) {
   return api.post<any>('/api/enquiry/admin', data);
 }
 
+export async function lookupEnquiries(mobile: string) {
+  const normalizedMobile = mobile.replace(/\D/g, '');
+  return api.get<any>(`/api/enquiry/lookup/${normalizedMobile}`);
+}
+
 export async function getEnquiries(params?: {
   page?: number;
   limit?: number;
@@ -258,6 +266,34 @@ export async function getEnquiries(params?: {
 
 export async function getEnquiry(id: string) {
   return api.get<any>(`/api/enquiry/${id}`);
+}
+
+export async function getEnquiryByToken(tokenId: string) {
+  return api.get<any>(`/api/enquiry/token/${tokenId}`);
+}
+
+export async function resendNotification(id: string) {
+  return api.post<any>(`/api/enquiry/${id}/notify`);
+}
+
+export async function getEnquiryDraft(id: string) {
+  return api.get<any>(`/api/enquiry/draft/${id}`);
+}
+
+export async function getEnquiriesByMobile(mobile: string) {
+  return api.get<any>(`/api/enquiry/lookup/${mobile}`);
+}
+
+export async function uploadParentDocument(tokenId: string, documentType: string, file: File) {
+  const formData = new FormData();
+  formData.append('document', file);
+  formData.append('documentType', documentType);
+
+  return api.post<any>(`/api/admission/parent/${tokenId}/documents`, formData);
+}
+
+export async function deleteParentDocument(tokenId: string, docId: string) {
+  return api.delete<any>(`/api/admission/parent/${tokenId}/documents/${docId}`);
 }
 
 export async function getDashboardStats() {
@@ -320,12 +356,20 @@ export async function getAvailableSlots() {
   return api.get<any>('/api/slots/available');
 }
 
-export async function createSlot(data: { date: string; startTime: string; endTime: string }) {
+export async function createSlot(data: { date: string; startTime: string; endTime: string; capacity?: number }) {
   return api.post<any>('/api/slots', data);
 }
 
-export async function updateSlot(id: string, data: { status: string }) {
+export async function updateSlot(id: string, data: { status?: string; capacity?: number }) {
   return api.put<any>(`/api/slots/${id}`, data);
+}
+
+export async function bulkGenerateSlots(availability: Array<{ date: string; startTime: string; endTime: string }>) {
+  return api.post<any>('/api/slots/generate-bulk', { availability });
+}
+
+export async function generateSaturdaySlots() {
+  return api.post<any>('/api/slots/generate-saturday-defaults');
 }
 
 export async function deleteSlot(id: string) {
@@ -338,6 +382,30 @@ export async function bookSlot(slotId: string, admissionId: string) {
 
 export async function cancelBooking(slotId: string, bookingId: string) {
   return api.delete<any>(`/api/slots/${slotId}/bookings/${bookingId}`);
+}
+
+export async function markNoShow(bookingId: string) {
+  return api.post<any>(`/api/slots/bookings/${bookingId}/no-show`);
+}
+
+export async function cancelSlotBySchool(slotId: string) {
+  return api.post<any>(`/api/slots/${slotId}/cancel`);
+}
+
+export async function getExistingBookingByMobile(mobile: string) {
+  return api.get<any>(`/api/slots/booking/mobile/${mobile}`);
+}
+
+export async function getRescheduleOptions(tokenId: string) {
+  return api.get<any>(`/api/slots/reschedule-options/${tokenId}`);
+}
+
+export async function rescheduleSlotByParent(tokenId: string, slotId: string) {
+  return api.post<any>(`/api/slots/reschedule-parent/${tokenId}`, { slotId });
+}
+
+export async function bookSlotByParent(tokenId: string, slotId: string) {
+  return api.post<any>(`/api/slots/book-parent/${tokenId}`, { slotId });
 }
 
 // Template functions
@@ -363,4 +431,43 @@ export async function getDocumentsList() {
 
 export async function updateDocumentsList(documents: any[]) {
   return api.put<any>('/api/templates/documents', { documents });
+}
+
+// Settings functions
+export async function getGradeRules() {
+  return api.get<any>('/api/settings/grade-rules');
+}
+
+export async function getNotificationSettings() {
+  return api.get<any>('/api/settings/notifications');
+}
+
+export async function updateNotificationSettings(data: any) {
+  return api.put<any>('/api/settings/notifications', data);
+}
+
+export async function getSlotSettings() {
+  return api.get<any>('/api/settings/slots');
+}
+
+export async function updateSlotSettings(data: any) {
+  return api.put<any>('/api/settings/slots', data);
+}
+export async function updateGradeRules(data: { rules: any[], settings: any }) {
+  return api.put<any>('/api/settings/grade-rules', data);
+}
+
+export async function exportAdmissions() {
+  const token = api.getToken();
+  const response = await fetch(`${API_URL}/api/settings/export`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+  if (!response.ok) throw new Error('Export failed');
+  return response.blob();
+}
+
+export async function resetAdmissionCycle(credentials: any) {
+  return api.post<any>('/api/settings/reset-cycle', credentials);
 }

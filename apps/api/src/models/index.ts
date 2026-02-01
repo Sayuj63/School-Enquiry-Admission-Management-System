@@ -6,3 +6,6 @@ export { FormTemplate, IFormTemplate, IFormField } from './FormTemplate';
 export { DocumentsList, IDocumentsList, IRequiredDocument } from './DocumentsList';
 export { OTP, IOTP } from './OTP';
 export { AdminUser, IAdminUser } from './AdminUser';
+export { GradeRule, IGradeRule, GradeSettings, IGradeSettings } from './GradeRule';
+export { SlotSettings, ISlotSettings } from './SlotSettings';
+export { NotificationSettings, INotificationSettings } from './NotificationSettings';

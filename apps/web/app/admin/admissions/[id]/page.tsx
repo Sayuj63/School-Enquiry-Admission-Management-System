@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X, Clock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X, Clock } from 'lucide-react'
 import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking, getCurrentUser } from '@/lib/api'
 import { format } from 'date-fns'
 import SlotCalendar from '../../../components/SlotCalendar'
@@ -30,13 +30,14 @@ interface Admission {
     url: string
     uploadedAt: string
   }>
-  status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'waitlisted' | 'confirmed'
   notes?: string
   slotBookingId?: string
   enquiryId?: {
     _id: string
     createdAt: string
     city?: string
+    dob?: string
   }
 }
 
@@ -75,11 +76,17 @@ export default function AdmissionDetailPage() {
 
   // Form state
   const [formData, setFormData] = useState({
+    studentName: '',
+    parentName: '',
+    email: '',
+    mobile: '',
+    grade: '',
+    city: '',
     studentDob: '',
     parentAddress: '',
     parentOccupation: '',
     emergencyContact: '',
-    status: 'draft',
+    status: 'draft' as any,
     notes: '',
     additionalFields: {} as Record<string, any>
   })
@@ -89,6 +96,17 @@ export default function AdmissionDetailPage() {
   useEffect(() => {
     fetchData()
   }, [admissionId])
+
+  // Auto-clear alerts after 5 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError('')
+        setSuccess('')
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, success])
 
   const fetchData = async () => {
     setLoading(true)
@@ -110,7 +128,17 @@ export default function AdmissionDetailPage() {
       setAdmission(adm)
       setSlotBooking(admissionResult.data.slotBooking)
       setFormData({
-        studentDob: adm.studentDob ? format(new Date(adm.studentDob), 'yyyy-MM-dd') : '',
+        studentName: adm.studentName || '',
+        parentName: adm.parentName || '',
+        email: adm.email || '',
+        mobile: adm.mobile || '',
+        grade: adm.grade || '',
+        city: adm.city || (adm.enquiryId as any)?.city || '',
+        studentDob: adm.studentDob
+          ? format(new Date(adm.studentDob), 'yyyy-MM-dd')
+          : (adm.enquiryId as any)?.dob
+            ? format(new Date((adm.enquiryId as any).dob), 'yyyy-MM-dd')
+            : '',
         parentAddress: adm.parentAddress || '',
         parentOccupation: adm.parentOccupation || '',
         emergencyContact: adm.emergencyContact || '',
@@ -126,6 +154,14 @@ export default function AdmissionDetailPage() {
 
     if (docsResult.success && docsResult.data) {
       setRequiredDocs(docsResult.data.documents || [])
+    } else {
+      // Fallback to defaults
+      setRequiredDocs([
+        { name: 'Birth Certificate' },
+        { name: 'Aadhaar Card (Student)' },
+        { name: 'Aadhaar Card (Parent)' },
+        { name: 'Previous School Report Card' }
+      ])
     }
 
     if (templateResult.success && templateResult.data) {
@@ -182,8 +218,7 @@ export default function AdmissionDetailPage() {
     }
 
     const updatedData = {
-      ...formData,
-      status: 'submitted'
+      ...formData
     }
 
     const result = await updateAdmission(admissionId, updatedData)
@@ -321,9 +356,9 @@ export default function AdmissionDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-bold text-gray-900">Admission Form</h2>
-              {admission.status === 'approved' && (
+              {(admission.status === 'approved' || admission.status === 'confirmed') && (
                 <span className="px-2.5 py-0.5 text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 rounded-lg border border-emerald-200">
-                  Accepted
+                  Admission Confirmed
                 </span>
               )}
               {admission.status === 'rejected' && (
@@ -331,11 +366,46 @@ export default function AdmissionDetailPage() {
                   Rejected
                 </span>
               )}
+              {admission.status === 'waitlisted' && (
+                <span className="px-2.5 py-0.5 text-xs font-black uppercase tracking-wider bg-amber-100 text-amber-700 rounded-lg border border-amber-200">
+                  Waitlisted
+                </span>
+              )}
+              {admission.status === 'submitted' && (
+                <span className="px-2.5 py-0.5 text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-700 rounded-lg border border-blue-200">
+                  Pending Review
+                </span>
+              )}
+              {admission.status === 'draft' && (
+                <span className="px-2.5 py-0.5 text-xs font-black uppercase tracking-wider bg-gray-100 text-gray-700 rounded-lg border border-gray-200">
+                  Draft
+                </span>
+              )}
             </div>
             <p className="font-mono text-gray-500">{admission.tokenId}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <>
+              {admission.status === 'waitlisted' && (
+                <button
+                  onClick={async () => {
+                    if (confirm(`Are you sure you want to promote ${admission.studentName} to the active admission list?`)) {
+                      const res = await updateAdmission(admissionId, { status: 'submitted' })
+                      if (res.success) {
+                        setSuccess('Student promoted to active review successfully')
+                        fetchData()
+                      } else {
+                        setError(res.error || 'Failed to promote student')
+                      }
+                    }
+                  }}
+                  className="btn-primary grad-indigo border-none px-6 py-2.5 shadow-lg shadow-indigo-200/50 font-black uppercase tracking-widest text-xs"
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Promote to Admission
+                </button>
+              )}
+
               {admission.status === 'submitted' && slotBooking && (() => {
                 const [year, month, day] = slotBooking.slotId.date.split('T')[0].split('-').map(Number)
                 const [hours, minutes] = slotBooking.slotId.startTime.split(':').map(Number)
@@ -352,21 +422,40 @@ export default function AdmissionDetailPage() {
                 }
 
                 return (
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={async () => {
-                        if (confirm('Are you sure you want to approve this admission?')) {
-                          const res = await updateAdmission(admissionId, { status: 'approved' })
+                        if (confirm('Are you sure you want to confirm this admission? This will also sync data to ERP.')) {
+                          const res = await updateAdmission(admissionId, { status: 'confirmed' })
                           if (res.success) {
-                            setSuccess('Admission approved successfully')
+                            setSuccess('Admission confirmed successfully and synced to ERP')
                             fetchData()
+                          } else {
+                            setError(res.error || 'Failed to confirm admission')
                           }
                         }
                       }}
-                      className="btn-primary bg-emerald-600 hover:bg-emerald-700 border-none px-6"
+                      className="btn-primary grad-emerald border-none px-6 py-2.5 shadow-lg shadow-emerald-200/50 font-black uppercase tracking-widest text-xs"
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Approve
+                      Confirm Admission
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (confirm('Are you sure you want to move this application to the waitlist?')) {
+                          const res = await updateAdmission(admissionId, { status: 'waitlisted' })
+                          if (res.success) {
+                            setSuccess('Application moved to waitlist')
+                            fetchData()
+                          } else {
+                            setError(res.error || 'Failed to move to waitlist')
+                          }
+                        }
+                      }}
+                      className="btn-secondary bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 font-black uppercase tracking-widest text-[10px] px-4"
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Waitlist
                     </button>
                     <button
                       onClick={async () => {
@@ -379,7 +468,7 @@ export default function AdmissionDetailPage() {
                           }
                         }
                       }}
-                      className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
+                      className="btn-secondary bg-red-50 text-red-700 border-red-200 hover:bg-red-100 font-black uppercase tracking-widest text-[10px] px-4"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Reject
@@ -389,25 +478,53 @@ export default function AdmissionDetailPage() {
               })()}
 
               {admission.status === 'submitted' && !slotBooking && (
-                <div className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 text-sm font-medium">
-                  <CalendarIcon className="h-4 w-4" />
-                  Book counselling to enable decisions
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 text-sm font-medium">
+                    <CalendarIcon className="h-4 w-4" />
+                    Book counselling to enable decisions
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (confirm('Move back to waitlist?')) {
+                        const res = await updateAdmission(admissionId, { status: 'waitlisted' })
+                        if (res.success) {
+                          setSuccess('Moved back to waitlist')
+                          fetchData()
+                        }
+                      }
+                    }}
+                    className="text-[10px] font-black uppercase text-gray-400 hover:text-amber-600 transition-colors"
+                  >
+                    Move to Waitlist
+                  </button>
                 </div>
               )}
 
               {!isPrincipal && (
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="btn-secondary bg-white border-gray-200"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
+                <div className="flex items-center gap-2">
+                  {admission.status === 'draft' && (
+                    <select
+                      className="input py-2 text-sm w-32"
+                      value={formData.status}
+                      onChange={(e) => setFormData(p => ({ ...p, status: e.target.value as any }))}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="submitted">Submit</option>
+                    </select>
                   )}
-                  {admission.status === 'draft' ? 'Submit Form' : 'Save Changes'}
-                </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="btn-secondary bg-white border-gray-200"
+                  >
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {admission.status === 'draft' && formData.status === 'submitted' ? 'Submit for Review' : 'Save Changes'}
+                  </button>
+                </div>
               )}
             </>
           </div>
@@ -420,12 +537,21 @@ export default function AdmissionDetailPage() {
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
-      {admission.status === 'approved' && (
+      {(admission.status === 'approved' || admission.status === 'confirmed') && (
         <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
           <CheckCircle className="h-5 w-5 text-emerald-600" />
           <div>
-            <p className="text-sm font-bold text-emerald-900">This admission has been Accepted.</p>
-            <p className="text-xs text-emerald-700">All documents and verification are complete.</p>
+            <p className="text-sm font-bold text-emerald-900">This admission has been Confirmed.</p>
+            <p className="text-xs text-emerald-700">Data has been synced to ERP and parent notified.</p>
+          </div>
+        </div>
+      )}
+      {admission.status === 'waitlisted' && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+          <Clock className="h-5 w-5 text-amber-600" />
+          <div>
+            <p className="text-sm font-bold text-amber-900">This application is on the Waitlist.</p>
+            <p className="text-xs text-amber-700">Parent has been notified. You can confirm it later if a seat becomes available.</p>
           </div>
         </div>
       )}
@@ -461,39 +587,79 @@ export default function AdmissionDetailPage() {
               {(baseFields.studentName !== false) && (
                 <div>
                   <label className="label">Student Name</label>
-                  <p className="input bg-gray-50">{admission.studentName}</p>
+                  <input
+                    className="input"
+                    value={formData.studentName}
+                    onChange={e => setFormData({ ...formData, studentName: e.target.value })}
+                    disabled={isPrincipal}
+                  />
                 </div>
               )}
               {(baseFields.grade !== false) && (
                 <div>
                   <label className="label">Grade</label>
-                  <p className="input bg-gray-50">{admission.grade}</p>
+                  <input
+                    className="input"
+                    value={formData.grade}
+                    onChange={e => setFormData({ ...formData, grade: e.target.value })}
+                    disabled={isPrincipal}
+                  />
                 </div>
               )}
               {(baseFields.parentName !== false) && (
                 <div>
                   <label className="label">Parent Name</label>
-                  <p className="input bg-gray-50">{admission.parentName}</p>
+                  <input
+                    className="input"
+                    value={formData.parentName}
+                    onChange={e => setFormData({ ...formData, parentName: e.target.value })}
+                    disabled={isPrincipal}
+                  />
                 </div>
               )}
               {(baseFields.mobile !== false) && (
                 <div>
                   <label className="label">Mobile</label>
-                  <p className="input bg-gray-50">{admission.mobile}</p>
+                  <input
+                    className="input"
+                    value={formData.mobile}
+                    onChange={e => setFormData({ ...formData, mobile: e.target.value })}
+                    disabled={isPrincipal}
+                  />
                 </div>
               )}
               {(baseFields.email !== false) && (
                 <div className="sm:col-span-2">
                   <label className="label">Email</label>
-                  <p className="input bg-gray-50">{admission.email}</p>
+                  <input
+                    className="input"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    disabled={isPrincipal}
+                  />
                 </div>
               )}
               {(baseFields.city !== false) && (
                 <div>
                   <label className="label">City</label>
-                  <p className="input bg-gray-50">{admission.city || (admission.enquiryId as any)?.city || ''}</p>
+                  <input
+                    className="input"
+                    value={formData.city}
+                    onChange={e => setFormData({ ...formData, city: e.target.value })}
+                    disabled={isPrincipal}
+                  />
                 </div>
               )}
+              <div>
+                <label className="label">Student Date of Birth</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={formData.studentDob}
+                  onChange={e => setFormData({ ...formData, studentDob: e.target.value })}
+                  disabled={isPrincipal}
+                />
+              </div>
             </div>
           </div>
 
@@ -512,6 +678,8 @@ export default function AdmissionDetailPage() {
                   if (isCore) setFormData(p => ({ ...p, [field.name]: val }))
                   else setFormData(p => ({ ...p, additionalFields: { ...p.additionalFields, [field.name]: val } }))
                 }
+
+                if (field.name === 'studentDob') return null
 
                 return (
                   <div key={field.name} className={field.type === 'textarea' ? 'sm:col-span-2' : ''}>
@@ -605,9 +773,9 @@ export default function AdmissionDetailPage() {
               <button
                 onClick={() => setShowSlotModal(true)}
                 disabled={admission.status !== 'submitted' || isPrincipal}
-                className="btn-primary w-full justify-center disabled:opacity-50"
+                className="btn-primary w-full justify-center disabled:opacity-50 grad-indigo shadow-lg border-none py-3 font-black uppercase tracking-widest text-xs"
               >
-                <CalendarIcon className="h-4 w-4 mr-2" /> Book Slot
+                <CalendarIcon className="h-4 w-4 mr-2" /> Book Counselling Slot
               </button>
             )}
           </div>

@@ -9,6 +9,7 @@ import { Calendar as CalendarIcon, Clock, MapPin, User, ChevronLeft, ChevronRigh
 import { useState, useEffect } from 'react'
 import { updateAdmission, getCurrentUser } from '@/lib/api'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 import { usePathname } from 'next/navigation'
 
 const locales = {
@@ -18,10 +19,34 @@ const locales = {
 const localizer = dateFnsLocalizer({
     format,
     parse,
+
     startOfWeek,
     getDay,
     locales,
 })
+
+// Helper to parse time string like "10:00 AM" or "14:30" into a Date object
+const parseTimeToDate = (dateStr: string, timeStr: string) => {
+    try {
+        // Handle "10:30 AM" format
+        if (timeStr.includes('AM') || timeStr.includes('PM')) {
+            const [time, modifier] = timeStr.split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+
+            if (modifier === 'PM' && hours < 12) hours += 12;
+            if (modifier === 'AM' && hours === 12) hours = 0;
+
+            const finalTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+            return new Date(`${dateStr}T${finalTime}`);
+        }
+
+        // Handle "14:30" format
+        return new Date(`${dateStr}T${timeStr.length === 5 ? timeStr + ':00' : timeStr}`);
+    } catch (e) {
+        console.error('Error parsing time:', timeStr, e);
+        return new Date(`${dateStr}T00:00:00`);
+    }
+}
 
 interface Booking {
     _id: string
@@ -74,10 +99,34 @@ export default function SlotCalendar({
     const [currentDate, setCurrentDate] = useState(new Date())
     const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>(initialView)
     const [user, setUser] = useState<any>(null)
+    const [scrollTime, setScrollTime] = useState(new Date(2026, 0, 1, 8))
 
     const pathname = usePathname()
     const isPrincipalPortal = pathname?.startsWith('/principal')
     const linkPrefix = isPrincipalPortal ? '/principal/admissions' : '/admin/admissions'
+
+    useEffect(() => {
+        if (slots.length > 0 && type === 'available') {
+            // Find the first slot date that is today or in the future
+            const firstSlot = slots[0]
+            const slotDate = new Date(firstSlot.date)
+            setCurrentDate(slotDate)
+
+            // Set scroll time to 1 hour before the first slot
+            try {
+                const [time] = firstSlot.startTime.split(' ')
+                let [hours] = time.split(':').map(Number)
+                if (firstSlot.startTime.includes('PM') && hours < 12) hours += 12
+                if (firstSlot.startTime.includes('AM') && hours === 12) hours = 0
+
+                const scrollDate = new Date(slotDate)
+                scrollDate.setHours(Math.max(0, hours - 1), 0, 0)
+                setScrollTime(scrollDate)
+            } catch (e) {
+                console.error('Error setting scroll time:', e)
+            }
+        }
+    }, [slots, type])
 
     useEffect(() => {
         async function fetchUser() {
@@ -126,8 +175,8 @@ export default function SlotCalendar({
                 const day = String(slotDateObj.getUTCDate()).padStart(2, '0')
                 const dateStr = `${year}-${month}-${day}`
 
-                const start = new Date(`${dateStr}T${slot.startTime}:00`)
-                const end = new Date(`${dateStr}T${slot.endTime}:00`)
+                const start = parseTimeToDate(dateStr, slot.startTime)
+                const end = parseTimeToDate(dateStr, slot.endTime)
 
                 const slotsLeft = slot.capacity - slot.bookedCount
                 let colorType = 'green'
@@ -183,19 +232,21 @@ export default function SlotCalendar({
             }
         })
 
-        return Object.entries(grouped).map(([dateStr, items]): any => {
-            const date = new Date(`${dateStr}T10:00:00`) // Representative time
-            return {
-                title: `${items.length} ${items.length === 1 ? 'Meeting' : 'Meetings'} Today`,
-                start: date,
-                end: date,
-                resource: {
-                    type: 'grouped',
-                    items: items.sort((a, b) => a.time.localeCompare(b.time)),
-                    colorType: 'purple' // Special color for grouped items
+        return Object.entries(grouped)
+            .filter(([_, items]) => items.length > 0)
+            .map(([dateStr, items]): any => {
+                const date = new Date(`${dateStr}T10:00:00`) // Representative time
+                return {
+                    title: `${items.length} ${items.length === 1 ? 'Meeting' : 'Meetings'} Today`,
+                    start: date,
+                    end: date,
+                    resource: {
+                        type: 'grouped',
+                        items: items.sort((a, b) => a.time.localeCompare(b.time)),
+                        colorType: 'purple' // Special color for grouped items
+                    }
                 }
-            }
-        })
+            })
     })()
 
     const filteredEvents = events.filter((event) => {
@@ -300,7 +351,7 @@ export default function SlotCalendar({
                     date={currentDate}
                     step={30}
                     timeslots={2}
-                    scrollToTime={new Date(2026, 0, 1, 8)} // Start at 8 AM
+                    scrollToTime={scrollTime}
                     onNavigate={(date) => setCurrentDate(date)}
                     onView={() => { }} // Managed internally
                     onSelectEvent={(event) => {
@@ -327,7 +378,8 @@ export default function SlotCalendar({
                             <div>
                                 <h3 className="text-2xl font-black text-gray-900 tracking-tight">Daily Schedule</h3>
                                 <p className="text-gray-400 font-medium text-sm mt-1">
-                                    {selectedGroup.length} {selectedGroup.length === 1 ? 'meeting' : 'meetings'} on {format(new Date(selectedGroup[0].slot.date), 'MMMM d, yyyy')}
+                                    {selectedGroup.length} {selectedGroup.length === 1 ? 'meeting' : 'meetings'}
+                                    {selectedGroup[0]?.slot?.date && ` on ${format(new Date(selectedGroup[0].slot.date), 'MMMM d, yyyy')}`}
                                 </p>
                             </div>
                             <button
@@ -372,8 +424,9 @@ export default function SlotCalendar({
                                                     <div
                                                         key={idx}
                                                         onClick={() => {
+                                                            const slotDateOnly = item.slot.date.split('T')[0]
                                                             setSelectedEvent({
-                                                                start: new Date(`${item.slot.date.split('T')[0]}T${item.slot.startTime}`),
+                                                                start: parseTimeToDate(slotDateOnly, item.slot.startTime),
                                                                 resource: item,
                                                                 previousGroup: selectedGroup // Store the group to return to
                                                             })
@@ -397,7 +450,7 @@ export default function SlotCalendar({
                                                         <h4 className="text-lg font-bold text-gray-900 group-hover:text-primary-700 transition-colors">{item.studentName}</h4>
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <Link
-                                                                href={`${linkPrefix}/${item.booking.admissionId._id || item.booking.admissionId}`}
+                                                                href={item.booking.admissionId ? `${linkPrefix}/${item.booking.admissionId._id || item.booking.admissionId}` : '#'}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 className="text-sm text-primary-600 font-mono font-bold hover:underline"
                                                             >
@@ -452,7 +505,7 @@ export default function SlotCalendar({
                                     label: 'Token Identification',
                                     value: (
                                         <Link
-                                            href={`${linkPrefix}/${selectedEvent.resource.booking.admissionId._id || selectedEvent.resource.booking.admissionId}`}
+                                            href={selectedEvent.resource.booking.admissionId ? `${linkPrefix}/${selectedEvent.resource.booking.admissionId._id || selectedEvent.resource.booking.admissionId}` : '#'}
                                             className="text-primary-600 hover:underline"
                                         >
                                             {selectedEvent.resource.tokenId}
@@ -515,11 +568,15 @@ export default function SlotCalendar({
                                     <button
                                         onClick={async () => {
                                             if (window.confirm('Are you sure you want to REJECT this application?')) {
-                                                const admissionId = selectedEvent.resource.booking.admissionId._id || selectedEvent.resource.booking.admissionId;
+                                                const admissionId = selectedEvent.resource.booking.admissionId?._id || selectedEvent.resource.booking.admissionId;
+                                                if (!admissionId) {
+                                                    toast.error('Admission record not found');
+                                                    return;
+                                                }
                                                 try {
                                                     const res = await updateAdmission(admissionId, { status: 'rejected' });
                                                     if (res.success) {
-                                                        alert('Application Rejected');
+                                                        toast.success('Application Rejected');
                                                         setSelectedEvent(null);
                                                         window.location.reload();
                                                     }
@@ -535,11 +592,15 @@ export default function SlotCalendar({
                                     <button
                                         onClick={async () => {
                                             if (window.confirm('Are you sure you want to APPROVE this application?')) {
-                                                const admissionId = selectedEvent.resource.booking.admissionId._id || selectedEvent.resource.booking.admissionId;
+                                                const admissionId = selectedEvent.resource.booking.admissionId?._id || selectedEvent.resource.booking.admissionId;
+                                                if (!admissionId) {
+                                                    toast.error('Admission record not found');
+                                                    return;
+                                                }
                                                 try {
                                                     const res = await updateAdmission(admissionId, { status: 'approved' });
                                                     if (res.success) {
-                                                        alert('Application Approved');
+                                                        toast.success('Application Approved');
                                                         setSelectedEvent(null);
                                                         window.location.reload();
                                                     }

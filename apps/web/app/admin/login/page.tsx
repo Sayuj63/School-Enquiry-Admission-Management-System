@@ -53,10 +53,10 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         <div className="mb-6">
-          <Link href="/" className="inline-flex items-center text-primary-600 hover:text-primary-700">
+          <button onClick={() => router.back()} className="inline-flex items-center text-primary-600 hover:text-primary-700 transition-colors">
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Home
-          </Link>
+            Back
+          </button>
         </div>
 
         <div className="card">
