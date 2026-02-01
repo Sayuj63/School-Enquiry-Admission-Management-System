@@ -208,8 +208,10 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
  */
 router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const id = req.params.id.trim().split(':')[0];
+
     // Validate ObjectId format
-    if (!Types.ObjectId.isValid(req.params.id)) {
+    if (!Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid admission ID format'
@@ -244,7 +246,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (parentAddress !== undefined) updateData.parentAddress = parentAddress;
     if (parentOccupation !== undefined) updateData.parentOccupation = parentOccupation;
     if (emergencyContact !== undefined) {
-      const currentAdmission = await Admission.findById(req.params.id);
+      const currentAdmission = await Admission.findById(id);
       if (currentAdmission && emergencyContact === currentAdmission.mobile) {
         return res.status(400).json({
           success: false,
@@ -255,7 +257,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     }
     if (notes !== undefined) updateData.notes = notes;
 
-    const currentAdmission = await Admission.findById(req.params.id);
+    const currentAdmission = await Admission.findById(id);
     if (!currentAdmission) {
       return res.status(404).json({ success: false, error: 'Admission not found' });
     }
@@ -265,7 +267,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       if (['approved', 'rejected', 'confirmed', 'waitlisted', 'submitted'].includes(status) && currentAdmission.status !== status) {
         // Requirement: A counselling slot must exist (but maybe not for waitlisted initially if parent does it)
         // However, if ADMIN marks as waitlisted after counselling:
-        const booking = await SlotBooking.findOne({ admissionId: req.params.id }).populate('slotId');
+        const booking = await SlotBooking.findOne({ admissionId: id }).populate('slotId');
 
         if (status !== 'waitlisted' || (status === 'waitlisted' && currentAdmission.noShowCount > 0)) {
           // Basic validation: confirmed/rejected usually happen after counselling
@@ -280,17 +282,15 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
           if (['approved', 'rejected', 'confirmed'].includes(status) && booking && (booking as any).slotId) {
             const slot = (booking as any).slotId;
             const slotDate = new Date(slot.date);
-            const [h, m] = slot.endTime.split(':').map(Number);
+            const [h, m] = slot.startTime.split(':').map(Number);
 
-            // Set end time on the slot date (stored as UTC midnight)
-            // Using same logic as document deletion check
-            const slotEnd = new Date(slotDate);
-            slotEnd.setHours(h, m, 0, 0);
+            const slotStart = new Date(slotDate);
+            slotStart.setHours(h, m, 0, 0);
 
-            if (new Date() < slotEnd) {
+            if (new Date() < slotStart) {
               return res.status(400).json({
                 success: false,
-                error: `Decision not allowed yet. The counselling session is scheduled for ${slotDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} until ${slot.endTime}. Decisions can only be made after the session is completed.`
+                error: `Decision not allowed yet. The counselling session is scheduled for ${slotDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${slot.startTime}. Decisions can only be made once the session has started.`
               });
             }
           }
@@ -351,8 +351,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     const admission = await Admission.findByIdAndUpdate(
-      req.params.id,
-      updateData,
+      id,
+      { $set: updateData },
       { new: true }
     );
 
