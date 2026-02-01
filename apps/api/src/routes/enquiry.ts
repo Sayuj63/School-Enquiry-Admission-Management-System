@@ -279,6 +279,28 @@ router.post('/', async (req, res: Response) => {
             slotTime: `${slot.startTime} - ${slot.endTime}`,
             location: 'School Campus'
           });
+
+          // Send Calendar Invites
+          await sendParentCalendarInvite({
+            parentEmail: enquiry.email,
+            parentName: enquiry.parentName,
+            studentName: enquiry.childName,
+            tokenId: enquiry.tokenId || '',
+            slotDate: slot.date,
+            slotStartTime: slot.startTime,
+            slotEndTime: slot.endTime,
+            location: 'School Campus'
+          }).catch(err => console.error('Parent calendar invite error:', err));
+
+          await sendPrincipalCalendarInvite({
+            studentName: enquiry.childName,
+            parentName: enquiry.parentName,
+            tokenId: enquiry.tokenId || '',
+            slotDate: slot.date,
+            slotStartTime: slot.startTime,
+            slotEndTime: slot.endTime,
+            location: 'School Campus'
+          }).catch(err => console.error('Principal calendar invite error:', err));
         }
 
         if (isWaitlist) {

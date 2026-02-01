@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
-import { Enquiry, Admission, SlotBooking } from '../models';
+import { Enquiry, Admission, SlotBooking, GradeRule } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import cloudinary from '../config/cloudinary';
@@ -319,7 +319,6 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         // Seat availability check (3.6.2)
         // Seat availability check (3.6.2)
         if (status === 'confirmed' || status === 'approved' || (status === 'submitted' && currentAdmission.status === 'waitlisted')) {
-          const { GradeRule } = require('../models');
           const targetGrade = grade || currentAdmission.grade;
           const gradeRule = await GradeRule.findOne({ grade: targetGrade });
           if (gradeRule) {
@@ -441,7 +440,8 @@ router.get('/documents/:publicId', authenticate, async (req: AuthRequest, res: R
 router.post('/:id/documents', authenticate, upload.single('document'), async (req: AuthRequest, res: Response) => {
   try {
     // Validate ObjectId format
-    if (!Types.ObjectId.isValid(req.params.id)) {
+    const id = req.params.id.trim().split(':')[0];
+    if (!Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid admission ID format'
@@ -513,7 +513,8 @@ router.post('/:id/documents', authenticate, upload.single('document'), async (re
 router.delete('/:id/documents/:docId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Validate ObjectId format
-    if (!Types.ObjectId.isValid(req.params.id)) {
+    const id = req.params.id.trim().split(':')[0];
+    if (!Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid admission ID format'

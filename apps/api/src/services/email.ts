@@ -163,6 +163,19 @@ ${schoolName} Admissions Team
       };
     }
 
+    // TRIAL TIER CHECK
+    const isTrial = !process.env.RESEND_API_KEY?.startsWith('re_live_');
+    const validatedEmail = 'nes22193@gmail.com';
+    const targetEmail = data.parentEmail;
+
+    if (isTrial && targetEmail.toLowerCase() !== validatedEmail.toLowerCase()) {
+      console.warn(`[Resend Trial] Skipping email to unvalidated address: ${targetEmail}. Only ${validatedEmail} is allowed.`);
+      return {
+        success: true,
+        message: `Skipped (Resend Trial): Email would have been sent to ${targetEmail}`
+      };
+    }
+
     // Resend requires a verified domain or onboarding@resend.dev
     // If you haven't verified a domain, you MUST use onboarding@resend.dev as 'from'
     const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
@@ -295,6 +308,19 @@ Location: ${data.location}
       };
     }
 
+    // TRIAL TIER CHECK
+    const isTrial = !process.env.RESEND_API_KEY?.startsWith('re_live_');
+    const validatedEmail = 'nes22193@gmail.com';
+    const targetEmail = principalEmail;
+
+    if (isTrial && targetEmail.toLowerCase() !== validatedEmail.toLowerCase()) {
+      console.warn(`[Resend Trial] Skipping principal email to unvalidated address: ${targetEmail}. Only ${validatedEmail} is allowed.`);
+      return {
+        success: true,
+        message: `Skipped (Resend Trial): Email would have been sent to ${targetEmail}`
+      };
+    }
+
     // Resend requires a verified domain or onboarding@resend.dev
     const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
       ? 'onboarding@resend.dev'
@@ -392,6 +418,19 @@ ${schoolName} Admissions Team
     const resend = getResendClient();
     if (!resend) {
       return { success: false, message: 'Email service not configured' };
+    }
+
+    // TRIAL TIER CHECK
+    const isTrial = !process.env.RESEND_API_KEY?.startsWith('re_live_');
+    const validatedEmail = 'nes22193@gmail.com';
+    const targetEmail = data.parentEmail;
+
+    if (isTrial && targetEmail.toLowerCase() !== validatedEmail.toLowerCase()) {
+      console.warn(`[Resend Trial] Skipping waitlist email to unvalidated address: ${targetEmail}. Only ${validatedEmail} is allowed.`);
+      return {
+        success: true,
+        message: `Skipped (Resend Trial): Email would have been sent to ${targetEmail}`
+      };
     }
 
     const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
