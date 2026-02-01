@@ -35,7 +35,7 @@ interface Admission {
 export default function PrincipalAdmissionDetailPage() {
     const router = useRouter()
     const params = useParams()
-    const admissionId = params.id as string
+    const admissionId = (params.id as string).split(':')[0]
 
     const [admission, setAdmission] = useState<Admission | null>(null)
     const [slotBooking, setSlotBooking] = useState<any>(null)
@@ -146,14 +146,14 @@ export default function PrincipalAdmissionDetailPage() {
                                     </div>
                                 ) : !(() => {
                                     const slotDate = new Date(slotBooking.slotId.date);
-                                    const [h, m] = slotBooking.slotId.endTime.split(':').map(Number);
-                                    const slotEnd = new Date(slotDate);
-                                    slotEnd.setHours(h, m, 0, 0);
-                                    return new Date() > slotEnd;
+                                    const [h, m] = slotBooking.slotId.startTime.split(':').map(Number);
+                                    const slotStart = new Date(slotDate);
+                                    slotStart.setHours(h, m, 0, 0);
+                                    return new Date() >= slotStart;
                                 })() ? (
                                     <div className="text-xs font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 flex items-center gap-2">
                                         <Clock className="h-4 w-4" />
-                                        Session ends at {slotBooking.slotId.endTime} today
+                                        Session starts at {slotBooking.slotId.startTime} today
                                     </div>
                                 ) : (
                                     <>
