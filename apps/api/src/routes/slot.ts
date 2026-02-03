@@ -143,8 +143,19 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     const slotsWithBookings = await Promise.all(
       slots.map(async (slot) => {
         const bookings = await SlotBooking.find({ slotId: slot._id }).populate('admissionId');
+
+        // Dynamically calculate distinct parents to ensure UI accuracy
+        const distinctParents = new Set(bookings.map(b => b.parentEmail)).size;
+
+        // Sync DB if out of sync (denormalization maintenance)
+        if (slot.bookedCount !== distinctParents) {
+          slot.bookedCount = distinctParents;
+          await slot.save();
+        }
+
         return {
           ...slot.toObject(),
+          bookedCount: distinctParents,
           bookings
         };
       })
@@ -1003,7 +1014,21 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (!slot) {
       return res.status(404).json({ success: false, error: 'Slot not found' });
     }
-    res.json({ success: true, data: slot });
+    const bookings = await SlotBooking.find({ slotId: slot._id });
+    const distinctParents = new Set(bookings.map(b => b.parentEmail)).size;
+
+    if (slot.bookedCount !== distinctParents) {
+      slot.bookedCount = distinctParents;
+      await slot.save();
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...slot.toObject(),
+        bookedCount: distinctParents
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to fetch slot' });
   }
