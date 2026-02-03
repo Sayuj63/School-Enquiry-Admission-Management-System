@@ -163,22 +163,9 @@ ${schoolName} Admissions Team
       };
     }
 
-    // TRIAL TIER CHECK
-    const isTrial = !process.env.RESEND_API_KEY?.startsWith('re_live_');
-    const validatedEmail = 'nes22193@gmail.com';
-    const targetEmail = data.parentEmail;
-
-    if (isTrial && targetEmail.toLowerCase() !== validatedEmail.toLowerCase()) {
-      console.warn(`[Resend Trial] Skipping email to unvalidated address: ${targetEmail}. Only ${validatedEmail} is allowed.`);
-      return {
-        success: true,
-        message: `Skipped (Resend Trial): Email would have been sent to ${targetEmail}`
-      };
-    }
-
     // Resend requires a verified domain or onboarding@resend.dev
     // If you haven't verified a domain, you MUST use onboarding@resend.dev as 'from'
-    const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
+    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@school.com' || !schoolEmail)
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 
@@ -202,7 +189,7 @@ ${schoolName} Admissions Team
       let errorMessage = `Failed to send email via Resend: ${error.name} - ${error.message}`;
 
       if ((error as any).statusCode === 403) {
-        errorMessage = "Resend 403 Error: You are likely using an unverified domain or trying to send to a non-authorized recipient while on the testing tier. Please verify your domain at resend.com or send only to the owner email (nes22193@gmail.com).";
+        errorMessage = "Resend 403 Error: Domain validation failed or recipient unauthorized. If you are on a Resend Free/Trial plan, you must verify your domain or send only to your account's verified email. Alternatively, set USE_RESEND_ONBOARDING=true and ensure you are sending to your own email.";
       }
 
       return {
@@ -308,21 +295,8 @@ Location: ${data.location}
       };
     }
 
-    // TRIAL TIER CHECK
-    const isTrial = !process.env.RESEND_API_KEY?.startsWith('re_live_');
-    const validatedEmail = 'nes22193@gmail.com';
-    const targetEmail = principalEmail;
-
-    if (isTrial && targetEmail.toLowerCase() !== validatedEmail.toLowerCase()) {
-      console.warn(`[Resend Trial] Skipping principal email to unvalidated address: ${targetEmail}. Only ${validatedEmail} is allowed.`);
-      return {
-        success: true,
-        message: `Skipped (Resend Trial): Email would have been sent to ${targetEmail}`
-      };
-    }
-
     // Resend requires a verified domain or onboarding@resend.dev
-    const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
+    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@school.com' || !schoolEmail)
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 
@@ -346,7 +320,7 @@ Location: ${data.location}
       let errorMessage = `Failed to send email to principal: ${error.name} - ${error.message}`;
 
       if ((error as any).statusCode === 403) {
-        errorMessage = "Resend 403 Error (Principal): You are likely using an unverified domain or trying to send to a non-authorized recipient while on the testing tier.";
+        errorMessage = "Resend 403 Error (Principal): Domain validation failed or recipient unauthorized.";
       }
 
       return {
@@ -420,20 +394,7 @@ ${schoolName} Admissions Team
       return { success: false, message: 'Email service not configured' };
     }
 
-    // TRIAL TIER CHECK
-    const isTrial = !process.env.RESEND_API_KEY?.startsWith('re_live_');
-    const validatedEmail = 'nes22193@gmail.com';
-    const targetEmail = data.parentEmail;
-
-    if (isTrial && targetEmail.toLowerCase() !== validatedEmail.toLowerCase()) {
-      console.warn(`[Resend Trial] Skipping waitlist email to unvalidated address: ${targetEmail}. Only ${validatedEmail} is allowed.`);
-      return {
-        success: true,
-        message: `Skipped (Resend Trial): Email would have been sent to ${targetEmail}`
-      };
-    }
-
-    const fromAddress = (schoolEmail === 'info@school.com' || !schoolEmail || process.env.USE_RESEND_ONBOARDING === 'true')
+    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@school.com' || !schoolEmail)
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 
