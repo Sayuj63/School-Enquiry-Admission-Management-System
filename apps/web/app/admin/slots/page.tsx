@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Plus, Calendar, Users, Clock, Loader2, List, CalendarDays, Search, Trash2, AlertTriangle, X, User } from 'lucide-react'
 import { getSlots, createSlot, updateSlot, getAdmissions, bookSlot, deleteSlot, getCurrentUser, generateSaturdaySlots, bulkGenerateSlots, markNoShow, cancelSlotBySchool, api } from '@/lib/api'
@@ -33,7 +33,7 @@ const statusColors = {
   completed: 'bg-blue-100 text-blue-800 border-blue-200'
 }
 
-export default function SlotsPage() {
+function SlotsContent() {
   const [slots, setSlots] = useState<Slot[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -713,5 +713,17 @@ export default function SlotsPage() {
         confirmText="Proceed"
       />
     </div>
+  )
+}
+
+export default function SlotsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="h-8 w-8 text-primary-600 animate-spin" />
+      </div>
+    }>
+      <SlotsContent />
+    </Suspense>
   )
 }

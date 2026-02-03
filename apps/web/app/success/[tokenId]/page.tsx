@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle, MessageCircle, FileText, ArrowLeft, Home } from 'lucide-react'
 
-export default function SuccessPage() {
+function SuccessContent() {
   const router = useRouter()
   const params = useParams()
   const tokenId = params.tokenId as string
@@ -109,5 +110,17 @@ export default function SuccessPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    }>
+      <SuccessContent />
+    </Suspense>
   )
 }

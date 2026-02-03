@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import Link from 'next/link'
@@ -26,7 +26,7 @@ interface GradeRule {
   availableSeats?: number
 }
 
-export default function EnquiryPage() {
+function EnquiryContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const resumeId = searchParams.get('resume')
@@ -708,5 +708,17 @@ export default function EnquiryPage() {
         />
       </div>
     </div>
+  )
+}
+
+export default function EnquiryPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="h-12 w-12 text-primary-600 animate-spin" />
+      </div>
+    }>
+      <EnquiryContent />
+    </Suspense>
   )
 }

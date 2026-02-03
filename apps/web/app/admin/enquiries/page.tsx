@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, Plus, X, Loader2, CheckCircle } from 'lucide-react'
@@ -36,7 +36,7 @@ const statusLabels = {
   converted: 'Admission Approved'
 }
 
-export default function EnquiriesPage() {
+function EnquiriesContent() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -639,5 +639,17 @@ export default function EnquiriesPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function EnquiriesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="h-8 w-8 text-primary-600 animate-spin" />
+      </div>
+    }>
+      <EnquiriesContent />
+    </Suspense>
   )
 }
