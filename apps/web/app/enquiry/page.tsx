@@ -7,6 +7,7 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { GraduationCap, ArrowLeft, Loader2, CheckCircle, Calendar, Save, FileText, Info, PlusCircle, ChevronRight, User, LogOut, Upload, Trash2, X } from 'lucide-react'
 import { sendOTP, verifyOTP, submitEnquiry, getEnquiryTemplate, getGradeRules, getAvailableSlots, getEnquiryDraft, lookupEnquiries, getEnquiriesByMobile, getExistingBookingByMobile, getDocumentsList, uploadParentDocument } from '@/lib/api'
+import ConfirmModal from '@/app/components/ConfirmModal'
 
 interface FormField {
   name: string
@@ -48,6 +49,12 @@ export default function EnquiryPage() {
   const [requiredDocs, setRequiredDocs] = useState<any[]>([])
   const [pendingFiles, setPendingFiles] = useState<{ [key: string]: File }>({})
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: boolean }>({})
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => { } })
 
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -388,9 +395,12 @@ export default function EnquiryPage() {
       router.push(`/success/${tokenId}${isWaitlisted ? '?waitlist=true' : ''}`)
     } else if ((result as any).errorCode === 'GRADE_FULL') {
       setStep('form')
-      if (confirm(`Admissions for ${data.grade} are currently full. Would you like to join the waitlist? You won't need to book a counselling slot now.`)) {
-        onSubmit(data, true)
-      }
+      setConfirmModal({
+        isOpen: true,
+        title: 'Grade Full - Join Waitlist?',
+        message: `Admissions for ${data.grade} are currently full. Would you like to join the waitlist? You won't need to book a counselling slot now.`,
+        onConfirm: () => onSubmit(data, true)
+      })
     } else {
       setStep('form')
       setError(result.error || 'Failed to submit enquiry')
@@ -685,6 +695,17 @@ export default function EnquiryPage() {
             )}
           </button>
         </form>
+
+        {/* Confirmation Modal */}
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+          onConfirm={confirmModal.onConfirm}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          variant="warning"
+          confirmText="Join Waitlist"
+        />
       </div>
     </div>
   )

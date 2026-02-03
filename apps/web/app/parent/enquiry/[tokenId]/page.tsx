@@ -14,6 +14,7 @@ import {
     getAvailableSlots,
     bookSlotByParent
 } from '@/lib/api'
+import ConfirmModal from '@/app/components/ConfirmModal'
 
 const REQUIRED_DOCUMENTS = [
     'Birth Certificate',
@@ -36,6 +37,13 @@ export default function ParentEnquiryDetail() {
     const [showBookingModal, setShowBookingModal] = useState(false)
     const [rescheduling, setRescheduling] = useState(false)
     const [booking, setBooking] = useState(false)
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean
+        title: string
+        message: string
+        variant: 'danger' | 'warning'
+        onConfirm: () => void
+    }>({ isOpen: false, title: '', message: '', variant: 'warning', onConfirm: () => { } })
 
     // Auto-clear alerts after 5 seconds
     useEffect(() => {
@@ -89,36 +97,50 @@ export default function ParentEnquiryDetail() {
     }
 
     const handleDelete = async (docId: string) => {
-        if (!confirm('Are you sure you want to delete this document?')) return
-        try {
-            const res = await deleteParentDocument(tokenId as string, docId)
-            if (res.success) {
-                await fetchData()
-            } else {
-                toast.error(res.error || 'Delete failed')
+        setConfirmModal({
+            isOpen: true,
+            title: 'Delete Document',
+            message: 'Are you sure you want to delete this document? This action cannot be undone.',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const res = await deleteParentDocument(tokenId as string, docId)
+                    if (res.success) {
+                        await fetchData()
+                    } else {
+                        toast.error(res.error || 'Delete failed')
+                    }
+                } catch (err) {
+                    toast.error('Delete failed')
+                }
             }
-        } catch (err) {
-            toast.error('Delete failed')
-        }
+        })
     }
 
     const handleReschedule = async (slotId: string) => {
-        if (!confirm('Are you sure you want to move to this earlier slot?')) return
-        setRescheduling(true)
-        try {
-            const res = await rescheduleSlotByParent(tokenId as string, slotId)
-            if (res.success) {
-                toast.success('Slot updated successfully!')
-                setShowReschedule(false)
-                await fetchData()
-            } else {
-                toast.error(res.error || 'Failed to reschedule')
+        setConfirmModal({
+            isOpen: true,
+            title: 'Move to Earlier Slot',
+            message: 'Are you sure you want to move to this earlier slot? Your current slot will be released.',
+            variant: 'warning',
+            onConfirm: async () => {
+                setRescheduling(true)
+                try {
+                    const res = await rescheduleSlotByParent(tokenId as string, slotId)
+                    if (res.success) {
+                        toast.success('Slot updated successfully!')
+                        setShowReschedule(false)
+                        await fetchData()
+                    } else {
+                        toast.error(res.error || 'Failed to reschedule')
+                    }
+                } catch (err) {
+                    toast.error('An error occurred while rescheduling')
+                } finally {
+                    setRescheduling(false)
+                }
             }
-        } catch (err) {
-            toast.error('An error occurred while rescheduling')
-        } finally {
-            setRescheduling(false)
-        }
+        })
     }
 
     const handleBook = async (slotId: string) => {
@@ -604,6 +626,17 @@ export default function ParentEnquiryDetail() {
                     </div>
                 </div>
             </main>
+
+            {/* Confirmation Modal */}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.onConfirm}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                variant={confirmModal.variant}
+                confirmText={confirmModal.variant === 'danger' ? 'Delete' : 'Confirm'}
+            />
         </div>
     )
 }

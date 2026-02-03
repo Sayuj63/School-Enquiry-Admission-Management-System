@@ -9,6 +9,17 @@ import { connectDB } from './config/db';
 import { seedDatabase } from './config/seed';
 import { openApiSpec } from './openapi';
 
+// Global error handlers for crash prevention during startup or background tasks
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught Exception thrown:', err);
+  // Optional: Graceful exit after logging
+  // process.exit(1);
+});
+
 // Routes
 import authRoutes from './routes/auth';
 import enquiryRoutes from './routes/enquiry';
@@ -22,10 +33,13 @@ import { startReminderJob } from './services/reminder';
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5002;
 
-// 1. CORS MUST be first to handle preflights and ensure headers are on all responses
-const allowedOrigins = process.env.FRONTEND_URL
+// 1. CORS Configuration
+const rawOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(',')
   : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
+// Normalize origins: remove trailing slashes to match browser expectations
+const allowedOrigins = rawOrigins.map(url => url.replace(/\/$/, ''));
 
 console.log('CORS Configuration:');
 console.log('- Allowed Origins:', allowedOrigins);
@@ -165,8 +179,13 @@ async function startServer() {
     await connectDB();
     await seedDatabase();
 
-    // Start automated background tasks
-    startReminderJob();
+    // Start automated background tasks - No await, let them run in background
+    // Catch errors within the job to prevent crash
+    try {
+      startReminderJob();
+    } catch (jobError) {
+      console.error('Failed to start reminder job:', jobError);
+    }
 
     console.log('Database connection and seeding complete.');
 
@@ -179,14 +198,19 @@ async function startServer() {
       });
     });
 
+    process.on('SIGINT', () => {
+      console.log('SIGINT received. Closing server...');
+      server.close(() => {
+        console.log('Server closed.');
+        process.exit(0);
+      });
+    });
+
   } catch (error) {
     console.error('Failed during server startup sequence:', error);
-    // We don't necessarily want to exit immediately if seeding fails but the server is up
-    // However, if DB connection fails, the app might be useless.
-    // For now, let's keep it running to allow debugging if needed, 
-    // or exit if it's a critical failure.
+    // Don't kill the process if it's already listening on Render, 
+    // unless it's a fatal DB configuration error.
     if (error instanceof Error && error.message.includes('MONGODB_URI')) {
-      console.error('CRITICAL: MONGODB_URI missing. Exiting...');
       process.exit(1);
     }
   }

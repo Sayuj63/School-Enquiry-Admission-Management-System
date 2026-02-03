@@ -11,6 +11,7 @@ import { updateAdmission, getCurrentUser } from '@/lib/api'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { usePathname } from 'next/navigation'
+import ConfirmModal from './ConfirmModal'
 
 const locales = {
     'en-US': enUS,
@@ -100,6 +101,13 @@ export default function SlotCalendar({
     const [currentView, setCurrentView] = useState<'month' | 'week' | 'day'>(initialView)
     const [user, setUser] = useState<any>(null)
     const [scrollTime, setScrollTime] = useState(new Date(2026, 0, 1, 8))
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean
+        title: string
+        message: string
+        variant: 'danger' | 'success'
+        onConfirm: () => void
+    }>({ isOpen: false, title: '', message: '', variant: 'danger', onConfirm: () => { } })
 
     const pathname = usePathname()
     const isPrincipalPortal = pathname?.startsWith('/principal')
@@ -587,48 +595,60 @@ export default function SlotCalendar({
                             return (
                                 <div className="mt-8 flex gap-4 border-t border-gray-50 pt-8">
                                     <button
-                                        onClick={async () => {
-                                            if (window.confirm('Are you sure you want to REJECT this application?')) {
-                                                const admissionId = selectedEvent.resource.booking.admissionId?._id || selectedEvent.resource.booking.admissionId;
-                                                if (!admissionId) {
-                                                    toast.error('Admission record not found');
-                                                    return;
-                                                }
-                                                try {
-                                                    const res = await updateAdmission(admissionId, { status: 'rejected' });
-                                                    if (res.success) {
-                                                        toast.success('Application Rejected');
-                                                        setSelectedEvent(null);
-                                                        window.location.reload();
-                                                    }
-                                                } catch (err) {
-                                                    console.error(err);
-                                                }
+                                        onClick={() => {
+                                            const admissionId = selectedEvent.resource.booking.admissionId?._id || selectedEvent.resource.booking.admissionId;
+                                            if (!admissionId) {
+                                                toast.error('Admission record not found');
+                                                return;
                                             }
+                                            setConfirmModal({
+                                                isOpen: true,
+                                                title: 'Reject Application',
+                                                message: 'Are you sure you want to REJECT this application? This action cannot be undone.',
+                                                variant: 'danger',
+                                                onConfirm: async () => {
+                                                    try {
+                                                        const res = await updateAdmission(admissionId, { status: 'rejected' });
+                                                        if (res.success) {
+                                                            toast.success('Application Rejected');
+                                                            setSelectedEvent(null);
+                                                            window.location.reload();
+                                                        }
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                    }
+                                                }
+                                            });
                                         }}
                                         className="flex-1 py-4 border-2 border-red-100 text-red-600 rounded-2xl hover:bg-red-50 font-black text-sm transition-all active:scale-95"
                                     >
                                         Reject
                                     </button>
                                     <button
-                                        onClick={async () => {
-                                            if (window.confirm('Are you sure you want to APPROVE this application?')) {
-                                                const admissionId = selectedEvent.resource.booking.admissionId?._id || selectedEvent.resource.booking.admissionId;
-                                                if (!admissionId) {
-                                                    toast.error('Admission record not found');
-                                                    return;
-                                                }
-                                                try {
-                                                    const res = await updateAdmission(admissionId, { status: 'approved' });
-                                                    if (res.success) {
-                                                        toast.success('Application Approved');
-                                                        setSelectedEvent(null);
-                                                        window.location.reload();
-                                                    }
-                                                } catch (err) {
-                                                    console.error(err);
-                                                }
+                                        onClick={() => {
+                                            const admissionId = selectedEvent.resource.booking.admissionId?._id || selectedEvent.resource.booking.admissionId;
+                                            if (!admissionId) {
+                                                toast.error('Admission record not found');
+                                                return;
                                             }
+                                            setConfirmModal({
+                                                isOpen: true,
+                                                title: 'Approve Application',
+                                                message: 'Are you sure you want to APPROVE this application? The student will be notified.',
+                                                variant: 'success',
+                                                onConfirm: async () => {
+                                                    try {
+                                                        const res = await updateAdmission(admissionId, { status: 'approved' });
+                                                        if (res.success) {
+                                                            toast.success('Application Approved');
+                                                            setSelectedEvent(null);
+                                                            window.location.reload();
+                                                        }
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                    }
+                                                }
+                                            });
                                         }}
                                         className="flex-1 py-4 bg-green-600 text-white rounded-2xl hover:bg-green-700 shadow-xl shadow-green-200 font-black text-sm transition-all active:scale-95"
                                     >
@@ -658,6 +678,17 @@ export default function SlotCalendar({
                     </div>
                 </div>
             )}
+
+            {/* Confirmation Modal */}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.onConfirm}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                variant={confirmModal.variant}
+                confirmText={confirmModal.variant === 'success' ? 'Approve' : 'Reject'}
+            />
         </div>
     )
 }

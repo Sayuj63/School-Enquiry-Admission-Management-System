@@ -8,6 +8,8 @@ import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvail
 import { format } from 'date-fns'
 import SlotCalendar from '../../../components/SlotCalendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import ConfirmModal from '@/app/components/ConfirmModal'
+import PromptModal from '@/app/components/PromptModal'
 
 interface Admission {
   _id: string
@@ -92,6 +94,19 @@ export default function AdmissionDetailPage() {
   })
   const [fields, setFields] = useState<any[]>([])
   const [baseFields, setBaseFields] = useState<Record<string, boolean>>({})
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    variant: 'danger' | 'success' | 'warning'
+    onConfirm: () => void
+  }>({ isOpen: false, title: '', message: '', variant: 'warning', onConfirm: () => { } })
+  const [promptModal, setPromptModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: (value: string) => void
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => { } })
 
   useEffect(() => {
     fetchData()
@@ -262,18 +277,24 @@ export default function AdmissionDetailPage() {
   }
 
   const handleDeleteDocument = async (docId: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Document',
+      message: 'Are you sure you want to delete this document? This action cannot be undone.',
+      variant: 'danger',
+      onConfirm: async () => {
+        const result = await deleteDocument(admissionId, docId)
 
-    const result = await deleteDocument(admissionId, docId)
-
-    if (result.success) {
-      setAdmission((prev) => prev ? {
-        ...prev,
-        documents: prev.documents.filter(d => d._id !== docId)
-      } : null)
-    } else {
-      setError(result.error || 'Failed to delete document')
-    }
+        if (result.success) {
+          setAdmission((prev) => prev ? {
+            ...prev,
+            documents: prev.documents.filter(d => d._id !== docId)
+          } : null)
+        } else {
+          setError(result.error || 'Failed to delete document')
+        }
+      }
+    })
   }
 
   const handleSlotSelect = (slot: Slot) => {
@@ -303,21 +324,28 @@ export default function AdmissionDetailPage() {
 
   const handleCancelBooking = async () => {
     if (!slotBooking || !slotBooking.slotId?._id) return
-    if (!confirm('Are you sure you want to cancel this counselling slot?')) return
 
-    setCancelling(true)
-    setError('')
+    setConfirmModal({
+      isOpen: true,
+      title: 'Cancel Counselling Slot',
+      message: 'Are you sure you want to cancel this counselling slot? This will release the slot for other students.',
+      variant: 'warning',
+      onConfirm: async () => {
+        setCancelling(true)
+        setError('')
 
-    const result = await cancelBooking(slotBooking.slotId._id, slotBooking._id)
+        const result = await cancelBooking(slotBooking.slotId._id, slotBooking._id)
 
-    if (result.success) {
-      setSuccess('Counselling slot cancelled successfully')
-      fetchData()
-    } else {
-      setError(result.error || 'Failed to cancel slot')
-    }
+        if (result.success) {
+          setSuccess('Counselling slot cancelled successfully')
+          fetchData()
+        } else {
+          setError(result.error || 'Failed to cancel slot')
+        }
 
-    setCancelling(false)
+        setCancelling(false)
+      }
+    })
   }
 
   const handleReschedule = () => {
@@ -390,16 +418,22 @@ export default function AdmissionDetailPage() {
             <>
               {admission.status === 'waitlisted' && (
                 <button
-                  onClick={async () => {
-                    if (confirm(`Are you sure you want to promote ${admission.studentName} to the active admission list?`)) {
-                      const res = await updateAdmission(admissionId, { status: 'submitted' })
-                      if (res.success) {
-                        setSuccess('Student promoted to active review successfully')
-                        fetchData()
-                      } else {
-                        setError(res.error || 'Failed to promote student')
+                  onClick={() => {
+                    setConfirmModal({
+                      isOpen: true,
+                      title: 'Promote to Admission',
+                      message: `Are you sure you want to promote ${admission.studentName} to the active admission list?`,
+                      variant: 'success',
+                      onConfirm: async () => {
+                        const res = await updateAdmission(admissionId, { status: 'submitted' })
+                        if (res.success) {
+                          setSuccess('Student promoted to active review successfully')
+                          fetchData()
+                        } else {
+                          setError(res.error || 'Failed to promote student')
+                        }
                       }
-                    }
+                    })
                   }}
                   className="btn-primary grad-indigo border-none px-6 py-2.5 shadow-lg shadow-indigo-200/50 font-black uppercase tracking-widest text-xs"
                 >
@@ -426,16 +460,22 @@ export default function AdmissionDetailPage() {
                 return (
                   <div className="flex flex-wrap gap-3">
                     <button
-                      onClick={async () => {
-                        if (confirm('Are you sure you want to confirm this admission? This will also sync data to ERP.')) {
-                          const res = await updateAdmission(admissionId, { status: 'confirmed' })
-                          if (res.success) {
-                            setSuccess('Admission confirmed successfully and synced to ERP')
-                            fetchData()
-                          } else {
-                            setError(res.error || 'Failed to confirm admission')
+                      onClick={() => {
+                        setConfirmModal({
+                          isOpen: true,
+                          title: 'Confirm Admission',
+                          message: 'Are you sure you want to confirm this admission? This will also sync data to ERP.',
+                          variant: 'success',
+                          onConfirm: async () => {
+                            const res = await updateAdmission(admissionId, { status: 'confirmed' })
+                            if (res.success) {
+                              setSuccess('Admission confirmed successfully and synced to ERP')
+                              fetchData()
+                            } else {
+                              setError(res.error || 'Failed to confirm admission')
+                            }
                           }
-                        }
+                        })
                       }}
                       className="btn-primary grad-emerald border-none px-6 py-2.5 shadow-lg shadow-emerald-200/50 font-black uppercase tracking-widest text-xs"
                     >
@@ -443,16 +483,22 @@ export default function AdmissionDetailPage() {
                       Confirm Admission
                     </button>
                     <button
-                      onClick={async () => {
-                        if (confirm('Are you sure you want to move this application to the waitlist?')) {
-                          const res = await updateAdmission(admissionId, { status: 'waitlisted' })
-                          if (res.success) {
-                            setSuccess('Application moved to waitlist')
-                            fetchData()
-                          } else {
-                            setError(res.error || 'Failed to move to waitlist')
+                      onClick={() => {
+                        setConfirmModal({
+                          isOpen: true,
+                          title: 'Move to Waitlist',
+                          message: 'Are you sure you want to move this application to the waitlist?',
+                          variant: 'warning',
+                          onConfirm: async () => {
+                            const res = await updateAdmission(admissionId, { status: 'waitlisted' })
+                            if (res.success) {
+                              setSuccess('Application moved to waitlist')
+                              fetchData()
+                            } else {
+                              setError(res.error || 'Failed to move to waitlist')
+                            }
                           }
-                        }
+                        })
                       }}
                       className="btn-secondary bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 font-black uppercase tracking-widest text-[10px] px-4"
                     >
@@ -460,15 +506,21 @@ export default function AdmissionDetailPage() {
                       Waitlist
                     </button>
                     <button
-                      onClick={async () => {
-                        const reason = prompt('Please enter reason for rejection:')
-                        if (reason !== null) {
-                          const res = await updateAdmission(admissionId, { status: 'rejected', notes: reason })
-                          if (res.success) {
-                            setSuccess('Admission rejected')
-                            fetchData()
+                      onClick={() => {
+                        setPromptModal({
+                          isOpen: true,
+                          title: 'Reject Admission',
+                          message: 'Please provide a reason for rejecting this admission. This will be shared with the parent.',
+                          onConfirm: async (reason) => {
+                            const res = await updateAdmission(admissionId, { status: 'rejected', notes: reason })
+                            if (res.success) {
+                              setSuccess('Admission rejected')
+                              fetchData()
+                            } else {
+                              setError(res.error || 'Failed to reject admission')
+                            }
                           }
-                        }
+                        })
                       }}
                       className="btn-secondary bg-red-50 text-red-700 border-red-200 hover:bg-red-100 font-black uppercase tracking-widest text-[10px] px-4"
                     >
@@ -486,14 +538,20 @@ export default function AdmissionDetailPage() {
                     Book counselling to enable decisions
                   </div>
                   <button
-                    onClick={async () => {
-                      if (confirm('Move back to waitlist?')) {
-                        const res = await updateAdmission(admissionId, { status: 'waitlisted' })
-                        if (res.success) {
-                          setSuccess('Moved back to waitlist')
-                          fetchData()
+                    onClick={() => {
+                      setConfirmModal({
+                        isOpen: true,
+                        title: 'Move to Waitlist',
+                        message: 'Are you sure you want to move this application back to the waitlist?',
+                        variant: 'warning',
+                        onConfirm: async () => {
+                          const res = await updateAdmission(admissionId, { status: 'waitlisted' })
+                          if (res.success) {
+                            setSuccess('Moved back to waitlist')
+                            fetchData()
+                          }
                         }
-                      }
+                      })
                     }}
                     className="text-[10px] font-black uppercase text-gray-400 hover:text-amber-600 transition-colors"
                   >
@@ -811,6 +869,28 @@ export default function AdmissionDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.variant === 'danger' ? 'Delete' : confirmModal.variant === 'success' ? 'Confirm' : 'Proceed'}
+      />
+
+      {/* Prompt Modal */}
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        onClose={() => setPromptModal({ ...promptModal, isOpen: false })}
+        onConfirm={promptModal.onConfirm}
+        title={promptModal.title}
+        message={promptModal.message}
+        placeholder="Enter rejection reason..."
+        confirmText="Reject Admission"
+      />
     </div>
   )
 }

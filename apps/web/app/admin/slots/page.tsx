@@ -6,6 +6,7 @@ import { Plus, Calendar, Users, Clock, Loader2, List, CalendarDays, Search, Tras
 import { getSlots, createSlot, updateSlot, getAdmissions, bookSlot, deleteSlot, getCurrentUser, generateSaturdaySlots, bulkGenerateSlots, markNoShow, cancelSlotBySchool, api } from '@/lib/api'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
 import CalendarView from './CalendarView'
+import ConfirmModal from '@/app/components/ConfirmModal'
 
 export interface Slot {
   _id: string
@@ -74,6 +75,13 @@ export default function SlotsPage() {
   const [showBookingsModal, setShowBookingsModal] = useState(false)
   const [slotBookings, setSlotBookings] = useState<any[]>([])
   const [fetchingBookings, setFetchingBookings] = useState(false)
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    variant: 'danger' | 'warning'
+    onConfirm: () => void
+  }>({ isOpen: false, title: '', message: '', variant: 'warning', onConfirm: () => { } })
 
   useEffect(() => {
     fetchSlots()
@@ -235,16 +243,23 @@ export default function SlotsPage() {
   }
 
   const handleCancelSlotBySchool = async (slotId: string) => {
-    if (!confirm('This will CANCEL the slot and AUTOMATICALLY reschedule all parents to the next available date. Original capacities will be adjusted +1. Proceed?')) return
-    setLoading(true)
-    const result = await cancelSlotBySchool(slotId)
-    if (result.success) {
-      setSuccess(result.message || 'Slot cancelled')
-      fetchSlots()
-    } else {
-      setError(result.error || 'Failed to cancel slot')
-    }
-    setLoading(false)
+    setConfirmModal({
+      isOpen: true,
+      title: 'Cancel Slot & Reschedule',
+      message: 'This will CANCEL the slot and AUTOMATICALLY reschedule all parents to the next available date. Original capacities will be adjusted +1. Proceed?',
+      variant: 'warning',
+      onConfirm: async () => {
+        setLoading(true)
+        const result = await cancelSlotBySchool(slotId)
+        if (result.success) {
+          setSuccess(result.message || 'Slot cancelled')
+          fetchSlots()
+        } else {
+          setError(result.error || 'Failed to cancel slot')
+        }
+        setLoading(false)
+      }
+    })
   }
 
   const handleFetchBookings = async (slot: Slot) => {
@@ -259,15 +274,22 @@ export default function SlotsPage() {
   }
 
   const handleMarkNoShow = async (bookingId: string) => {
-    if (!confirm('Marking this as No-Show will automatically move the parent to the next available slot (First No-Show) or to the Waitlist (Second No-Show). Proceed?')) return
-    const result = await markNoShow(bookingId)
-    if (result.success) {
-      setSuccess(result.message || 'Marked as no-show')
-      if (selectedSlotForBookings) handleFetchBookings(selectedSlotForBookings)
-      fetchSlots()
-    } else {
-      setError(result.error || 'Failed to mark no-show')
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Mark as No-Show',
+      message: 'Marking this as No-Show will automatically move the parent to the next available slot (First No-Show) or to the Waitlist (Second No-Show). Proceed?',
+      variant: 'warning',
+      onConfirm: async () => {
+        const result = await markNoShow(bookingId)
+        if (result.success) {
+          setSuccess(result.message || 'Marked as no-show')
+          if (selectedSlotForBookings) handleFetchBookings(selectedSlotForBookings)
+          fetchSlots()
+        } else {
+          setError(result.error || 'Failed to mark no-show')
+        }
+      }
+    })
   }
 
   const handleAssignSlot = async (admissionId: string) => {
@@ -679,6 +701,17 @@ export default function SlotsPage() {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText="Proceed"
+      />
     </div>
   )
 }

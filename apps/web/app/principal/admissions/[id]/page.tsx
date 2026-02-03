@@ -6,6 +6,8 @@ import { ArrowLeft, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, Cloc
 import { getAdmission, updateAdmission, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, getCurrentUser } from '@/lib/api'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import ConfirmModal from '@/app/components/ConfirmModal'
+import PromptModal from '@/app/components/PromptModal'
 
 interface Admission {
     _id: string
@@ -44,6 +46,19 @@ export default function PrincipalAdmissionDetailPage() {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [fields, setFields] = useState<any[]>([])
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean
+        title: string
+        message: string
+        variant: 'success'
+        onConfirm: () => void
+    }>({ isOpen: false, title: '', message: '', variant: 'success', onConfirm: () => { } })
+    const [promptModal, setPromptModal] = useState<{
+        isOpen: boolean
+        title: string
+        message: string
+        onConfirm: (value: string) => void
+    }>({ isOpen: false, title: '', message: '', onConfirm: () => { } })
 
     useEffect(() => {
         fetchData()
@@ -90,21 +105,37 @@ export default function PrincipalAdmissionDetailPage() {
     }
 
     const handleDecision = async (status: 'approved' | 'rejected') => {
-        let notes = ''
         if (status === 'rejected') {
-            const reason = prompt('Please enter reason for rejection:')
-            if (reason === null) return
-            notes = reason
+            setPromptModal({
+                isOpen: true,
+                title: 'Reject Admission',
+                message: 'Please provide a reason for rejecting this admission. This will be shared with the parent.',
+                onConfirm: async (reason) => {
+                    const result = await updateAdmission(admissionId, { status, notes: reason })
+                    if (result.success) {
+                        setSuccess('Admission rejected successfully')
+                        fetchData()
+                    } else {
+                        setError(result.error || 'Failed to update status')
+                    }
+                }
+            })
         } else {
-            if (!confirm('Are you sure you want to APPROVE this admission?')) return
-        }
-
-        const result = await updateAdmission(admissionId, { status, notes })
-        if (result.success) {
-            setSuccess(`Admission ${status === 'approved' ? 'approved' : 'rejected'} successfully`)
-            fetchData()
-        } else {
-            setError(result.error || 'Failed to update status')
+            setConfirmModal({
+                isOpen: true,
+                title: 'Approve Admission',
+                message: 'Are you sure you want to APPROVE this admission? The parent will be notified.',
+                variant: 'success',
+                onConfirm: async () => {
+                    const result = await updateAdmission(admissionId, { status, notes: '' })
+                    if (result.success) {
+                        setSuccess('Admission approved successfully')
+                        fetchData()
+                    } else {
+                        setError(result.error || 'Failed to update status')
+                    }
+                }
+            })
         }
     }
 
@@ -304,6 +335,28 @@ export default function PrincipalAdmissionDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Confirmation Modal */}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.onConfirm}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                variant={confirmModal.variant}
+                confirmText="Approve"
+            />
+
+            {/* Prompt Modal */}
+            <PromptModal
+                isOpen={promptModal.isOpen}
+                onClose={() => setPromptModal({ ...promptModal, isOpen: false })}
+                onConfirm={promptModal.onConfirm}
+                title={promptModal.title}
+                message={promptModal.message}
+                placeholder="Enter rejection reason..."
+                confirmText="Reject Admission"
+            />
         </div>
     )
 }

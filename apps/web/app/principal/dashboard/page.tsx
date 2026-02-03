@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Calendar, Users, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { api, updateAdmission, getSlots, getAdmissions } from '@/lib/api'
+import ConfirmModal from '@/app/components/ConfirmModal'
 
 interface DashboardStats {
     sessionsToday: number
@@ -20,6 +21,13 @@ export default function PrincipalDashboardPage() {
     })
     const [sessions, setSessions] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean
+        title: string
+        message: string
+        variant: 'danger' | 'success'
+        onConfirm: () => void
+    }>({ isOpen: false, title: '', message: '', variant: 'danger', onConfirm: () => { } })
 
     const fetchStats = async () => {
         try {
@@ -68,18 +76,30 @@ export default function PrincipalDashboardPage() {
     }, [])
 
     const handleAction = async (admissionId: string, status: 'approved' | 'rejected') => {
-        if (!window.confirm(`Are you sure you want to ${status.toUpperCase()} this application?`)) return;
+        const variant = status === 'approved' ? 'success' : 'danger';
+        const title = status === 'approved' ? 'Approve Application' : 'Reject Application';
+        const message = status === 'approved'
+            ? 'Are you sure you want to APPROVE this application? The student will be notified.'
+            : 'Are you sure you want to REJECT this application? This action cannot be undone.';
 
-        try {
-            const res = await updateAdmission(admissionId, { status });
+        setConfirmModal({
+            isOpen: true,
+            title,
+            message,
+            variant,
+            onConfirm: async () => {
+                try {
+                    const res = await updateAdmission(admissionId, { status });
 
-            if (res.success) {
-                // Refresh data
-                fetchStats();
+                    if (res.success) {
+                        // Refresh data
+                        fetchStats();
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
             }
-        } catch (err) {
-            console.error(err);
-        }
+        });
     }
 
     if (loading) {
@@ -248,6 +268,17 @@ export default function PrincipalDashboardPage() {
                     <span className="group-hover:translate-x-1 transition-transform">→</span>
                 </Link>
             </div>
+
+            {/* Confirmation Modal */}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.onConfirm}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                variant={confirmModal.variant}
+                confirmText={confirmModal.variant === 'success' ? 'Approve' : 'Reject'}
+            />
         </div>
     )
 }

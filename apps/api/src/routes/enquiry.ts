@@ -852,8 +852,11 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
       Enquiry.countDocuments(),
       Enquiry.countDocuments({ createdAt: { $gte: today } }),
       Enquiry.countDocuments({ createdAt: { $gte: startOfMonth } }),
-      Admission.countDocuments({ createdAt: { $gte: startOfMonth } }),
-      Admission.countDocuments({ status: { $in: ['approved', 'confirmed', 'submitted'] } }),
+      Admission.countDocuments({
+        createdAt: { $gte: startOfMonth },
+        status: { $in: ['approved', 'confirmed'] }
+      }),
+      Admission.countDocuments({ status: { $in: ['approved', 'confirmed'] } }),
       Admission.countDocuments({ status: 'waitlisted' }),
       Enquiry.find()
         .sort({ createdAt: -1 })

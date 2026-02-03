@@ -18,6 +18,7 @@ import {
   exportAdmissions,
   resetAdmissionCycle
 } from '@/lib/api'
+import ConfirmModal from '@/app/components/ConfirmModal'
 
 interface FormField {
   name: string
@@ -95,6 +96,12 @@ export default function SettingsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [currentAddType, setCurrentAddType] = useState<'enquiry' | 'admission'>('enquiry')
   const [newFieldData, setNewFieldData] = useState({ label: '', type: 'text' })
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => { } })
 
   useEffect(() => {
     fetchData()
@@ -302,25 +309,28 @@ export default function SettingsPage() {
       return
     }
 
-    if (!confirm('CRITICAL: This will delete ALL enquiries, admissions, and slots. This action cannot be undone. Are you sure?')) {
-      return
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'CRITICAL: Reset Admission Cycle',
+      message: 'This will delete ALL enquiries, admissions, and slots. This action cannot be undone. Are you absolutely sure?',
+      onConfirm: async () => {
+        setSaving(true)
+        setError('')
+        setSuccess('')
 
-    setSaving(true)
-    setError('')
-    setSuccess('')
+        const result = await resetAdmissionCycle(resetCredentials)
 
-    const result = await resetAdmissionCycle(resetCredentials)
+        if (result.success) {
+          setSuccess('Admission cycle has been reset successfully.')
+          setResetCredentials({ principalEmail: '', principalPassword: '' })
+          fetchData()
+        } else {
+          setError(result.error || 'Reset failed. Please check principal credentials.')
+        }
 
-    if (result.success) {
-      setSuccess('Admission cycle has been reset successfully.')
-      setResetCredentials({ principalEmail: '', principalPassword: '' })
-      fetchData()
-    } else {
-      setError(result.error || 'Reset failed. Please check principal credentials.')
-    }
-
-    setSaving(false)
+        setSaving(false)
+      }
+    })
   }
 
   const openAddModal = (type: 'enquiry' | 'admission') => {
@@ -1173,6 +1183,17 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant="danger"
+        confirmText="Yes, Delete Everything"
+      />
     </div>
   )
 }
