@@ -109,10 +109,10 @@ export default function ParentLoginPage() {
                         <GraduationCap className="h-8 w-8 mr-2" />
                         ABC School
                     </Link>
-                    <button onClick={() => router.back()} className="text-sm text-gray-500 hover:text-gray-700 flex items-center transition-colors">
+                    <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 flex items-center transition-colors">
                         <ArrowLeft className="h-4 w-4 mr-1" />
-                        Back
-                    </button>
+                        Back to Home
+                    </Link>
                 </div>
             </header>
 
