@@ -144,18 +144,18 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       slots.map(async (slot) => {
         const bookings = await SlotBooking.find({ slotId: slot._id }).populate('admissionId');
 
-        // Dynamically calculate distinct parents to ensure UI accuracy
-        const distinctParents = new Set(bookings.map(b => b.parentEmail)).size;
+        // Dynamically calculate total bookings to ensure UI accuracy
+        const totalBookings = bookings.length;
 
         // Sync DB if out of sync (denormalization maintenance)
-        if (slot.bookedCount !== distinctParents) {
-          slot.bookedCount = distinctParents;
+        if (slot.bookedCount !== totalBookings) {
+          slot.bookedCount = totalBookings;
           await slot.save();
         }
 
         return {
           ...slot.toObject(),
-          bookedCount: distinctParents,
+          bookedCount: totalBookings,
           bookings
         };
       })
@@ -486,40 +486,24 @@ router.post('/reschedule-parent/:tokenId', async (req, res: Response) => {
     // 1. Find all related bookings for this parent
     const parentBookings = await SlotBooking.find({ parentEmail: booking.parentEmail });
 
-    // 2. Decrement old slot(s) - identify unique old slots and decrement each if no other parent bookings remain.
-    const uniqueOldSlotIds = Array.from(new Set(parentBookings.map(pb => pb.slotId.toString())));
-    for (const oldId of uniqueOldSlotIds) {
-      const oldSlot = await CounsellingSlot.findById(oldId);
+    // 2. Decrement old slot(s) for each booking being moved
+    for (const pb of parentBookings) {
+      const oldSlot = await CounsellingSlot.findById(pb.slotId);
       if (oldSlot) {
-        const hasOtherParentBookings = await SlotBooking.findOne({
-          slotId: oldId,
-          parentEmail: booking.parentEmail,
-          _id: { $nin: parentBookings.map(pb => pb._id) }
-        });
-        if (!hasOtherParentBookings) {
-          oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
-          if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
-            oldSlot.status = 'available';
-          }
-          await oldSlot.save();
+        oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
+        if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
+          oldSlot.status = 'available';
         }
+        await oldSlot.save();
       }
     }
 
-    // 3. Increment new slot (only +1 for the whole parent group)
-    const otherBookingForParentInNewSlot = await SlotBooking.findOne({
-      slotId: newSlot._id,
-      parentEmail: booking.parentEmail,
-      _id: { $nin: parentBookings.map(pb => pb._id) }
-    });
-
-    if (!otherBookingForParentInNewSlot) {
-      newSlot.bookedCount += 1;
-      if (newSlot.bookedCount >= newSlot.capacity) {
-        newSlot.status = 'full';
-      }
-      await newSlot.save();
+    // 3. Increment new slot by total number of moved bookings
+    newSlot.bookedCount += parentBookings.length;
+    if (newSlot.bookedCount >= newSlot.capacity) {
+      newSlot.status = 'full';
     }
+    await newSlot.save();
 
     // 4. Update all bookings
     for (const b of parentBookings) {
@@ -575,26 +559,17 @@ router.post('/book-parent/:tokenId', async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ success: false, error: 'Selected slot is no longer available' });
     }
 
-    // 4. Create Booking
+    // 4. Update Slot Count and Create Booking
+    slot.bookedCount += 1;
+    if (slot.bookedCount >= slot.capacity) slot.status = 'full';
+    await slot.save();
+
     const booking = await SlotBooking.create({
       slotId: slot._id,
       admissionId: admission._id,
       tokenId: admission.tokenId,
       parentEmail: admission.email
     });
-
-    // Handle group booking logic (don't increment if parent already has another booking in the same slot)
-    const otherBooking = await SlotBooking.findOne({
-      slotId: slot._id,
-      parentEmail: admission.email,
-      _id: { $ne: booking._id }
-    });
-
-    if (!otherBooking) {
-      slot.bookedCount += 1;
-      if (slot.bookedCount >= slot.capacity) slot.status = 'full';
-      await slot.save();
-    }
 
     admission.slotBookingId = booking._id as any;
     await admission.save();
@@ -777,20 +752,11 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       // Handle Reschedule: Decrement count on old slot
       const oldSlot = await CounsellingSlot.findById(existingBooking.slotId);
       if (oldSlot) {
-        // Check if parent has ANY OTHER booking for OLD slot
-        const otherBookingsForParentInOldSlot = await SlotBooking.findOne({
-          slotId: existingBooking.slotId,
-          parentEmail: admission.email,
-          _id: { $ne: existingBooking._id }
-        });
-
-        if (!otherBookingsForParentInOldSlot) {
-          oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
-          if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
-            oldSlot.status = 'available';
-          }
-          await oldSlot.save();
+        oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
+        if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
+          oldSlot.status = 'available';
         }
+        await oldSlot.save();
       }
 
       // Update existing booking
@@ -813,21 +779,12 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       });
     }
 
-    // Check if this parent already has another booking for this SAME slot
-    const otherBookingForParent = await SlotBooking.findOne({
-      slotId: slot._id,
-      parentEmail: admission.email,
-      _id: { $ne: booking._id }
-    });
-
-    // Update slot count (only if this is the first booking for this parent in this slot)
-    if (!otherBookingForParent) {
-      slot.bookedCount += 1;
-      if (slot.bookedCount >= slot.capacity) {
-        slot.status = 'full';
-      }
-      await slot.save();
+    // Update slot count
+    slot.bookedCount += 1;
+    if (slot.bookedCount >= slot.capacity) {
+      slot.status = 'full';
     }
+    await slot.save();
 
     // Update admission with booking reference
     admission.slotBookingId = booking._id as any;
@@ -968,20 +925,12 @@ router.delete('/:slotId/bookings/:bookingId', authenticate, async (req: AuthRequ
         error: 'Cannot cancel a booking for a past slot'
       });
     }
-    // Check if this parent has ANY other booking for this same slot
-    const otherBookingsForParent = await SlotBooking.findOne({
-      slotId: slotId,
-      parentEmail: booking.parentEmail,
-      _id: { $ne: bookingId }
-    });
-
-    if (!otherBookingsForParent) {
-      slot.bookedCount = Math.max(0, slot.bookedCount - 1);
-      if (slot.bookedCount < slot.capacity && slot.status === 'full') {
-        slot.status = 'available';
-      }
-      await slot.save();
+    // Decrement slot count
+    slot.bookedCount = Math.max(0, slot.bookedCount - 1);
+    if (slot.bookedCount < slot.capacity && slot.status === 'full') {
+      slot.status = 'available';
     }
+    await slot.save();
 
     // Remove booking reference from admission
     await Admission.findByIdAndUpdate(booking.admissionId, {
@@ -1015,10 +964,10 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, error: 'Slot not found' });
     }
     const bookings = await SlotBooking.find({ slotId: slot._id });
-    const distinctParents = new Set(bookings.map(b => b.parentEmail)).size;
+    const totalBookings = bookings.length;
 
-    if (slot.bookedCount !== distinctParents) {
-      slot.bookedCount = distinctParents;
+    if (slot.bookedCount !== totalBookings) {
+      slot.bookedCount = totalBookings;
       await slot.save();
     }
 
@@ -1026,7 +975,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       success: true,
       data: {
         ...slot.toObject(),
-        bookedCount: distinctParents
+        bookedCount: totalBookings
       }
     });
   } catch (error) {
@@ -1128,31 +1077,23 @@ router.post('/bookings/:bookingId/no-show', authenticate, async (req: AuthReques
         return res.status(400).json({ success: false, error: 'No future available slots found' });
       }
 
-      // Requirement 2.4: Increase target slot capacity by +1 for the PARENT
-      nextSlot.capacity += 1;
-      nextSlot.bookedCount += 1;
+      // Requirement 2.4: Increase target slot capacity to accommodate these admissions
+      nextSlot.capacity += admissions.length;
+      nextSlot.bookedCount += admissions.length;
       if (nextSlot.bookedCount >= nextSlot.capacity) {
         nextSlot.status = 'full';
       }
       await nextSlot.save();
 
-      // Decrement old unique slots
-      const uniqueOldSlotIds = Array.from(new Set(parentBookings.map(pb => pb.slotId.toString())));
-      for (const oldId of uniqueOldSlotIds) {
-        const oldSlot = await CounsellingSlot.findById(oldId);
+      // Decrement old slot count for each parent booking
+      for (const pb of parentBookings) {
+        const oldSlot = await CounsellingSlot.findById(pb.slotId);
         if (oldSlot) {
-          const hasOtherParentBookings = await SlotBooking.findOne({
-            slotId: oldId,
-            parentEmail,
-            _id: { $nin: parentBookings.map(pb => pb._id) }
-          });
-          if (!hasOtherParentBookings) {
-            oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
-            if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
-              oldSlot.status = 'available';
-            }
-            await oldSlot.save();
+          oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
+          if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
+            oldSlot.status = 'available';
           }
+          await oldSlot.save();
         }
       }
 
@@ -1197,23 +1138,15 @@ router.post('/bookings/:bookingId/no-show', authenticate, async (req: AuthReques
         await adm.save();
       }
 
-      // Decrement old unique slots
-      const uniqueOldSlotIds = Array.from(new Set(parentBookings.map(pb => pb.slotId.toString())));
-      for (const oldId of uniqueOldSlotIds) {
-        const oldSlot = await CounsellingSlot.findById(oldId);
+      // Decrement old slot count for each parent booking
+      for (const pb of parentBookings) {
+        const oldSlot = await CounsellingSlot.findById(pb.slotId);
         if (oldSlot) {
-          const hasOtherParentBookings = await SlotBooking.findOne({
-            slotId: oldId,
-            parentEmail,
-            _id: { $nin: parentBookings.map(pb => pb._id) }
-          });
-          if (!hasOtherParentBookings) {
-            oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
-            if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
-              oldSlot.status = 'available';
-            }
-            await oldSlot.save();
+          oldSlot.bookedCount = Math.max(0, oldSlot.bookedCount - 1);
+          if (oldSlot.bookedCount < oldSlot.capacity && oldSlot.status === 'full') {
+            oldSlot.status = 'available';
           }
+          await oldSlot.save();
         }
       }
 
@@ -1286,9 +1219,7 @@ router.post('/:id/cancel', authenticate, async (req, res: Response) => {
         return acc;
       }, {} as Record<string, typeof bookings>);
 
-      const uniqueParents = Object.keys(bookingsByParent);
-
-      const totalMoved = uniqueParents.length;
+      const totalMoved = bookings.length;
       const newBookedCount = nextSlot.bookedCount + totalMoved;
 
       // Only increase capacity if we exceed the current limit
@@ -1304,6 +1235,8 @@ router.post('/:id/cancel', authenticate, async (req, res: Response) => {
       }
 
       await nextSlot.save();
+
+      const uniqueParents = Object.keys(bookingsByParent);
 
       for (const parentEmail of uniqueParents) {
         const parentBookings = bookingsByParent[parentEmail];
