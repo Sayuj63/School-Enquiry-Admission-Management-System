@@ -50,8 +50,19 @@ export default function parentApplicationsPage() {
         setLoading(true)
         const result = await lookupEnquiries(mobileNum)
         if (result.success) {
-            setEnquiries(result.data.enquiries)
+            const userEnquiries = result.data.enquiries
+            if (userEnquiries.length === 0) {
+                router.replace('/enquiry')
+                return
+            }
+            setEnquiries(userEnquiries)
         } else {
+            // If it's an authentication/verification error, just go back to login instead of showing an "error"
+            if (result.error === 'Mobile number not verified' || result.error === 'Unauthorized') {
+                localStorage.removeItem('parent_session')
+                router.replace('/parent/login')
+                return
+            }
             setError('Failed to load your applications.')
         }
         setLoading(false)
@@ -134,9 +145,9 @@ export default function parentApplicationsPage() {
                                         <div className="flex items-center justify-between md:justify-end gap-6">
                                             <div className="text-right">
                                                 <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${enq.status === 'draft' ? 'bg-amber-100 text-amber-700' :
-                                                        enq.status === 'new' ? 'bg-blue-100 text-blue-700' :
-                                                            enq.status === 'converted' ? 'bg-green-100 text-green-700' :
-                                                                'bg-gray-100 text-gray-700'
+                                                    enq.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                                                        enq.status === 'converted' ? 'bg-green-100 text-green-700' :
+                                                            'bg-gray-100 text-gray-700'
                                                     }`}>
                                                     {enq.status.replace('_', ' ')}
                                                 </span>

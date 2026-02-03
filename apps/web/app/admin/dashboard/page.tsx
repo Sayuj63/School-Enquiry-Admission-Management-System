@@ -31,12 +31,14 @@ interface DashboardStats {
 
 interface Activity {
   id: string
-  type: 'enquiry' | 'admission' | 'slot'
+  type: 'enquiry' | 'admission' | 'slot' | 'system' | 'reminder'
   title: string
   description: string
   time: Date
   status?: string
   priority?: 'high' | 'medium' | 'low'
+  tokenId?: string
+  targetId?: string
 }
 
 export default function DashboardPage() {
@@ -85,62 +87,34 @@ export default function DashboardPage() {
             waitlistedCount: s.waitlistedCount || 0
           })
 
-          // Add Enquiries from today
-          if (s.recentEnquiries) {
-            s.recentEnquiries.forEach((enq: any) => {
-              const date = new Date(enq.createdAt)
-              if (date >= startOfToday) {
-                recentActivities.push({
-                  id: enq._id,
-                  type: 'enquiry',
-                  title: 'New Enquiry Received',
-                  description: `${enq.childName} (${enq.grade})`,
-                  time: date,
-                  status: enq.status || 'new'
-                })
-              }
-            })
-          }
-
-          // Add Admissions from today
-          if (s.recentAdmissions) {
-            s.recentAdmissions.forEach((adm: any) => {
-              const date = new Date(adm.updatedAt || adm.createdAt)
-              if (date >= startOfToday) {
-                recentActivities.push({
-                  id: adm._id,
-                  type: 'admission',
-                  title:
-                    adm.status === 'submitted' ? 'Admission Submitted' :
-                      adm.status === 'confirmed' ? 'Admission Confirmed' :
-                        adm.status === 'waitlisted' ? 'Added to Waitlist' :
-                          adm.status === 'rejected' ? 'Admission Rejected' :
-                            'Admission Updated',
-                  description: `${adm.studentName}`,
-                  time: date,
-                  status: adm.status
-                })
-              }
-            })
+          // Use server-side activity feed
+          if (s.recentActivities) {
+            recentActivities.push(...s.recentActivities.map((act: any) => ({
+              id: act.id || act._id,
+              type: act.type,
+              title: act.action ? act.action.replace(/_/g, ' ').replace(/\b\w/g, (l: any) => l.toUpperCase()) : act.title,
+              description: act.description,
+              time: new Date(act.createdAt || act.time),
+              status: act.metadata?.newStatus || act.status,
+              tokenId: act.tokenId,
+              targetId: act.refId
+            })))
           }
         }
 
-        // 3. Process Upcoming Slots and Flatten Booked Sessions (NEXT 2 DAYS)
+        // 3. Process Upcoming Slots (remain same for logic)
         if (slotsRes.success) {
           const allBookings: any[] = []
           slotsRes.data.forEach((slot: any) => {
             const slotDate = new Date(slot.date)
-            // Use local date string comparison to avoid TZ issues
             const slotDateStr = slot.date.split('T')[0];
 
             if (slot.bookings && slot.bookings.length > 0) {
               const [hours, minutes] = slot.endTime.split(':').map(Number)
-              // Construct slot end time in local time
               const slotEndTime = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), hours, minutes)
               const isPast = slotEndTime < new Date()
 
               slot.bookings.forEach((booking: any) => {
-                // Modified Requirement: Keep today's past slots visible in dashboard for the whole day
                 if (!isPast || slotDateStr === todayStr) {
                   allBookings.push({
                     id: booking._id,
@@ -154,24 +128,10 @@ export default function DashboardPage() {
                     location: slot.location || 'School Campus'
                   })
                 }
-
-                // Add to activities feed
-                const bookedDate = new Date(booking.bookedAt || slot.date)
-                if (bookedDate >= startOfToday) {
-                  recentActivities.push({
-                    id: booking._id,
-                    type: 'slot',
-                    title: 'Counselling Slot Booked',
-                    description: `${booking.admissionId?.studentName || 'Unknown'} - ${slot.startTime}`,
-                    time: bookedDate,
-                    status: 'booked'
-                  })
-                }
               })
             }
           })
 
-          // Sort by date then time
           allBookings.sort((a, b) => {
             if (a.date !== b.date) return a.date.localeCompare(b.date);
             return a.startTime.localeCompare(b.startTime);
@@ -179,7 +139,7 @@ export default function DashboardPage() {
           setUpcomingSlots(allBookings)
         }
 
-        // Update final sorted activities
+        // Update final sorted activities from server
         setActivities(recentActivities.sort((a, b) => b.time.getTime() - a.time.getTime()))
 
       } catch (error) {
@@ -374,15 +334,22 @@ export default function DashboardPage() {
                   <div key={activity.id} className="p-4 hover:bg-gray-50 transition-colors flex gap-4 items-start">
                     <div className={`mt-1 p-2 rounded-full ${activity.type === 'enquiry' ? 'bg-blue-50 text-blue-600' :
                       activity.type === 'admission' ? 'bg-orange-50 text-orange-600' :
-                        'bg-purple-50 text-purple-600'
+                        activity.type === 'reminder' ? 'bg-red-50 text-red-600' :
+                          'bg-purple-50 text-purple-600'
                       }`}>
                       {activity.type === 'enquiry' ? <UserPlus className="h-4 w-4" /> :
                         activity.type === 'admission' ? <FileText className="h-4 w-4" /> :
-                          <Calendar className="h-4 w-4" />}
+                          activity.type === 'reminder' ? <Bell className="h-4 w-4" /> :
+                            <Calendar className="h-4 w-4" />}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-bold text-gray-900">{activity.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-gray-900">{activity.title}</p>
+                          {activity.tokenId && (
+                            <span className="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">{activity.tokenId}</span>
+                          )}
+                        </div>
                         <span className="text-[10px] font-medium text-gray-400 flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {formatDistanceToNow(activity.time, { addSuffix: true })}
@@ -400,7 +367,7 @@ export default function DashboardPage() {
                       )}
                     </div>
                     <Link
-                      href={activity.type === 'enquiry' ? `/admin/enquiries/${activity.id}` : `/admin/admissions/${activity.id}`}
+                      href={activity.type === 'admission' ? `/admin/admissions/${activity.targetId}` : `/admin/enquiries/${activity.targetId}`}
                       className="mt-2 p-1 text-gray-400 hover:text-primary-600 transition-colors"
                     >
                       <ArrowRight className="h-4 w-4" />
@@ -448,7 +415,7 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border uppercase tracking-tighter ${booking.isPast ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                            'bg-purple-50 text-purple-600 border-purple-100'
+                          'bg-purple-50 text-purple-600 border-purple-100'
                           }`}>
                           {booking.isPast ? '✓ Completed' : booking.time.split(' - ')[0]}
                         </span>

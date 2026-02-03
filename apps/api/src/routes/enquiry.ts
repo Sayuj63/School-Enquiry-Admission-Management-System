@@ -1,9 +1,9 @@
 import { Router, Response } from 'express';
-import { Enquiry, Admission, CounsellingSlot, SlotBooking } from '../models';
+import { Enquiry, Admission, CounsellingSlot, SlotBooking, ActivityLog } from '../models';
 import { generateTokenId } from '../utils/token';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { Types } from 'mongoose';
-import { sendEnquiryWhatsApp, sendSlotConfirmationWhatsApp, isMobileVerified, sendParentCalendarInvite, sendPrincipalCalendarInvite, sendWaitlistEmail } from '../services';
+import { sendEnquiryWhatsApp, sendSlotConfirmationWhatsApp, isMobileVerified, sendParentCalendarInvite, sendPrincipalCalendarInvite, sendWaitlistEmail, logActivity } from '../services';
 
 const router: Router = Router();
 
@@ -208,6 +208,16 @@ router.post('/', async (req, res: Response) => {
       });
     }
 
+    if (isDraft) {
+      await logActivity({
+        type: 'enquiry',
+        action: 'draft_saved',
+        description: `Draft saved for ${enquiry.childName}`,
+        refId: enquiry._id,
+        metadata: { grade: enquiry.grade }
+      });
+    }
+
     // If final submission
     if (!isDraft && (slot || isWaitlist)) {
       // 1. Generate unique token ID
@@ -252,9 +262,38 @@ router.post('/', async (req, res: Response) => {
         additionalFields: new Map()
       });
 
-      // 5. Link Admission back to SlotBooking
       if (bookingId) {
         await SlotBooking.findByIdAndUpdate(bookingId, { admissionId: admission._id });
+      }
+
+      await logActivity({
+        type: 'enquiry',
+        action: 'submitted',
+        description: `New enquiry submitted for ${enquiry.childName}`,
+        refId: enquiry._id,
+        tokenId: enquiry.tokenId,
+        metadata: { grade: enquiry.grade }
+      });
+
+      if (slot) {
+        await logActivity({
+          type: 'slot',
+          action: 'booked',
+          description: `Counselling slot booked for ${enquiry.childName}`,
+          refId: enquiry._id,
+          tokenId: enquiry.tokenId,
+          metadata: { slotTime: slot.startTime, slotDate: slot.date }
+        });
+      }
+
+      if (isWaitlist) {
+        await logActivity({
+          type: 'admission',
+          action: 'waitlisted',
+          description: `${enquiry.childName} added to waitlist (Grade Full)`,
+          refId: admission._id,
+          tokenId: enquiry.tokenId
+        });
       }
 
       // 3. Send Notifications
@@ -550,15 +589,9 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     if (status && status !== 'all') {
       if (status === 'half_filled' || status === 'pending_admission') {
         query.status = 'in_progress';
-        // Note: For precise filtering between half_filled and pending_admission, 
-        // we would need to join with Admissions, but for now we map to the base status.
       } else {
         query.status = status;
       }
-    } else if (status !== 'all') {
-      // By default (or if status is undefined/empty), only show "New" enquiries.
-      // Once an enquiry is converted or in progress, it moves to the Admissions section.
-      query.status = 'new';
     }
 
     if (grade) {
@@ -813,7 +846,8 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
       waitlistedCount,
       recentEnquiries,
       todaySlots,
-      recentAdmissions
+      recentAdmissions,
+      recentActivities
     ] = await Promise.all([
       Enquiry.countDocuments(),
       Enquiry.countDocuments({ createdAt: { $gte: today } }),
@@ -823,16 +857,123 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
       Admission.countDocuments({ status: 'waitlisted' }),
       Enquiry.find()
         .sort({ createdAt: -1 })
-        .limit(5)
-        .select('tokenId childName grade createdAt status'),
+        .limit(10),
       CounsellingSlot.find({
         date: { $gte: today, $lt: tomorrow }
       }),
       Admission.find()
         .sort({ updatedAt: -1, createdAt: -1 })
-        .limit(5)
-        .select('studentName status updatedAt createdAt')
+        .limit(10),
+      ActivityLog.find()
+        .sort({ createdAt: -1 })
+        .limit(20)
     ]);
+
+    // Calculate T+1, T+2 alerts
+    const alerts: any[] = [];
+
+    // T+1: Enquiries from yesterday (24-48h old) still in 'new'
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const dayBeforeYesterday = new Date(yesterday);
+    dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 1);
+    const threeDaysAgo = new Date(dayBeforeYesterday);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 1);
+
+    // T+1
+    const tPlus1 = await Enquiry.find({
+      status: 'new',
+      createdAt: { $gte: dayBeforeYesterday, $lt: yesterday },
+      slotBookingId: { $exists: false }
+    });
+
+    tPlus1.forEach(enq => {
+      alerts.push({
+        id: `alert-t1-${enq._id}`,
+        refId: enq._id.toString(),
+        type: 'reminder',
+        action: 'follow_up',
+        description: `Follow-up required (T+1): ${enq.childName} hasn't booked a slot.`,
+        tokenId: enq.tokenId,
+        createdAt: new Date(),
+        metadata: { severity: 'medium', originalDate: enq.createdAt }
+      });
+    });
+
+    // T+2
+    const tPlus2 = await Enquiry.find({
+      status: 'new',
+      createdAt: { $gte: threeDaysAgo, $lt: dayBeforeYesterday },
+      slotBookingId: { $exists: false }
+    });
+
+    tPlus2.forEach(enq => {
+      alerts.push({
+        id: `alert-t2-${enq._id}`,
+        refId: enq._id.toString(),
+        type: 'reminder',
+        action: 'urgent_follow_up',
+        description: `Urgent Follow-up (T+2): ${enq.childName} still pending.`,
+        tokenId: enq.tokenId,
+        createdAt: new Date(),
+        metadata: { severity: 'high', originalDate: enq.createdAt }
+      });
+    });
+
+    // Unified activity feed
+    const unifiedActivities: any[] = [];
+
+    // 1. Add explicitly logged activities
+    recentActivities.forEach(log => {
+      unifiedActivities.push({
+        id: log._id.toString(),
+        type: log.type,
+        action: log.action,
+        description: log.description,
+        tokenId: log.tokenId,
+        createdAt: log.createdAt,
+        metadata: log.metadata,
+        refId: log.refId.toString()
+      });
+    });
+
+    // 2. Add alerts (T+1 etc)
+    alerts.forEach(alert => unifiedActivities.push(alert));
+
+    // 3. Fallback: If logs are sparse, inject recent enquiries/admissions
+    if (unifiedActivities.length < 15) {
+      recentEnquiries.forEach(enq => {
+        const enqIdStr = enq._id.toString();
+        if (!unifiedActivities.some(a => a.refId === enqIdStr)) {
+          unifiedActivities.push({
+            id: `legacy-enq-${enqIdStr}`,
+            refId: enqIdStr,
+            type: 'enquiry',
+            action: 'submitted',
+            description: `New enquiry received: ${enq.childName}`,
+            tokenId: enq.tokenId,
+            createdAt: enq.createdAt,
+            status: enq.status
+          });
+        }
+      });
+
+      recentAdmissions.forEach(adm => {
+        const admIdStr = adm._id.toString();
+        if (!unifiedActivities.some(a => a.refId === admIdStr)) {
+          unifiedActivities.push({
+            id: `legacy-adm-${admIdStr}`,
+            refId: admIdStr,
+            type: 'admission',
+            action: 'status_updated',
+            description: `Admission for ${adm.studentName} is ${adm.status.toUpperCase()}`,
+            tokenId: adm.tokenId,
+            createdAt: adm.updatedAt || adm.createdAt,
+            status: adm.status
+          });
+        }
+      });
+    }
 
     const scheduledCounselling = todaySlots.reduce((acc, slot) => acc + (slot.bookedCount || 0), 0);
 
@@ -847,7 +988,10 @@ router.get('/stats/dashboard', authenticate, async (req: AuthRequest, res: Respo
         waitlistedCount,
         scheduledCounselling,
         recentEnquiries,
-        recentAdmissions
+        recentAdmissions,
+        recentActivities: unifiedActivities.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ).slice(0, 20)
       }
     });
   } catch (error) {

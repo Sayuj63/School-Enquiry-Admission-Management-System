@@ -497,3 +497,76 @@ export async function sendWaitlistReminderWhatsApp(data: {
 
   return { success: true, message: 'Waitlist reminder sent' };
 }
+
+/**
+ * Send school-initiated slot reschedule WhatsApp
+ */
+export async function sendSlotRescheduleWhatsApp(data: {
+  to: string;
+  tokenId: string;
+  studentName: string;
+  slotDate: string;
+  slotTime: string;
+  reason?: string;
+}): Promise<SendWhatsAppResult> {
+  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+
+  const message = `
+⚠️ *Update: Appointment Rescheduled - ${schoolName}*
+
+Dear Parent,
+
+We have rescheduled ${data.studentName}'s counselling session due to school administrative reasons.
+
+📋 *Token ID:* ${data.tokenId}
+📅 *New Date:* ${data.slotDate}
+⏰ *New Time:* ${data.slotTime}
+ℹ️ *Reason:* ${data.reason || 'Administrative adjustment'}
+
+We apologize for any inconvenience caused. We look forward to meeting you!
+
+Best regards,
+${schoolName} Admissions Team
+`.trim();
+
+  if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
+    console.log('========================================');
+    console.log('WHATSAPP SLOT RESCHEDULE (MOCK MODE)');
+    console.log('----------------------------------------');
+    console.log(`To: ${data.to}`);
+    console.log('Message:');
+    console.log(message);
+    console.log('========================================');
+
+    return {
+      success: true,
+      message: 'Reschedule WhatsApp sent (dev mode)',
+      mockMessage: message,
+      to: data.to
+    };
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      const twilio = require('twilio');
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const whatsappFrom = process.env.WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+
+      if (!accountSid || !authToken || !accountSid.startsWith('AC')) {
+        console.warn('⚠️  Twilio credentials missing or invalid for Reschedule notification.');
+      } else {
+        const client = twilio(accountSid, authToken);
+        await client.messages.create({
+          body: message,
+          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+          to: normalizeWhatsAppNumber(data.to)
+        });
+      }
+    } catch (error) {
+      console.error('Error sending Reschedule WhatsApp:', error);
+    }
+  }
+
+  return { success: true, message: 'Reschedule WhatsApp sent' };
+}

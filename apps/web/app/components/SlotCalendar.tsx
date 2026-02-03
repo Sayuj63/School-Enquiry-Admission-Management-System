@@ -235,14 +235,21 @@ export default function SlotCalendar({
         return Object.entries(grouped)
             .filter(([_, items]) => items.length > 0)
             .map(([dateStr, items]): any => {
-                const date = new Date(`${dateStr}T10:00:00`) // Representative time
+                // Find earliest start and latest end to position the group correctly
+                const sortedItems = [...items].sort((a, b) => a.slot.startTime.localeCompare(b.slot.startTime))
+                const earliestItem = sortedItems[0]
+                const latestItem = [...items].sort((a, b) => b.slot.endTime.localeCompare(a.slot.endTime))[0]
+
+                const start = parseTimeToDate(dateStr, earliestItem.slot.startTime)
+                const end = parseTimeToDate(dateStr, latestItem.slot.endTime)
+
                 return {
                     title: `${items.length} ${items.length === 1 ? 'Meeting' : 'Meetings'} Today`,
-                    start: date,
-                    end: date,
+                    start,
+                    end,
                     resource: {
                         type: 'grouped',
-                        items: items.sort((a, b) => a.time.localeCompare(b.time)),
+                        items: sortedItems,
                         colorType: 'purple' // Special color for grouped items
                     }
                 }
@@ -267,12 +274,25 @@ export default function SlotCalendar({
 
     const EventComponent = ({ event }: any) => {
         const colorType = event.colorType || event.resource?.colorType || 'blue'
-        const timeStr = event.resource?.slot ? event.resource?.slot.startTime : ''
+
+        let timeLabel = ''
+        if (event.resource?.type === 'grouped' && event.resource.items.length > 0) {
+            const items = event.resource.items
+            if (items.length === 1) {
+                timeLabel = items[0].time
+            } else {
+                timeLabel = `${items[0].slot.startTime} - ${items[items.length - 1].slot.endTime}`
+            }
+        } else if (event.resource?.startTime) {
+            timeLabel = event.resource.startTime
+        }
 
         return (
-            <div className={`event-capsule ${colorType}`}>
-                <span className="truncate flex-1">{event.title}</span>
-                {timeStr && <span className="opacity-60 text-[10px] whitespace-nowrap">{timeStr}</span>}
+            <div className={`event-capsule ${colorType} h-full`}>
+                <div className="flex flex-col gap-0.5 overflow-hidden">
+                    <span className="truncate font-bold text-[11px] leading-tight">{event.title}</span>
+                    {timeLabel && <span className="opacity-80 text-[10px] font-medium whitespace-nowrap">{timeLabel}</span>}
+                </div>
             </div>
         )
     }
@@ -351,6 +371,7 @@ export default function SlotCalendar({
                     date={currentDate}
                     step={30}
                     timeslots={2}
+                    dayLayoutAlgorithm="overlap"
                     scrollToTime={scrollTime}
                     onNavigate={(date) => setCurrentDate(date)}
                     onView={() => { }} // Managed internally

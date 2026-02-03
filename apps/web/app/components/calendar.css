@@ -3,11 +3,11 @@
 .premium-calendar {
     font-family: 'Inter', sans-serif !important;
     --primary-color: #7c3aed;
-    --border-color: #f1f5f9;
+    --border-color: #e2e8f0;
     --bg-header: #ffffff;
     --text-main: #1e293b;
     --text-muted: #64748b;
-    --grid-line: #f8fafc;
+    --grid-line: #edf2f7;
 }
 
 .premium-calendar .rbc-header {
@@ -62,27 +62,27 @@
     justify-content: center;
 }
 
-/* Events */
 .premium-calendar .rbc-event {
     background: transparent !important;
     padding: 0 !important;
-    margin: 2px 4px !important;
+    margin: 0 !important;
 }
 
 .event-capsule {
-    padding: 2px 8px;
-    border-radius: 6px;
+    padding: 6px 12px;
+    border-radius: 4px;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     transition: all 0.2s;
     border-left-width: 4px;
     border-left-style: solid;
     height: 100%;
-    min-height: 42px;
+    width: 100%;
+    box-sizing: border-box;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
 }
 
@@ -142,7 +142,18 @@
 
 .premium-calendar .rbc-timeslot-group {
     border-bottom: 1px solid var(--grid-line) !important;
-    min-height: 64px;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+}
+
+.premium-calendar .rbc-time-slot {
+    flex: 1;
+    border-top: 1px solid var(--grid-line) !important;
+}
+
+.premium-calendar .rbc-time-slot:first-child {
+    border-top: none !important;
 }
 
 .premium-calendar .rbc-time-content {

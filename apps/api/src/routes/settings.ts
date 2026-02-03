@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { GradeRule, GradeSettings } from '../models/GradeRule';
 import { NotificationSettings } from '../models/NotificationSettings';
-import { SlotSettings, Enquiry, Admission, SlotBooking, CounsellingSlot, AdminUser } from '../models';
+import { SlotSettings, Enquiry, Admission, SlotBooking, CounsellingSlot, AdminUser, ActivityLog } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import * as XLSX from 'xlsx';
 
@@ -206,12 +206,12 @@ router.post('/reset-cycle', authenticate, async (req: AuthRequest, res: Response
             return res.status(401).json({ success: false, error: 'Invalid principal password' });
         }
 
-        // Destructive actions
         await Promise.all([
             Enquiry.deleteMany({}),
             Admission.deleteMany({}),
             SlotBooking.deleteMany({}),
-            CounsellingSlot.deleteMany({})
+            CounsellingSlot.deleteMany({}),
+            ActivityLog.deleteMany({})
         ]);
 
         res.json({ success: true, message: 'Admission cycle reset successful. All transaction data cleared.' });

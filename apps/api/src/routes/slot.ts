@@ -3,6 +3,7 @@ import { CounsellingSlot, SlotBooking, Admission, SlotSettings, Enquiry } from '
 import { authenticate, AuthRequest } from '../middleware/auth';
 import {
   sendSlotConfirmationWhatsApp,
+  sendSlotRescheduleWhatsApp,
   sendParentCalendarInvite,
   sendPrincipalCalendarInvite
 } from '../services';
@@ -1253,21 +1254,65 @@ router.post('/:id/cancel', authenticate, async (req, res: Response) => {
     let rescheduledCount = 0;
 
     if (nextSlot) {
-      for (const booking of bookings) {
-        // Increment capacity for the affected parent (+1 logic)
-        nextSlot.capacity += 1;
-        nextSlot.bookedCount += 1;
+      // Group bookings by parent to follow "+1 logic per affected parent"
+      const bookingsByParent = bookings.reduce((acc, b) => {
+        if (!acc[b.parentEmail]) acc[b.parentEmail] = [];
+        acc[b.parentEmail].push(b);
+        return acc;
+      }, {} as Record<string, typeof bookings>);
 
-        // Move booking
-        booking.slotId = nextSlot._id as any;
-        booking.bookedAt = new Date();
-        await booking.save();
-        rescheduledCount++;
+      const uniqueParents = Object.keys(bookingsByParent);
+
+      const totalMoved = uniqueParents.length;
+      const newBookedCount = nextSlot.bookedCount + totalMoved;
+
+      // Only increase capacity if we exceed the current limit
+      if (newBookedCount > nextSlot.capacity) {
+        nextSlot.capacity = newBookedCount;
       }
 
-      // Requirement 2.5: Block new bookings after rescheduling
-      nextSlot.status = 'full';
+      nextSlot.bookedCount = newBookedCount;
+
+      // If we've reached or exceeded capacity (due to rescheduling), mark as full
+      if (nextSlot.bookedCount >= nextSlot.capacity) {
+        nextSlot.status = 'full';
+      }
+
       await nextSlot.save();
+
+      for (const parentEmail of uniqueParents) {
+        const parentBookings = bookingsByParent[parentEmail];
+        const firstBooking = parentBookings[0];
+
+        // Move all filings for this parent
+        for (const b of parentBookings) {
+          b.slotId = nextSlot._id as any;
+          b.bookedAt = new Date();
+          await b.save();
+          rescheduledCount++;
+        }
+
+        // SEND NOTIFICATION to each parent
+        try {
+          const admission = await Admission.findById(firstBooking.admissionId);
+          if (admission) {
+            const formattedDate = nextSlot.date.toLocaleDateString('en-IN', {
+              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+
+            await sendSlotRescheduleWhatsApp({
+              to: admission.mobile,
+              tokenId: admission.tokenId,
+              studentName: admission.studentName,
+              slotDate: formattedDate,
+              slotTime: `${nextSlot.startTime} - ${nextSlot.endTime}`,
+              reason: 'School administration has rescheduled your appointment.'
+            }).catch((e: any) => console.error('Failed to send reschedule WhatsApp:', e));
+          }
+        } catch (err) {
+          console.error('Notification error during slot cancellation:', err);
+        }
+      }
     }
 
     // Set current slot as disabled/cancelled

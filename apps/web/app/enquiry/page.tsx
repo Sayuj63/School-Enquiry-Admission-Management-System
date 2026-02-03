@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { GraduationCap, ArrowLeft, Loader2, CheckCircle, Calendar, Save, FileText, Info, PlusCircle, ChevronRight, User } from 'lucide-react'
-import { sendOTP, verifyOTP, submitEnquiry, getEnquiryTemplate, getGradeRules, getAvailableSlots, getEnquiryDraft, getEnquiriesByMobile, getExistingBookingByMobile } from '@/lib/api'
+import { GraduationCap, ArrowLeft, Loader2, CheckCircle, Calendar, Save, FileText, Info, PlusCircle, ChevronRight, User, LogOut, Upload, Trash2, X } from 'lucide-react'
+import { sendOTP, verifyOTP, submitEnquiry, getEnquiryTemplate, getGradeRules, getAvailableSlots, getEnquiryDraft, lookupEnquiries, getEnquiriesByMobile, getExistingBookingByMobile, getDocumentsList, uploadParentDocument } from '@/lib/api'
 
 interface FormField {
   name: string
@@ -44,6 +44,10 @@ export default function EnquiryPage() {
   const [otpValue, setOtpValue] = useState('')
   const [otpVerified, setOtpVerified] = useState(false)
   const [devOtp, setDevOtp] = useState<string | null>(null)
+  const [hasOtherEnquiries, setHasOtherEnquiries] = useState(false)
+  const [requiredDocs, setRequiredDocs] = useState<any[]>([])
+  const [pendingFiles, setPendingFiles] = useState<{ [key: string]: File }>({})
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: boolean }>({})
 
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -132,10 +136,11 @@ export default function EnquiryPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [templateRes, settingsRes, slotsRes] = await Promise.all([
+        const [templateRes, settingsRes, slotsRes, docsRes] = await Promise.all([
           getEnquiryTemplate(),
           getGradeRules(),
-          getAvailableSlots()
+          getAvailableSlots(),
+          getDocumentsList()
         ])
 
         if (templateRes.success) {
@@ -149,6 +154,10 @@ export default function EnquiryPage() {
 
         if (slotsRes.success) {
           setAvailableSlots(slotsRes.data)
+        }
+
+        if (docsRes.success) {
+          setRequiredDocs(docsRes.data.documents || [])
         }
 
         // LOAD DRAFT DATA IF resumeId EXISTS
@@ -199,6 +208,13 @@ export default function EnquiryPage() {
                   setExistingBooking(bookingRes.data)
                   setSelectedSlotId(bookingRes.data.slotId._id)
                 }
+
+                // Check if they have other enquiries (silently)
+                lookupEnquiries(session.mobile).then(res => {
+                  if (res.success && res.data.enquiries.length > 0) {
+                    setHasOtherEnquiries(true)
+                  }
+                }).catch(e => console.error('Silent enquiry check failed', e))
               } else {
                 localStorage.removeItem('parent_session')
               }
@@ -262,11 +278,42 @@ export default function EnquiryPage() {
       }
       localStorage.setItem('parent_session', JSON.stringify(session))
 
-      // Redirect to applications page to show list or "create new"
-      router.push('/parent/applications')
+      // Check if user has enquiries
+      const enquiriesRes = await lookupEnquiries(mobileValue)
+      if (enquiriesRes.success && enquiriesRes.data.enquiries.length > 0) {
+        setHasOtherEnquiries(true)
+        // Redirect to applications page to show list
+        router.replace('/parent/applications')
+      } else {
+        setHasOtherEnquiries(false)
+        // Stay on form to complete the enquiry
+        setStep('form')
+      }
     } else {
       setError(result.error || 'Invalid OTP')
     }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('parent_session')
+    localStorage.removeItem('parent_mobile_verified')
+    router.push('/')
+  }
+
+  const handleFileChange = (type: string, file: File | null) => {
+    if (!file) {
+      const newFiles = { ...pendingFiles }
+      delete newFiles[type]
+      setPendingFiles(newFiles)
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(`${type}: File size exceeds 5MB limit`)
+      return
+    }
+
+    setPendingFiles(prev => ({ ...prev, [type]: file }))
   }
 
   const onSaveDraft = async () => {
@@ -294,6 +341,13 @@ export default function EnquiryPage() {
     }
 
     const isWaitlisted = isWaitlistOverride || selectedGradeFull
+    const noSlotsAvailable = !isWaitlisted && availableSlots.length === 0
+
+    if (noSlotsAvailable) {
+      toast.error('No slots available. Saving your application as draft.')
+      onSaveDraft()
+      return
+    }
 
     if (!selectedSlotId && !isWaitlisted) {
       setError('Please select a counselling slot')
@@ -311,8 +365,27 @@ export default function EnquiryPage() {
     })
 
     if (result.success && result.data?.tokenId) {
+      const tokenId = result.data.tokenId
       localStorage.removeItem(`enquiry_autosave_${mobileValue}`)
-      router.push(`/success/${result.data.tokenId}${isWaitlisted ? '?waitlist=true' : ''}`)
+
+      // UPLOAD PENDING DOCUMENTS
+      const fileTypes = Object.keys(pendingFiles)
+      if (fileTypes.length > 0) {
+        toast.loading('Uploading documents...', { id: 'upload' })
+        try {
+          for (const type of fileTypes) {
+            setUploadProgress(prev => ({ ...prev, [type]: true }))
+            await uploadParentDocument(tokenId, type, pendingFiles[type])
+            setUploadProgress(prev => ({ ...prev, [type]: false }))
+          }
+          toast.success('Documents uploaded successfully', { id: 'upload' })
+        } catch (err) {
+          console.error('Document upload failed', err)
+          toast.error('Some documents failed to upload. You can upload them later from the Status page.', { id: 'upload' })
+        }
+      }
+
+      router.push(`/success/${tokenId}${isWaitlisted ? '?waitlist=true' : ''}`)
     } else if ((result as any).errorCode === 'GRADE_FULL') {
       setStep('form')
       if (confirm(`Admissions for ${data.grade} are currently full. Would you like to join the waitlist? You won't need to book a counselling slot now.`)) {
@@ -347,13 +420,24 @@ export default function EnquiryPage() {
             </div>
           </div>
           {otpVerified && (
-            <button
-              onClick={onSaveDraft}
-              className="flex items-center text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save as Draft
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              {!hasOtherEnquiries && (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center text-sm font-bold text-gray-400 hover:text-red-600 transition-colors uppercase tracking-wider"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log Out
+                </button>
+              )}
+              <button
+                onClick={onSaveDraft}
+                className="flex items-center text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save as Draft
+              </button>
+            </div>
           )}
         </div>
 
@@ -407,7 +491,7 @@ export default function EnquiryPage() {
                 // Specific Logic for Grade Dropdown (1.3.2)
                 if (field.name === 'grade') {
                   return (
-                    <div key={field.name}>
+                    <div key={field.name} className="flex flex-col">
                       <label className="label">{field.label} {field.required && <span className="text-red-500">*</span>}</label>
                       <select className={`input ${errorMessage ? 'input-error' : ''}`} {...register(field.name, rules)}>
                         <option value="">Select Grade</option>
@@ -417,8 +501,11 @@ export default function EnquiryPage() {
                           </option>
                         ))}
                       </select>
-                      {errorMessage && <p className="error-text">{errorMessage}</p>}
-                      {!dobValue && <p className="text-[10px] text-gray-400 mt-1 flex items-center"><Info className="h-3 w-3 mr-1" /> Select Date of Birth first to see eligible grades.</p>}
+                      {errorMessage ? (
+                        <p className="error-text">{errorMessage}</p>
+                      ) : (
+                        !dobValue && <p className="text-[10px] text-gray-400 mt-1 flex items-center"><Info className="h-3 w-3 mr-1" /> Select DoB first to see eligible grades.</p>
+                      )}
                     </div>
                   )
                 }
@@ -451,6 +538,63 @@ export default function EnquiryPage() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+
+          {/* Optional Document Upload Section */}
+          <div className="card p-8">
+            <h2 className="text-xl font-bold mb-2 flex items-center">
+              <Upload className="h-5 w-5 mr-2 text-primary-600" />
+              Required Documents (Optional)
+            </h2>
+            <p className="text-sm text-gray-500 mb-6">You can upload documents now or do it later from the application status page.</p>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {requiredDocs.map((doc) => {
+                const docType = doc.name
+                return (
+                  <div key={docType} className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">{docType} {doc.required && <span className="text-red-500">*</span>}</label>
+                    {pendingFiles[docType] ? (
+                      <div className="flex items-center gap-3 p-3 bg-primary-50 border border-primary-100 rounded-xl group">
+                        <FileText className="h-5 w-5 text-primary-600" />
+                        <span className="text-xs font-medium text-primary-700 flex-1 truncate">{pendingFiles[docType].name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleFileChange(docType, null)}
+                          className="p-1 hover:bg-white rounded-lg transition-colors text-primary-400 hover:text-red-500"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative group">
+                        <input
+                          type="file"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          onChange={(e) => handleFileChange(docType, e.target.files?.[0] || null)}
+                          accept="image/*,.pdf"
+                        />
+                        <div className="p-4 border-2 border-dashed border-gray-100 rounded-xl flex items-center justify-center gap-2 group-hover:border-primary-200 group-hover:bg-gray-50 transition-all">
+                          <PlusCircle className="h-4 w-4 text-gray-400 group-hover:text-primary-600" />
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider group-hover:text-primary-600">Select File</span>
+                        </div>
+                      </div>
+                    )}
+                    {uploadProgress[docType] && (
+                      <div className="flex items-center gap-2 text-[10px] text-primary-600 font-bold animate-pulse">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Uploading...
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+              <p className="text-[10px] text-blue-700 leading-relaxed uppercase font-black tracking-widest flex items-center">
+                <Info className="h-3 w-3 mr-1" /> Note
+              </p>
+              <p className="text-xs text-blue-600 mt-1">Accepted formats: PDF, JPEG, PNG. Max size: 5MB per file.</p>
             </div>
           </div>
 
@@ -534,7 +678,11 @@ export default function EnquiryPage() {
             className="btn-primary w-full h-14 text-lg font-bold shadow-xl shadow-primary-200 flex items-center justify-center transform active:scale-95 transition-transform"
             disabled={!otpVerified || step === 'submitting'}
           >
-            {step === 'submitting' ? <Loader2 className="h-6 w-6 animate-spin" /> : (selectedGradeFull ? 'Join Waitlist' : 'Confirm & Submit Application')}
+            {step === 'submitting' ? <Loader2 className="h-6 w-6 animate-spin" /> : (
+              selectedGradeFull ? 'Join Waitlist' : (
+                (!selectedGradeFull && availableSlots.length === 0) ? 'Save as Draft (No Slots Available)' : 'Confirm & Submit Application'
+              )
+            )}
           </button>
         </form>
       </div>

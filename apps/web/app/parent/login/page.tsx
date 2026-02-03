@@ -25,7 +25,14 @@ export default function ParentLoginPage() {
                 const session = JSON.parse(sessionStr)
                 const now = new Date().getTime()
                 if (session.mobile && session.expires && now < session.expires) {
-                    router.push('/parent/applications')
+                    // Smart redirect to avoid flash/history loops
+                    lookupEnquiries(session.mobile).then(res => {
+                        if (res.success && res.data.enquiries.length > 0) {
+                            router.replace('/parent/applications')
+                        } else {
+                            router.replace('/enquiry')
+                        }
+                    })
                 }
             } catch (e) { }
         }
@@ -71,7 +78,14 @@ export default function ParentLoginPage() {
                 expires: new Date().getTime() + (20 * 60 * 1000)
             }
             localStorage.setItem('parent_session', JSON.stringify(session))
-            router.push('/parent/applications')
+
+            // Check if user has enquiries
+            const enquiriesResult = await lookupEnquiries(mobile)
+            if (enquiriesResult.success && enquiriesResult.data.enquiries.length > 0) {
+                router.replace('/parent/applications')
+            } else {
+                router.replace('/enquiry')
+            }
         } else {
             setLoading(false)
             setError(verifyResult.error || 'Invalid OTP')

@@ -4,7 +4,7 @@ import { Enquiry, Admission, SlotBooking, GradeRule } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import cloudinary from '../config/cloudinary';
-import { isMobileVerified } from '../services';
+import { isMobileVerified, logActivity } from '../services';
 
 const router: Router = Router();
 
@@ -179,6 +179,13 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     const total = await Admission.countDocuments(query);
     const admissions = await Admission.find(query)
+      .populate({
+        path: 'slotBookingId',
+        populate: {
+          path: 'slotId',
+          model: 'CounsellingSlot'
+        }
+      })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -389,9 +396,15 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // If admission is submitted, approved, confirmed, or rejected, update enquiry status to converted
-    if (status && ['submitted', 'approved', 'confirmed', 'rejected'].includes(status)) {
-      await Enquiry.findByIdAndUpdate(admission.enquiryId, { status: 'converted' });
+    if (status && status !== currentAdmission.status) {
+      await logActivity({
+        type: 'admission',
+        action: 'status_changed',
+        description: `Admission for ${admission.studentName} updated to ${status.toUpperCase()}`,
+        refId: admission._id,
+        tokenId: admission.tokenId,
+        metadata: { oldStatus: currentAdmission.status, newStatus: status }
+      });
     }
 
     res.json({
@@ -623,6 +636,15 @@ router.post('/parent/:tokenId/documents', upload.single('document'), async (req,
     });
 
     await admission.save();
+
+    await logActivity({
+      type: 'admission',
+      action: 'document_uploaded',
+      description: `${documentType} uploaded for ${admission.studentName}`,
+      refId: admission._id,
+      tokenId: admission.tokenId,
+      metadata: { documentType, fileName: req.file.originalname }
+    });
 
     res.json({
       success: true,

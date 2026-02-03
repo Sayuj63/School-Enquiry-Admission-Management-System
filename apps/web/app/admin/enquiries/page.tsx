@@ -102,42 +102,26 @@ export default function EnquiriesPage() {
 
   const fetchEnquiries = async () => {
     setLoading(true)
+
+    let dateFrom = undefined
+    if (dateFilter) {
+      const now = new Date()
+      if (dateFilter === 'today') dateFrom = startOfDay(now).toISOString()
+      if (dateFilter === 'week') dateFrom = startOfWeek(now).toISOString()
+      if (dateFilter === 'month') dateFrom = startOfMonth(now).toISOString()
+    }
+
     const result = await getEnquiries({
       page,
       limit: 10,
       status: statusFilter || undefined,
-      search: debouncedSearch || undefined
+      search: debouncedSearch || undefined,
+      grade: classFilter || undefined,
+      dateFrom
     })
 
     if (result.success && result.data) {
-      let filteredEnquiries = result.data.enquiries
-
-      // Apply date filter client-side
-      if (dateFilter) {
-        const now = new Date()
-        filteredEnquiries = filteredEnquiries.filter((enq: Enquiry) => {
-          const enqDate = new Date(enq.createdAt)
-          switch (dateFilter) {
-            case 'today':
-              return enqDate >= startOfDay(now)
-            case 'week':
-              return enqDate >= startOfWeek(now)
-            case 'month':
-              return enqDate >= startOfMonth(now)
-            default:
-              return true
-          }
-        })
-      }
-
-      // Apply class filter client-side
-      if (classFilter) {
-        filteredEnquiries = filteredEnquiries.filter((enq: Enquiry) =>
-          enq.grade === classFilter
-        )
-      }
-
-      setEnquiries(filteredEnquiries)
+      setEnquiries(result.data.enquiries)
       setTotalPages(result.data.totalPages)
       setTotal(result.data.total)
     }
@@ -396,6 +380,10 @@ export default function EnquiriesPage() {
                       {enquiry.status === 'new' ? (
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.new}`}>
                           {statusLabels.new}
+                        </span>
+                      ) : enquiry.status === 'draft' ? (
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.draft}`}>
+                          {statusLabels.draft}
                         </span>
                       ) : (enquiry as any).status === 'in_progress' || enquiry.status === 'pending_admission' ? (
                         enquiry.admissionStatus === 'draft' ? (

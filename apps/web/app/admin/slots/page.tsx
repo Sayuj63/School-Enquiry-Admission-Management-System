@@ -227,7 +227,7 @@ export default function SlotsPage() {
 
   const fetchEligibleAdmissions = async () => {
     setFetchingAdmissions(true)
-    const result = await getAdmissions({ noSlot: true, limit: 100 })
+    const result = await getAdmissions({ limit: 200 })
     if (result.success && result.data) {
       setEligibleAdmissions(result.data.admissions)
     }
@@ -593,18 +593,37 @@ export default function SlotsPage() {
               onChange={e => setAssignSearch(e.target.value)}
             />
             <div className="flex-1 overflow-y-auto space-y-2">
-              {eligibleAdmissions.filter(a =>
-                a.studentName.toLowerCase().includes(assignSearch.toLowerCase()) ||
-                a.tokenId.toLowerCase().includes(assignSearch.toLowerCase())
-              ).map(adm => (
-                <div key={adm._id} className="p-3 border rounded-lg flex justify-between items-center hover:bg-gray-50">
-                  <div>
-                    <p className="font-bold text-gray-900">{adm.studentName}</p>
-                    <p className="text-xs text-gray-500 font-mono">{adm.tokenId} • Grade {adm.grade}</p>
+              {eligibleAdmissions
+                .filter(a =>
+                  a.studentName.toLowerCase().includes(assignSearch.toLowerCase()) ||
+                  a.tokenId.toLowerCase().includes(assignSearch.toLowerCase())
+                )
+                .sort((a, b) => {
+                  // Put students without a slot at the top
+                  if (!a.slotBookingId && b.slotBookingId) return -1;
+                  if (a.slotBookingId && !b.slotBookingId) return 1;
+                  return 0;
+                })
+                .map(adm => (
+                  <div key={adm._id} className={`p-3 border rounded-lg flex justify-between items-center transition-all ${adm.slotBookingId ? 'bg-amber-50/50 border-amber-100' : 'bg-white hover:bg-gray-50'}`}>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-gray-900">{adm.studentName}</p>
+                        {adm.slotBookingId && (
+                          <span className="bg-amber-100 text-amber-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Already Assigned</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 font-mono">{adm.tokenId} • Grade {adm.grade}</p>
+                    </div>
+                    <button
+                      onClick={() => handleAssignSlot(adm._id)}
+                      disabled={assigning}
+                      className={`py-1.5 px-4 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${adm.slotBookingId ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm' : 'btn-primary'}`}
+                    >
+                      {adm.slotBookingId ? 'Reassign' : 'Assign'}
+                    </button>
                   </div>
-                  <button onClick={() => handleAssignSlot(adm._id)} disabled={assigning} className="btn-primary py-1 px-4 text-xs font-bold">Assign</button>
-                </div>
-              ))}
+                ))}
             </div>
             <button onClick={() => setShowAssignModal(false)} className="btn-secondary mt-4 w-full font-bold">Cancel</button>
           </div>

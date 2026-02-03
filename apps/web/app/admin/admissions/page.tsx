@@ -279,13 +279,34 @@ export default function AdmissionsPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {admission.grade}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {admission.slotBookingId ? (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          In booked
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {admission.slotBookingId ? (() => {
+                        const booking = admission.slotBookingId as any;
+                        const slot = booking.slotId;
+                        if (!slot) return (
+                          <span className="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-green-100 text-green-700 border border-green-200">
+                            Booked
+                          </span>
+                        );
+
+                        const [year, month, day] = slot.date.split('T')[0].split('-').map(Number);
+                        const [hours, minutes] = slot.startTime.split(':').map(Number);
+                        const slotTime = new Date(year, month - 1, day, hours, minutes);
+                        const isPassed = new Date() >= slotTime;
+
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded-lg border w-fit ${isPassed ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'
+                              }`}>
+                              {isPassed ? 'Interviewed' : 'Booked'}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                              {format(new Date(slot.date), 'MMM d')} • {slot.startTime}
+                            </span>
+                          </div>
+                        );
+                      })() : (
+                        <span className="px-2 py-1 text-[10px] font-black uppercase rounded-lg bg-amber-100 text-amber-700 border border-amber-200">
                           Pending
                         </span>
                       )}

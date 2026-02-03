@@ -254,12 +254,18 @@ export async function getEnquiries(params?: {
   limit?: number;
   status?: string;
   search?: string;
+  grade?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
   const searchParams = new URLSearchParams();
   if (params?.page) searchParams.append('page', params.page.toString());
   if (params?.limit) searchParams.append('limit', params.limit.toString());
   if (params?.status) searchParams.append('status', params.status);
   if (params?.search) searchParams.append('search', params.search);
+  if (params?.grade) searchParams.append('grade', params.grade);
+  if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom);
+  if (params?.dateTo) searchParams.append('dateTo', params.dateTo);
 
   return api.get<any>(`/api/enquiries?${searchParams.toString()}`);
 }
