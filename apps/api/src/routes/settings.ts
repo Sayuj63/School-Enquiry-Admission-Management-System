@@ -4,6 +4,7 @@ import { NotificationSettings } from '../models/NotificationSettings';
 import { SlotSettings, Enquiry, Admission, SlotBooking, CounsellingSlot, AdminUser, ActivityLog } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import * as XLSX from 'xlsx';
+import cloudinary from '../config/cloudinary';
 
 const router: Router = Router();
 
@@ -206,6 +207,39 @@ router.post('/reset-cycle', authenticate, async (req: AuthRequest, res: Response
             return res.status(401).json({ success: false, error: 'Invalid principal password' });
         }
 
+        // Delete all assets from the "documents" folder in Cloudinary
+        // This will ONLY delete assets in the "documents" folder/preset
+        // Other folders (awards, beyond_acad, campus, unsigned, etc.) will remain unaffected
+        try {
+            console.log('Starting Cloudinary cleanup for "documents" folder...');
+
+            // Delete all resources in the "documents" folder
+            const cloudinaryResult = await cloudinary.api.delete_resources_by_prefix('documents/', {
+                resource_type: 'image',
+                type: 'upload'
+            });
+
+            console.log(`Cloudinary deletion result:`, cloudinaryResult);
+            console.log(`Deleted ${Object.keys(cloudinaryResult.deleted || {}).length} assets from "documents" folder`);
+
+            // Also try to delete any PDFs in the documents folder
+            try {
+                const pdfResult = await cloudinary.api.delete_resources_by_prefix('documents/', {
+                    resource_type: 'raw',
+                    type: 'upload'
+                });
+                console.log(`Deleted ${Object.keys(pdfResult.deleted || {}).length} PDF/raw assets from "documents" folder`);
+            } catch (pdfError) {
+                console.log('No PDF/raw assets found in documents folder or error deleting them:', pdfError);
+            }
+
+        } catch (cloudinaryError: any) {
+            console.error('Cloudinary deletion error:', cloudinaryError);
+            // Log but don't fail the entire reset if Cloudinary deletion fails
+            console.warn('Warning: Cloudinary deletion failed, but continuing with database cleanup');
+        }
+
+        // Delete all database records
         await Promise.all([
             Enquiry.deleteMany({}),
             Admission.deleteMany({}),
@@ -214,7 +248,7 @@ router.post('/reset-cycle', authenticate, async (req: AuthRequest, res: Response
             ActivityLog.deleteMany({})
         ]);
 
-        res.json({ success: true, message: 'Admission cycle reset successful. All transaction data cleared.' });
+        res.json({ success: true, message: 'Admission cycle reset successful. All transaction data and documents cleared.' });
     } catch (error) {
         console.error('Reset error:', error);
         res.status(500).json({ success: false, error: 'Failed to reset admission cycle' });
