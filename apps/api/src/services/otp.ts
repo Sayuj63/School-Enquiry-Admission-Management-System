@@ -100,7 +100,7 @@ export async function sendOTP(mobile: string): Promise<SendOTPResult> {
       } else {
         const client = twilio(accountSid, authToken);
         await client.messages.create({
-          body: `Your OTP for Sayuj School Admission is ${otp}. Valid for 10 minutes.`,
+          body: `Your OTP for New Era High School Admission is ${otp}. Valid for 10 minutes.`,
           from: twilioNumber,
           to: `+${normalizedMobile}`
         });
