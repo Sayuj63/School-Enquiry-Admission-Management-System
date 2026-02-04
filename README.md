@@ -80,10 +80,10 @@ NODE_ENV=development
 JWT_SECRET=your-secret-key-change-in-production
 
 # School Details
-SCHOOL_NAME=ABC International School
-SCHOOL_EMAIL=info@abcschool.com
+SCHOOL_NAME=New Era High School
+SCHOOL_EMAIL=info@nes.edu.in
 SCHOOL_PHONE=+919876543210
-PRINCIPAL_EMAIL=principal@abcschool.com
+PRINCIPAL_EMAIL=principal@nes.edu.in
 
 # Twilio (Optional - mocked in development)
 TWILIO_ACCOUNT_SID=your_account_sid

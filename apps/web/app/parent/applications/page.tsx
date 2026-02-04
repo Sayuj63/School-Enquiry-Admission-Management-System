@@ -92,7 +92,7 @@ export default function parentApplicationsPage() {
                 <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
                     <Link href="/" className="flex items-center text-primary-600 font-black text-2xl tracking-tight">
                         <GraduationCap className="h-10 w-10 mr-2" />
-                        ABC School
+                        New Era High School
                     </Link>
                     <button
                         onClick={handleLogout}
@@ -110,7 +110,7 @@ export default function parentApplicationsPage() {
                         <User className="h-8 w-8 text-primary-600" />
                     </div>
                     <h1 className="text-4xl font-black text-gray-900 mb-2">My Applications</h1>
-                    <p className="text-gray-500 font-medium">Manage enquiries for mobile number <span className="text-gray-900 font-bold">+{mobile}</span></p>
+                    <p className="text-gray-500 font-medium">Manage enquiries for mobile number <span className="text-gray-900 font-bold">+91 {mobile}</span></p>
                 </div>
 
                 {enquiries.length > 0 ? (
@@ -208,7 +208,7 @@ export default function parentApplicationsPage() {
 
             <footer className="py-12 bg-white border-t mt-auto">
                 <div className="max-w-7xl mx-auto px-4 text-center">
-                    <p className="text-gray-400 font-bold text-sm uppercase tracking-widest">© 2026 ABC International School</p>
+                    <p className="text-gray-400 font-bold text-sm uppercase tracking-widest">© 2026 New Era High School</p>
                 </div>
             </footer>
         </div>

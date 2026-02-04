@@ -334,7 +334,7 @@ export default function ParentEnquiryDetail() {
                                 </div>
                                 <div>
                                     <p className="text-gray-500">Mobile Number</p>
-                                    <p className="font-medium">{enquiry.mobile}</p>
+                                    <p className="font-medium">+91 {enquiry.mobile}</p>
                                 </div>
                                 <div className="col-span-2">
                                     <p className="text-gray-500">Email Address</p>

@@ -87,8 +87,8 @@ export async function sendParentCalendarInvite(data: {
   slotEndTime: string;
   location: string;
 }): Promise<SendEmailResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@school.com';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
 
   // Parse date and time strings to create proper dates without timezone shift
   const [startHour, startMin] = data.slotStartTime.split(':').map(Number);
@@ -165,7 +165,7 @@ ${schoolName} Admissions Team
 
     // Resend requires a verified domain or onboarding@resend.dev
     // If you haven't verified a domain, you MUST use onboarding@resend.dev as 'from'
-    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@school.com' || !schoolEmail)
+    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@nes.edu.in' || !schoolEmail)
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 
@@ -224,9 +224,9 @@ export async function sendPrincipalCalendarInvite(data: {
   slotEndTime: string;
   location: string;
 }): Promise<SendEmailResult> {
-  const principalEmail = process.env.PRINCIPAL_EMAIL || 'principal@school.com';
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@school.com';
+  const principalEmail = process.env.PRINCIPAL_EMAIL || 'principal@nes.edu.in';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
 
   // Parse date and time strings to create proper dates without timezone shift
   const [startHour, startMin] = data.slotStartTime.split(':').map(Number);
@@ -296,7 +296,7 @@ Location: ${data.location}
     }
 
     // Resend requires a verified domain or onboarding@resend.dev
-    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@school.com' || !schoolEmail)
+    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@nes.edu.in' || !schoolEmail)
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 
@@ -352,8 +352,8 @@ export async function sendWaitlistEmail(data: {
   tokenId: string;
   grade: string;
 }): Promise<SendEmailResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@school.com';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
 
   const emailBody = `
 Dear ${data.parentName},
@@ -394,7 +394,7 @@ ${schoolName} Admissions Team
       return { success: false, message: 'Email service not configured' };
     }
 
-    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@school.com' || !schoolEmail)
+    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@nes.edu.in' || !schoolEmail)
       ? 'onboarding@resend.dev'
       : `${schoolName} <${schoolEmail}>`;
 

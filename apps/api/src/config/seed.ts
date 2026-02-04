@@ -3,7 +3,7 @@ import { AdminUser, FormTemplate, DocumentsList, GradeRule, GradeSettings, Couns
 
 const DEFAULT_ADMIN = {
   username: 'Admin',
-  email: 'admin@school.com',
+  email: 'admin@nes.edu.in',
   password: 'admin123',
   role: 'superadmin' as const
 };
@@ -83,7 +83,7 @@ export async function seedDatabase(): Promise<void> {
   // Seed principal user
   const PRINCIPAL_USER = {
     username: 'Principal',
-    email: 'principal@school.com',
+    email: 'principal@nes.edu.in',
     password: 'principal123',
     role: 'principal' as const
   };

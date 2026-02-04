@@ -107,7 +107,7 @@ export default function ParentLoginPage() {
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                     <Link href="/" className="flex items-center text-primary-600 font-bold text-xl">
                         <GraduationCap className="h-8 w-8 mr-2" />
-                        ABC School
+                        New Era High School
                     </Link>
                     <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 flex items-center transition-colors">
                         <ArrowLeft className="h-4 w-4 mr-1" />
@@ -132,13 +132,14 @@ export default function ParentLoginPage() {
                                 <div>
                                     <label htmlFor="mobile" className="label">Mobile Number</label>
                                     <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Phone className="h-5 w-5 text-gray-400" />
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 font-medium">
+                                            <Phone className="h-5 w-5 mr-1" />
+                                            <span className="text-sm border-r border-gray-200 pr-2 mr-2">+91</span>
                                         </div>
                                         <input
                                             id="mobile"
                                             type="tel"
-                                            className="input pl-10 h-12 text-lg"
+                                            className="input pl-20 h-12 text-lg"
                                             placeholder="98765 43210"
                                             value={mobile}
                                             onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -165,7 +166,7 @@ export default function ParentLoginPage() {
                         <div className="card p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">Verify OTP</h1>
                             <p className="text-center text-gray-600 mb-6">
-                                We've sent a 6-digit code to <span className="font-semibold text-gray-900">+{mobile}</span>
+                                We've sent a 6-digit code to <span className="font-semibold text-gray-900">+91 {mobile}</span>
                             </p>
 
                             {devOtp && (
@@ -217,7 +218,7 @@ export default function ParentLoginPage() {
 
             <footer className="py-8 bg-white border-t mt-auto">
                 <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
-                    <p>© 2026 ABC International School Admissions. All Rights Reserved.</p>
+                    <p>© 2026 New Era High School Admissions. All Rights Reserved.</p>
                 </div>
             </footer>
         </div>

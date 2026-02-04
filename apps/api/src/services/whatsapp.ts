@@ -45,9 +45,9 @@ function normalizeWhatsAppNumber(mobile: string): string {
  * In development mode, message is logged to console instead of being sent
  */
 export async function sendEnquiryWhatsApp(data: WhatsAppMessage): Promise<SendWhatsAppResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
   const schoolPhone = process.env.SCHOOL_PHONE || '+919876543210';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@school.com';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
 
   const documentsList = await getDocumentsList();
 
@@ -137,7 +137,7 @@ export async function sendSlotConfirmationWhatsApp(data: {
   slotTime: string;
   location: string;
 }): Promise<SendWhatsAppResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
 🎓 *Counselling Slot Confirmed - ${schoolName}*
@@ -218,7 +218,7 @@ export async function sendSlotReminderWhatsApp(data: {
   slotTime: string;
   reminderDay: number; // 1 or 3
 }): Promise<SendWhatsAppResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
 🔔 *Reminder: Counselling Session at ${schoolName}*
@@ -295,7 +295,7 @@ export async function sendNoShowRescheduleWhatsApp(data: {
   slotDate: string;
   slotTime: string;
 }): Promise<SendWhatsAppResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
 ⚠️ *Update: No-Show & Auto-Reschedule - ${schoolName}*
@@ -365,7 +365,7 @@ export async function sendStatusUpdateWhatsApp(data: {
   studentName: string;
   status: 'confirmed' | 'waitlisted' | 'rejected' | 'approved';
 }): Promise<SendWhatsAppResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   let statusText = '';
   let colorEmoji = '';
@@ -509,7 +509,7 @@ export async function sendSlotRescheduleWhatsApp(data: {
   slotTime: string;
   reason?: string;
 }): Promise<SendWhatsAppResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'ABC International School';
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
 ⚠️ *Update: Appointment Rescheduled - ${schoolName}*

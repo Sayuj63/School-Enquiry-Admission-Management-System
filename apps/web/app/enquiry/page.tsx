@@ -455,7 +455,7 @@ function EnquiryContent() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
               <h2 className="text-2xl font-bold mb-2">Verify Mobile</h2>
-              <p className="text-gray-600 mb-6">Enter the 6-digit code sent to <span className="font-bold text-gray-900">{mobileValue}</span></p>
+              <p className="text-gray-600 mb-6">Enter the 6-digit code sent to <span className="font-bold text-gray-900">+91 {mobileValue}</span></p>
               {devOtp && (
                 <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4 mb-6 text-center">
                   <p className="text-sm text-yellow-800 font-medium">Dev Mode OTP: <span className="font-mono text-lg">{devOtp}</span></p>
@@ -525,7 +525,12 @@ function EnquiryContent() {
                     <label className="label">{field.label} {field.required && <span className="text-red-500">*</span>}</label>
                     {field.name === 'mobile' ? (
                       <div className="flex gap-3">
-                        <input type="tel" className="input flex-1" {...register(field.name, rules)} disabled={otpVerified} />
+                        <div className="relative flex-1">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 font-medium">
+                            <span className="text-sm border-r border-gray-200 pr-2">+91</span>
+                          </div>
+                          <input type="tel" className="input pl-14 w-full" {...register(field.name, rules)} disabled={otpVerified} />
+                        </div>
                         {otpVerified ? (
                           <div className="flex items-center gap-2 text-green-600 px-4 py-2 font-bold bg-green-50 rounded-lg border border-green-100 h-11">
                             <CheckCircle className="h-5 w-5" /> Verified

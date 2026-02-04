@@ -11,7 +11,7 @@ export default function Home() {
             <GraduationCap className="h-16 w-16 text-primary-600" />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            ABC International School
+            New Era High School
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Welcome to our School Admission Portal. Start your child&apos;s journey with us today.
@@ -65,7 +65,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-center mt-12 text-gray-500 text-sm">
-          <p>Contact us: info@abcschool.com | +91 98765 43210</p>
+          <p>Contact us: info@nes.edu.in | +91 98765 43210</p>
         </div>
       </div>
     </div>

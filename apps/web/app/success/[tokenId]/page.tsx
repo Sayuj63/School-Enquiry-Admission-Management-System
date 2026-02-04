@@ -87,7 +87,8 @@ function SuccessContent() {
           <div className="text-gray-600 mb-8">
             <p>If you have any questions, please contact us:</p>
             <p className="font-medium">
-              Email: info@abcschool.com | Phone: +91 98765 43210
+              Email: <a href="mailto:info@nes.edu.in" className="text-primary-600 hover:underline">info@nes.edu.in</a> |
+              Phone: <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline ml-1">+91 98765 43210</a>
             </p>
           </div>
 

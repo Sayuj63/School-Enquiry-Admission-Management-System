@@ -15,7 +15,7 @@ The POST /api/enquiry endpoint is designed for external frontend integration and
     `,
     contact: {
       name: 'API Support',
-      email: 'info@abcschool.com'
+      email: 'info@nes.edu.in'
     }
   },
   servers: [
@@ -262,7 +262,7 @@ The POST /api/enquiry endpoint is designed for external frontend integration and
                     data: {
                       type: 'object',
                       properties: {
-                        tokenId: { type: 'string', example: 'ENQ-20260110-ABC123' },
+                        tokenId: { type: 'string', example: 'ENQ-20260110-NES123' },
                         message: { type: 'string' }
                       }
                     }
@@ -721,7 +721,7 @@ The POST /api/enquiry endpoint is designed for external frontend integration and
         type: 'object',
         properties: {
           _id: { type: 'string' },
-          tokenId: { type: 'string', example: 'ENQ-20260110-ABC123' },
+          tokenId: { type: 'string', example: 'ENQ-20260110-NES123' },
           parentName: { type: 'string' },
           childName: { type: 'string' },
           mobile: { type: 'string' },
