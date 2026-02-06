@@ -121,24 +121,8 @@ function EnquiryContent() {
     return () => subscription.unsubscribe()
   }, [watch, otpVerified, step, mobileValue])
 
-  // Requirement: Restore autosave after verification
-  useEffect(() => {
-    if (otpVerified && step === 'form' && !resumeId) {
-      const saved = localStorage.getItem(`enquiry_autosave_${mobileValue}`)
-      if (saved) {
-        try {
-          const data = JSON.parse(saved)
-          Object.keys(data).forEach(key => {
-            if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
-              setValue(key, data[key])
-            }
-          })
-        } catch (e) {
-          console.error('Failed to restore autosave', e)
-        }
-      }
-    }
-  }, [otpVerified, step, resumeId, mobileValue, setValue])
+  // Note: Autosave restoration removed to prevent cross-application data leakage
+  // Autosave still works during form editing, but won't pre-populate new applications
 
   useEffect(() => {
     const fetchData = async () => {
@@ -285,6 +269,9 @@ function EnquiryContent() {
       }
       localStorage.setItem('parent_session', JSON.stringify(session))
 
+      // Clear any previous autosave for this mobile to start fresh
+      localStorage.removeItem(`enquiry_autosave_${mobileValue}`)
+
       // Check if user has enquiries
       const enquiriesRes = await lookupEnquiries(mobileValue)
       if (enquiriesRes.success && enquiriesRes.data.enquiries.length > 0) {
@@ -333,6 +320,8 @@ function EnquiryContent() {
     const result = await submitEnquiry({ ...data, status: 'draft' })
     setLoading(false)
     if (result.success) {
+      // Clear autosave since draft is now saved on server
+      localStorage.removeItem(`enquiry_autosave_${mobileValue}`)
       toast.success('Draft saved successfully! You can resume it later using your mobile number.')
       router.push('/')
     } else {
