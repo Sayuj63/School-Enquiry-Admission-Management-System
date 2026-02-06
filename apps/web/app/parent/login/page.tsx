@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { GraduationCap, ArrowLeft, Loader2, CheckCircle, UserCircle, Phone, ArrowRight } from 'lucide-react'
-import Link from 'next/link'
+import { GraduationCap, Loader2, CheckCircle, UserCircle, Phone, ArrowRight } from 'lucide-react'
 import { sendOTP, verifyOTP, lookupEnquiries } from '@/lib/api'
 
 type Step = 'mobile' | 'otp' | 'loading'
@@ -104,15 +103,11 @@ export default function ParentLoginPage() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <header className="bg-white border-b sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center text-primary-600 font-bold text-xl">
+                <div className="max-w-7xl mx-auto px-4 h-16 flex items-center">
+                    <div className="flex items-center text-primary-600 font-bold text-xl select-none">
                         <GraduationCap className="h-8 w-8 mr-2" />
                         New Era High School
-                    </Link>
-                    <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 flex items-center transition-colors">
-                        <ArrowLeft className="h-4 w-4 mr-1" />
-                        Back to Home
-                    </Link>
+                    </div>
                 </div>
             </header>
 
