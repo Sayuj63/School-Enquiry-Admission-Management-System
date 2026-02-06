@@ -50,14 +50,24 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     const [year, month, day] = date.split('-').map(Number)
     const slotDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0))
 
-    // Check if date is in the past
-    const today = new Date();
-    const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
+    // Check if slot is in the past (date + time)
+    const now = new Date();
+    // Use local-ish comparison or UTC comparison carefully.
+    // Given the system uses simple time strings like "10:00", we should check against current time.
+    const slotStartTimeUTC = new Date(Date.UTC(year, month - 1, day, startH, startM));
 
-    if (slotDate < todayUTC) {
+    const nowUTC = new Date(); // Or if the school is specifically IST, convert now to IST
+
+    // To be safe and simple, let's compare the combined date and time
+    // We'll use the IST conversion logic already present in the "available" route if needed,
+    // but for creation, usually the server time or a specific timezone is intended.
+    // Let's use the provided UTC-based slotDate logic and extend it.
+
+    const slotDateTime = new Date(year, month - 1, day, startH, startM);
+    if (slotDateTime < now) {
       return res.status(400).json({
         success: false,
-        error: 'Cannot create slots for past dates'
+        error: 'Cannot create a slot in the past'
       });
     }
 
@@ -246,11 +256,31 @@ router.post('/generate-bulk', authenticate, async (req: AuthRequest, res: Respon
     for (const period of availability) {
       const { date, startTime, endTime } = period;
 
+      if (startTime >= endTime) {
+        continue; // Skip invalid ranges
+      }
+
       const [year, month, day] = date.split('-').map(Number);
       const slotDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 
+      // Skip past dates entirely
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      if (new Date(year, month - 1, day) < now) {
+        continue;
+      }
+
       let currentMinutes = timeToMinutes(startTime);
       const endMinutes = timeToMinutes(endTime);
+
+      // If it's today, start from current time if startTime is in the past
+      const today = new Date();
+      if (year === today.getFullYear() && (month - 1) === today.getMonth() && day === today.getDate()) {
+        const nowMinutes = today.getHours() * 60 + today.getMinutes();
+        if (currentMinutes < nowMinutes) {
+          currentMinutes = Math.ceil(nowMinutes / duration) * duration;
+        }
+      }
 
       while (currentMinutes + duration <= endMinutes) {
         const slotStartTime = minutesToTime(currentMinutes);

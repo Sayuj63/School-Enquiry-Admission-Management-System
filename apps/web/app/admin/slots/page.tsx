@@ -67,7 +67,7 @@ function SlotsContent() {
   // Bulk Generation State
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [bulkAvailability, setBulkAvailability] = useState<Array<{ date: string; startTime: string; endTime: string }>>([
-    { date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '12:00' }
+    { date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00' }
   ])
 
   // Booking Management State
@@ -118,8 +118,11 @@ function SlotsContent() {
   const handleCreateSlot = async () => {
     setCreating(true)
     setError('')
-    const [startH, startM] = newSlot.startTime.split(':').map(Number);
-    const [endH, endM] = newSlot.endTime.split(':').map(Number);
+    const { date, startTime, endTime } = newSlot;
+
+    // Check if duration is at least 30 mins
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
     const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
 
     if (durationMinutes < 30) {
@@ -128,7 +131,15 @@ function SlotsContent() {
       return;
     }
 
-    const { date, startTime, endTime } = newSlot;
+    // Check if slot is in the past
+    const [year, month, day] = date.split('-').map(Number);
+    const slotStartTime = new Date(year, month - 1, day, startH, startM);
+    if (slotStartTime < new Date()) {
+      setError('Cannot create a slot in the past.');
+      setCreating(false);
+      return;
+    }
+
     const isOverlapping = slots.some(slot => {
       if (slot.date.split('T')[0] !== date) return false;
       return (startTime < slot.endTime && endTime > slot.startTime);
@@ -207,6 +218,14 @@ function SlotsContent() {
   }
 
   const handleBulkGenerate = async () => {
+    // Basic validation
+    for (const period of bulkAvailability) {
+      if (period.startTime >= period.endTime) {
+        setError(`Invalid time range for ${period.date}: Start time must be before end time.`);
+        return;
+      }
+    }
+
     setCreating(true)
     const result = await bulkGenerateSlots(bulkAvailability)
     if (result.success) {
@@ -332,11 +351,10 @@ function SlotsContent() {
     const isPast = timeState === 'past'
     const isDisabled = slot.status === 'disabled'
 
-    // For active filter: include upcoming, ongoing, and today's completed slots
+    // For active filter: include only upcoming and ongoing slots
     if (statusFilter === 'active') {
-      const isToday = isSameDay(parseLocalDate(slot.date), new Date())
       if (isDisabled) return acc;
-      if (isPast && !isToday) return acc;
+      if (isPast) return acc;
     }
 
     if (statusFilter === 'disabled' && slot.status !== 'disabled') return acc
@@ -462,14 +480,16 @@ function SlotsContent() {
                             </span>
                             {!isPrincipal && !isPast && (
                               <>
-                                <button
-                                  onClick={() => handleToggleSlot(slot._id, slot.status)}
-                                  className="btn-secondary text-xs px-2 py-1"
-                                  disabled={slot.status !== 'disabled' && slot.bookedCount > 0}
-                                >
-                                  {slot.status === 'disabled' ? 'Enable' : 'Disable'}
-                                </button>
-                                {slot.status === 'available' && (
+                                {!isOngoing && (
+                                  <button
+                                    onClick={() => handleToggleSlot(slot._id, slot.status)}
+                                    className="btn-secondary text-xs px-2 py-1"
+                                    disabled={slot.status !== 'disabled' && slot.bookedCount > 0}
+                                  >
+                                    {slot.status === 'disabled' ? 'Enable' : 'Disable'}
+                                  </button>
+                                )}
+                                {slot.status === 'available' && !isOngoing && (
                                   <button
                                     onClick={() => { setSelectedSlot(slot); setShowAssignModal(true); fetchEligibleAdmissions(); }}
                                     className="bg-primary-600 text-white text-xs px-2 py-1 rounded hover:bg-primary-700"
@@ -485,7 +505,7 @@ function SlotsContent() {
                                     Bookings ({slot.bookedCount}p)
                                   </button>
                                 )}
-                                {slot.bookedCount > 0 && (
+                                {slot.bookedCount > 0 && !isOngoing && (
                                   <button
                                     onClick={() => handleCancelSlotBySchool(slot._id)}
                                     className="text-amber-600 hover:bg-amber-50 text-xs px-2 py-1 rounded border border-amber-100"
@@ -493,7 +513,7 @@ function SlotsContent() {
                                     Cancel & Reschedule
                                   </button>
                                 )}
-                                {slot.bookedCount === 0 && (
+                                {slot.bookedCount === 0 && !isOngoing && (
                                   <button onClick={() => handleDeleteRequest(slot._id)} className="text-red-600 hover:bg-red-50 p-1 rounded">
                                     <Trash2 className="h-4 w-4" />
                                   </button>

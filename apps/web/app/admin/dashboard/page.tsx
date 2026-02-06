@@ -52,6 +52,34 @@ export default function DashboardPage() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [upcomingSlots, setUpcomingSlots] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshingActivities, setRefreshingActivities] = useState(false)
+
+  const fetchActivities = async () => {
+    setRefreshingActivities(true)
+    try {
+      const statsRes = await getDashboardStats()
+      if (statsRes.success) {
+        const s = statsRes.data
+        if (s.recentActivities) {
+          const recentActivities = s.recentActivities.map((act: any) => ({
+            id: act.id || act._id,
+            type: act.type,
+            title: act.action ? act.action.replace(/_/g, ' ').replace(/\b\w/g, (l: any) => l.toUpperCase()) : act.title,
+            description: act.description,
+            time: new Date(act.createdAt || act.time),
+            status: act.metadata?.newStatus || act.status,
+            tokenId: act.tokenId,
+            targetId: act.refId
+          }))
+          setActivities(recentActivities.sort((a: Activity, b: Activity) => b.time.getTime() - a.time.getTime()))
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing activities:', error)
+    } finally {
+      setRefreshingActivities(false)
+    }
+  }
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -132,7 +160,7 @@ export default function DashboardPage() {
             }
           })
 
-          allBookings.sort((a, b) => {
+          allBookings.sort((a: any, b: any) => {
             if (a.date !== b.date) return a.date.localeCompare(b.date);
             return a.startTime.localeCompare(b.startTime);
           })
@@ -140,7 +168,7 @@ export default function DashboardPage() {
         }
 
         // Update final sorted activities from server
-        setActivities(recentActivities.sort((a, b) => b.time.getTime() - a.time.getTime()))
+        setActivities(recentActivities.sort((a: Activity, b: Activity) => b.time.getTime() - a.time.getTime()))
 
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
@@ -377,8 +405,13 @@ export default function DashboardPage() {
               </div>
             )}
             <div className="bg-gray-50 p-3 text-center border-t border-gray-50">
-              <button className="text-xs font-bold text-gray-500 hover:text-primary-600 transition-colors">
-                REFRESH FEED
+              <button
+                onClick={fetchActivities}
+                disabled={refreshingActivities}
+                className="text-xs font-bold text-gray-500 hover:text-primary-600 transition-colors flex items-center justify-center mx-auto gap-2"
+              >
+                {refreshingActivities && <Clock className="h-3 w-3 animate-spin" />}
+                {refreshingActivities ? 'REFRESHING...' : 'REFRESH FEED'}
               </button>
             </div>
           </div>

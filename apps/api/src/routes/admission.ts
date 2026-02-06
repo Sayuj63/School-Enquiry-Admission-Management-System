@@ -385,15 +385,26 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       console.log('========================================');
     }
 
-    // WHATSAPP NOTIFICATION
+    // NOTIFICATIONS (WHATSAPP & EMAIL)
     if (status && status !== currentAdmission.status && ['confirmed', 'approved', 'rejected', 'waitlisted'].includes(status)) {
+      // WhatsApp
       const { sendStatusUpdateWhatsApp } = require('../services/whatsapp');
       await sendStatusUpdateWhatsApp({
         to: admission.mobile,
         tokenId: admission.tokenId,
         studentName: admission.studentName,
         status: status as any
-      });
+      }).catch((err: any) => console.error('WhatsApp status update error:', err));
+
+      // Email
+      const { sendAdmissionStatusEmail } = require('../services/email');
+      await sendAdmissionStatusEmail({
+        parentEmail: admission.email,
+        parentName: admission.parentName,
+        studentName: admission.studentName,
+        tokenId: admission.tokenId,
+        status: status as any
+      }).catch((err: any) => console.error('Email status update error:', err));
     }
 
     if (status && status !== currentAdmission.status) {

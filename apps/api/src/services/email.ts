@@ -418,3 +418,91 @@ ${schoolName} Admissions Team
     };
   }
 }
+
+/**
+ * Send admission status update email to parent
+ */
+export async function sendAdmissionStatusEmail(data: {
+  parentEmail: string;
+  parentName: string;
+  studentName: string;
+  tokenId: string;
+  status: 'approved' | 'rejected' | 'waitlisted' | 'confirmed';
+}): Promise<SendEmailResult> {
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
+
+  let statusText = '';
+  let statusDetail = '';
+
+  switch (data.status) {
+    case 'approved':
+    case 'confirmed':
+      statusText = 'Admission Confirmed';
+      statusDetail = 'Congratulations! We are pleased to inform you that your child\'s admission has been approved. Our team will contact you shortly regarding the next steps, fee payment, and documentation.';
+      break;
+    case 'rejected':
+      statusText = 'Admission Update';
+      statusDetail = 'We regret to inform you that we are unable to proceed with your admission application at this time.';
+      break;
+    case 'waitlisted':
+      statusText = 'Waitlist Status';
+      statusDetail = 'Your application has been placed on the waitlist. We will notify you if a seat becomes available.';
+      break;
+  }
+
+  const subject = `${statusText} - ${data.studentName} (${data.tokenId})`;
+
+  const emailBody = `
+Dear ${data.parentName},
+
+This is an update regarding ${data.studentName}'s admission application at ${schoolName}.
+
+Token ID: ${data.tokenId}
+New Status: ${data.status.toUpperCase()}
+
+${statusDetail}
+
+Best regards,
+${schoolName} Admissions Team
+  `.trim();
+
+  try {
+    if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
+      console.log('========================================');
+      console.log('EMAIL SERVICE (STATUS MOCK MODE)');
+      console.log('----------------------------------------');
+      console.log(`To: ${data.parentEmail}`);
+      console.log(`Subject: ${subject}`);
+      console.log('Body:');
+      console.log(emailBody);
+      console.log('========================================');
+
+      return {
+        success: true,
+        message: 'Status update email sent (dev mode)',
+        mockMessage: emailBody,
+        to: data.parentEmail
+      };
+    }
+
+    const resend = getResendClient();
+    if (!resend) return { success: false, message: 'Email service not configured' };
+
+    const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@nes.edu.in' || !schoolEmail)
+      ? 'onboarding@resend.dev'
+      : `${schoolName} <${schoolEmail}>`;
+
+    await resend.emails.send({
+      from: fromAddress,
+      to: [data.parentEmail],
+      subject: subject,
+      text: emailBody
+    });
+
+    return { success: true, message: 'Status update email sent' };
+  } catch (error: any) {
+    console.error('❌ Status update email error:', error);
+    return { success: false, message: error.message };
+  }
+}
