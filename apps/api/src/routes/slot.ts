@@ -604,6 +604,47 @@ router.post('/book-parent/:tokenId', async (req: AuthRequest, res: Response) => 
     admission.slotBookingId = booking._id as any;
     await admission.save();
 
+    // Send notifications (WhatsApp + Email + Calendar Invites)
+    const slotDateFormatted = slot.date.toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Send WhatsApp confirmation
+    sendSlotConfirmationWhatsApp({
+      to: admission.mobile,
+      tokenId: admission.tokenId,
+      studentName: admission.studentName,
+      slotDate: slotDateFormatted,
+      slotTime: `${slot.startTime} - ${slot.endTime}`,
+      location: DEFAULT_LOCATION
+    }).catch((err) => console.error('WhatsApp notification error:', err));
+
+    // Send parent calendar invite
+    sendParentCalendarInvite({
+      parentEmail: admission.email,
+      parentName: admission.parentName,
+      studentName: admission.studentName,
+      tokenId: admission.tokenId,
+      slotDate: slot.date,
+      slotStartTime: slot.startTime,
+      slotEndTime: slot.endTime,
+      location: DEFAULT_LOCATION
+    }).catch((err) => console.error('Parent calendar invite error:', err));
+
+    // Send principal calendar invite
+    sendPrincipalCalendarInvite({
+      studentName: admission.studentName,
+      parentName: admission.parentName,
+      tokenId: admission.tokenId,
+      slotDate: slot.date,
+      slotStartTime: slot.startTime,
+      slotEndTime: slot.endTime,
+      location: DEFAULT_LOCATION
+    }).catch((err) => console.error('Principal calendar invite error:', err));
+
     res.json({ success: true, message: 'Slot booked successfully!' });
   } catch (error) {
     console.error('Parent self-booking error:', error);
@@ -1078,6 +1119,29 @@ router.post('/bookings/:bookingId/no-show', authenticate, async (req: AuthReques
     const booking = await SlotBooking.findById(bookingId).populate('slotId');
     if (!booking) return res.status(404).json({ success: false, error: 'Booking not found' });
 
+    const currentSlot = booking.slotId as any;
+    if (!currentSlot) return res.status(404).json({ success: false, error: 'Slot not found' });
+
+    // ENFORCE: No-show should ONLY be marked during the time slot
+    const now = new Date();
+    const istNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const currentTimeStr = `${String(istNow.getHours()).padStart(2, '0')}:${String(istNow.getMinutes()).padStart(2, '0')}`;
+
+    const slotDate = new Date(currentSlot.date);
+    const todayIST = new Date(istNow);
+    todayIST.setHours(0, 0, 0, 0);
+    slotDate.setHours(0, 0, 0, 0);
+
+    const isSameDay = slotDate.getTime() === todayIST.getTime();
+    const isDuringSlot = isSameDay && currentTimeStr >= currentSlot.startTime && currentTimeStr <= currentSlot.endTime;
+
+    if (!isDuringSlot) {
+      return res.status(400).json({
+        success: false,
+        error: 'No-show can only be marked during the actual time slot'
+      });
+    }
+
     const parentEmail = booking.parentEmail;
     const parentBookings = await SlotBooking.find({ parentEmail });
 
@@ -1089,7 +1153,6 @@ router.post('/bookings/:bookingId/no-show', authenticate, async (req: AuthReques
       ]
     });
 
-    const currentSlot = booking.slotId as any;
     const firstAdmission = admissions[0];
     if (!firstAdmission) return res.status(404).json({ success: false, error: 'Admissions not found' });
 
@@ -1138,19 +1201,43 @@ router.post('/bookings/:bookingId/no-show', authenticate, async (req: AuthReques
         await pb.save();
       }
 
-      // SEND NOTIFICATION
+      // SEND NOTIFICATIONS (WhatsApp + Email + Calendar Invites)
       try {
         const { sendNoShowRescheduleWhatsApp } = require('../services/whatsapp');
         const formattedDate = nextSlot.date.toLocaleDateString('en-IN', {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
+        // Send WhatsApp notification
         await sendNoShowRescheduleWhatsApp({
           to: firstAdmission.mobile,
           tokenId: firstAdmission.tokenId,
           studentName: firstAdmission.studentName,
           slotDate: formattedDate,
           slotTime: `${nextSlot.startTime} - ${nextSlot.endTime}`
+        });
+
+        // Send parent calendar invite email
+        await sendParentCalendarInvite({
+          parentEmail: firstAdmission.email,
+          parentName: firstAdmission.parentName,
+          studentName: firstAdmission.studentName,
+          tokenId: firstAdmission.tokenId,
+          slotDate: nextSlot.date,
+          slotStartTime: nextSlot.startTime,
+          slotEndTime: nextSlot.endTime,
+          location: DEFAULT_LOCATION
+        });
+
+        // Send principal calendar invite
+        await sendPrincipalCalendarInvite({
+          studentName: firstAdmission.studentName,
+          parentName: firstAdmission.parentName,
+          tokenId: firstAdmission.tokenId,
+          slotDate: nextSlot.date,
+          slotStartTime: nextSlot.startTime,
+          slotEndTime: nextSlot.endTime,
+          location: DEFAULT_LOCATION
         });
       } catch (err) {
         console.error('No-show notification failed', err);
@@ -1198,10 +1285,11 @@ router.post('/bookings/:bookingId/no-show', authenticate, async (req: AuthReques
 
         // Send Waitlist Email
         await sendWaitlistEmail({
-          to: firstAdmission.email,
+          parentEmail: firstAdmission.email,
           parentName: firstAdmission.parentName,
           studentName: firstAdmission.studentName,
-          tokenId: firstAdmission.tokenId
+          tokenId: firstAdmission.tokenId,
+          grade: firstAdmission.grade
         });
 
       } catch (err) {
@@ -1280,7 +1368,7 @@ router.post('/:id/cancel', authenticate, async (req, res: Response) => {
           rescheduledCount++;
         }
 
-        // SEND NOTIFICATION to each parent
+        // SEND NOTIFICATIONS to each parent (WhatsApp + Email + Calendar Invites)
         try {
           const admission = await Admission.findById(firstBooking.admissionId);
           if (admission) {
@@ -1288,6 +1376,7 @@ router.post('/:id/cancel', authenticate, async (req, res: Response) => {
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
             });
 
+            // Send WhatsApp notification
             await sendSlotRescheduleWhatsApp({
               to: admission.mobile,
               tokenId: admission.tokenId,
@@ -1296,6 +1385,29 @@ router.post('/:id/cancel', authenticate, async (req, res: Response) => {
               slotTime: `${nextSlot.startTime} - ${nextSlot.endTime}`,
               reason: 'School administration has rescheduled your appointment.'
             }).catch((e: any) => console.error('Failed to send reschedule WhatsApp:', e));
+
+            // Send parent calendar invite email
+            await sendParentCalendarInvite({
+              parentEmail: admission.email,
+              parentName: admission.parentName,
+              studentName: admission.studentName,
+              tokenId: admission.tokenId,
+              slotDate: nextSlot.date,
+              slotStartTime: nextSlot.startTime,
+              slotEndTime: nextSlot.endTime,
+              location: DEFAULT_LOCATION
+            }).catch((e: any) => console.error('Failed to send parent calendar invite:', e));
+
+            // Send principal calendar invite
+            await sendPrincipalCalendarInvite({
+              studentName: admission.studentName,
+              parentName: admission.parentName,
+              tokenId: admission.tokenId,
+              slotDate: nextSlot.date,
+              slotStartTime: nextSlot.startTime,
+              slotEndTime: nextSlot.endTime,
+              location: DEFAULT_LOCATION
+            }).catch((e: any) => console.error('Failed to send principal calendar invite:', e));
           }
         } catch (err) {
           console.error('Notification error during slot cancellation:', err);

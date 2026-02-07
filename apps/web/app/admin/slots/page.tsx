@@ -705,12 +705,14 @@ function SlotsContent() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleMarkNoShow(booking._id)}
-                        className="text-[10px] font-black uppercase px-3 py-1.5 bg-white text-red-600 border border-red-100 rounded-lg hover:bg-red-50 transition-colors"
-                      >
-                        No-Show
-                      </button>
+                      {getSlotTimeState(selectedSlotForBookings) === 'ongoing' && (
+                        <button
+                          onClick={() => handleMarkNoShow(booking._id)}
+                          className="text-[10px] font-black uppercase px-3 py-1.5 bg-white text-red-600 border border-red-100 rounded-lg hover:bg-red-50 transition-colors"
+                        >
+                          No-Show
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
