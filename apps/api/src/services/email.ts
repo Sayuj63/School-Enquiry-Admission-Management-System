@@ -87,8 +87,10 @@ export async function sendParentCalendarInvite(data: {
   slotEndTime: string;
   location: string;
 }): Promise<SendEmailResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
+  const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
+    ? process.env.SCHOOL_NAME
+    : 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
   // Parse date and time strings to create proper dates without timezone shift
   const [startHour, startMin] = data.slotStartTime.split(':').map(Number);
@@ -224,9 +226,11 @@ export async function sendPrincipalCalendarInvite(data: {
   slotEndTime: string;
   location: string;
 }): Promise<SendEmailResult> {
-  const principalEmail = process.env.PRINCIPAL_EMAIL || 'principal@nes.edu.in';
-  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
+  const principalEmail = process.env.PRINCIPAL_EMAIL || 'admissions@nes.edu.in';
+  const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
+    ? process.env.SCHOOL_NAME
+    : 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
   // Parse date and time strings to create proper dates without timezone shift
   const [startHour, startMin] = data.slotStartTime.split(':').map(Number);
@@ -352,8 +356,10 @@ export async function sendWaitlistEmail(data: {
   tokenId: string;
   grade: string;
 }): Promise<SendEmailResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
+  const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
+    ? process.env.SCHOOL_NAME
+    : 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
   const emailBody = `
 Dear ${data.parentName},
@@ -429,8 +435,10 @@ export async function sendAdmissionStatusEmail(data: {
   tokenId: string;
   status: 'approved' | 'rejected' | 'waitlisted' | 'confirmed';
 }): Promise<SendEmailResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
+  const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
+    ? process.env.SCHOOL_NAME
+    : 'New Era High School';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
   let statusText = '';
   let statusDetail = '';

@@ -45,9 +45,11 @@ function normalizeWhatsAppNumber(mobile: string): string {
  * In development mode, message is logged to console instead of being sent
  */
 export async function sendEnquiryWhatsApp(data: WhatsAppMessage): Promise<SendWhatsAppResult> {
-  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
+  const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
+    ? process.env.SCHOOL_NAME
+    : 'New Era High School';
   const schoolPhone = process.env.SCHOOL_PHONE || '+919876543210';
-  const schoolEmail = process.env.SCHOOL_EMAIL || 'info@nes.edu.in';
+  const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
   const documentsList = await getDocumentsList();
 

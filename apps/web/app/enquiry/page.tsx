@@ -323,7 +323,7 @@ function EnquiryContent() {
       // Clear autosave since draft is now saved on server
       localStorage.removeItem(`enquiry_autosave_${mobileValue}`)
       toast.success('Draft saved successfully! You can resume it later using your mobile number.')
-      router.push('/')
+      router.push('/parent/login')
     } else {
       toast.error(result.error || 'Failed to save draft')
     }

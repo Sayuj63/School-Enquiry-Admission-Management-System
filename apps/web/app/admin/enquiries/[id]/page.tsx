@@ -265,7 +265,7 @@ export default function EnquiryDetailPage() {
                 <FileText className="h-4 w-4 mr-2" />
                 View Admission Form
               </Link>
-            ) : (
+            ) : enquiry.status !== 'draft' && (
               <button
                 onClick={handleCreateAdmission}
                 disabled={creating}

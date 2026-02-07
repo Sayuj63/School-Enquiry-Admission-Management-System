@@ -65,7 +65,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-center mt-12 text-gray-500 text-sm">
-          <p>Contact us: info@nes.edu.in | +91 98765 43210</p>
+          <p>Contact us: admissions@nes.edu.in | +91 98765 43210</p>
         </div>
       </div>
     </div>

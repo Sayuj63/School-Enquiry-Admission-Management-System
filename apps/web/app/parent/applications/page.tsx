@@ -94,13 +94,6 @@ export default function parentApplicationsPage() {
                         <GraduationCap className="h-10 w-10 mr-2" />
                         New Era High School
                     </Link>
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-sm uppercase tracking-wider"
-                    >
-                        <LogOut className="h-4 w-4" />
-                        Log Out
-                    </button>
                 </div>
             </header>
 

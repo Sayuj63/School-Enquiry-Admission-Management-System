@@ -510,7 +510,7 @@ export default function ParentEnquiryDetail() {
                             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
                                     <h3 className="text-2xl font-black text-gray-900 mb-2">Earlier Slots Available</h3>
-                                    <p className="text-sm text-gray-500 mb-6">Requirement 2.3: You can move to slots released after your booking that occur earlier than your current one.</p>
+                                    <p className="text-sm text-gray-500 mb-6"> You can move to slots released after your booking that occur earlier than your current one.</p>
 
                                     <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                                         {rescheduleOptions.map((opt) => (

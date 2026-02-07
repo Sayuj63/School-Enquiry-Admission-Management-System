@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X, Clock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X, Clock, FileText, PlusCircle } from 'lucide-react'
 import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking, getCurrentUser } from '@/lib/api'
 import { format } from 'date-fns'
 import SlotCalendar from '../../../components/SlotCalendar'
@@ -195,43 +195,49 @@ export default function AdmissionDetailPage() {
     setError('')
     setSuccess('')
 
-    // Validate required fields
-    const missingFields: string[] = []
+    // Validate required fields (Only if status is NOT draft)
+    if (formData.status !== 'draft') {
+      const missingFields: string[] = []
 
-    fields.forEach(field => {
-      // 1. General Required Check
-      if (field.required) {
-        const isCore = ['studentDob', 'parentAddress', 'parentOccupation', 'emergencyContact'].includes(field.name)
-        const value = isCore ? (formData as any)[field.name] : formData.additionalFields[field.name]
+      fields.forEach(field => {
+        // 1. General Required Check
+        if (field.required) {
+          const isCore = ['studentDob', 'parentAddress', 'parentOccupation', 'emergencyContact'].includes(field.name)
+          const value = isCore ? (formData as any)[field.name] : formData.additionalFields[field.name]
 
-        if (!value || (typeof value === 'string' && value.trim() === '')) {
-          missingFields.push(field.label)
+          if (!value || (typeof value === 'string' && value.trim() === '')) {
+            missingFields.push(field.label)
+          }
         }
+
+        // 2. Specific Format Validations
+        if (field.name === 'emergencyContact') {
+          const val = formData.emergencyContact
+          if (val && val.length > 0 && val.length !== 10) {
+            missingFields.push('Emergency Contact Number must be exactly 10 digits')
+          }
+          if (val && val === admission?.mobile) {
+            missingFields.push('Emergency Contact Number cannot be the same as the primary Mobile number')
+          }
+        }
+      })
+
+      // Validate required documents from settings
+      requiredDocs.forEach(rd => {
+        if (rd.required) {
+          const isUploaded = admission?.documents.some(doc => doc.type === rd.name)
+          if (!isUploaded) {
+            missingFields.push(`Required Document: ${rd.name}`)
+          }
+        }
+      })
+
+      if (missingFields.length > 0) {
+        setError(`Please complete the following requirements: ${missingFields.join(', ')}`)
+        setSaving(false)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
       }
-
-      // 2. Specific Format Validations
-      if (field.name === 'emergencyContact') {
-        const val = formData.emergencyContact
-        if (val && val.length > 0 && val.length < 10) {
-          missingFields.push('Emergency Contact Number must be at least 10 digits')
-        }
-        if (val && val === admission?.mobile) {
-          missingFields.push('Emergency Contact Number cannot be the same as the primary Mobile number')
-        }
-      }
-    })
-
-    // Validate document upload (at least one document required)
-    const hasDocuments = (admission?.documents || []).length > 0
-    if (!hasDocuments) {
-      missingFields.push('At least one document must be uploaded')
-    }
-
-    if (missingFields.length > 0) {
-      setError(`Please complete the following requirements: ${missingFields.join(', ')}`)
-      setSaving(false)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
     }
 
     const updatedData = {
@@ -251,14 +257,18 @@ export default function AdmissionDetailPage() {
     setSaving(false)
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [uploadingType, setUploadingType] = useState<string | null>(null)
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, typeOverride?: string) => {
     const file = e.target.files?.[0]
-    if (!file || !selectedDocType) return
+    const type = typeOverride || selectedDocType
+    if (!file || !type) return
 
     setUploading(true)
+    setUploadingType(type)
     setError('')
 
-    const result = await uploadDocument(admissionId, file, selectedDocType)
+    const result = await uploadDocument(admissionId, file, type)
 
     if (result.success && result.data?.document) {
       setAdmission((prev) => prev ? {
@@ -271,6 +281,7 @@ export default function AdmissionDetailPage() {
     }
 
     setUploading(false)
+    setUploadingType(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -684,7 +695,8 @@ export default function AdmissionDetailPage() {
                     className="input"
                     value={formData.mobile}
                     onChange={e => setFormData({ ...formData, mobile: e.target.value })}
-                    disabled={isPrincipal}
+                    disabled={true}
+                    title="Verified mobile number cannot be changed"
                   />
                 </div>
               )}
@@ -717,7 +729,8 @@ export default function AdmissionDetailPage() {
                   className="input"
                   value={formData.studentDob}
                   onChange={e => setFormData({ ...formData, studentDob: e.target.value })}
-                  disabled={isPrincipal}
+                  disabled={true}
+                  title="Date of Birth from enquiry cannot be changed"
                 />
               </div>
             </div>
@@ -733,7 +746,9 @@ export default function AdmissionDetailPage() {
 
                 const handleChange = (e: any) => {
                   let val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
-                  if (field.type === 'tel' || field.name === 'emergencyContact') val = val.replace(/\D/g, '')
+                  if (field.type === 'tel' || field.name === 'emergencyContact') {
+                    val = val.replace(/\D/g, '').slice(0, 10)
+                  }
 
                   if (isCore) setFormData(p => ({ ...p, [field.name]: val }))
                   else setFormData(p => ({ ...p, additionalFields: { ...p.additionalFields, [field.name]: val } }))
@@ -767,36 +782,6 @@ export default function AdmissionDetailPage() {
             </div>
           </div>
 
-          <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Documents</h3>
-            <div className="space-y-3 mb-4">
-              {admission.documents.map((doc) => (
-                <div key={doc._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="min-w-0 flex-1 mr-4">
-                    <p className="font-medium text-gray-900 truncate">{doc.type}</p>
-                    <p className="text-sm text-gray-500 truncate" title={doc.fileName}>{doc.fileName}</p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <a href={doc.url} target="_blank" rel="noreferrer" className="text-primary-600 text-sm font-medium">View</a>
-                    {!isPrincipal && <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></button>}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {!isPrincipal && (
-              <div className="flex gap-3">
-                <select className="input flex-1" value={selectedDocType} onChange={e => setSelectedDocType(e.target.value)}>
-                  <option value="">Select type</option>
-                  {requiredDocs.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
-                  <option value="Other">Other</option>
-                </select>
-                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} disabled={!selectedDocType || uploading} className="btn-secondary">
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                </button>
-              </div>
-            )}
-          </div>
 
           <div className="card">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Internal Notes</h3>
@@ -838,6 +823,156 @@ export default function AdmissionDetailPage() {
                 <CalendarIcon className="h-4 w-4 mr-2" /> Book Counselling Slot
               </button>
             )}
+          </div>
+
+          <div className="card !p-0 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary-600" />
+                <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Documents</h3>
+              </div>
+              <div className="bg-white px-3 py-1 rounded-lg border border-gray-200 text-xs font-black text-primary-600">
+                {requiredDocs.filter(rd => admission.documents.some(ad => ad.type === rd.name)).length} / {requiredDocs.length}
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="grid gap-3">
+                {requiredDocs.map((rd) => {
+                  const doc = admission.documents.find(ad => ad.type === rd.name);
+                  return (
+                    <div key={rd.name} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-gray-700">
+                          {rd.name} {rd.required && <span className="text-red-500">*</span>}
+                        </label>
+                        {doc && !isPrincipal && (
+                          <button
+                            onClick={() => handleDeleteDocument(doc._id)}
+                            className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:text-red-600 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      {doc ? (
+                        <div className="flex items-center justify-between p-2.5 bg-primary-50 border border-primary-100 rounded-xl group">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                              <FileText className="h-4 w-4 text-primary-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-primary-900 truncate max-w-[150px] md:max-w-xs">{doc.fileName}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black text-primary-400 uppercase tracking-widest">Uploaded</span>
+                                <span className="text-gray-300">•</span>
+                                <a
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[9px] font-black text-primary-600 uppercase tracking-widest hover:underline"
+                                >
+                                  View
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative group">
+                          <input
+                            type="file"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
+                            onChange={(e) => handleFileUpload(e, rd.name)}
+                            disabled={isPrincipal || uploadingType === rd.name}
+                            accept="image/*,.pdf"
+                          />
+                          <div className={`p-3 border-2 border-dashed rounded-xl flex items-center justify-center gap-2.5 transition-all ${uploadingType === rd.name
+                            ? 'border-primary-200 bg-primary-50 animate-pulse'
+                            : 'border-gray-100 bg-white group-hover:border-primary-200 group-hover:bg-gray-50'
+                            }`}>
+                            {uploadingType === rd.name ? (
+                              <Loader2 className="h-4 w-4 text-primary-600 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4 text-gray-400 group-hover:text-primary-600" />
+                            )}
+                            <span className={`text-[11px] font-black uppercase tracking-widest ${uploadingType === rd.name ? 'text-primary-600' : 'text-gray-400 group-hover:text-primary-600'
+                              }`}>
+                              {uploadingType === rd.name ? 'Uploading...' : 'Upload File'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Other/Additional Documents */}
+              {admission.documents.some(ad => !requiredDocs.some(rd => rd.name === ad.type)) && (
+                <div className="pt-4 border-t border-gray-100">
+                  <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">Additional Documents</h4>
+                  <div className="grid gap-2">
+                    {admission.documents.filter(ad => !requiredDocs.some(rd => rd.name === ad.type)).map(doc => (
+                      <div key={doc._id} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <FileText className="h-3.5 w-3.5 text-gray-400" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-gray-900 truncate">{doc.type}</p>
+                            <p className="text-[9px] text-gray-500 truncate">{doc.fileName}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <a href={doc.url} target="_blank" rel="noreferrer" className="text-[9px] font-black text-primary-600 uppercase tracking-widest hover:underline">View</a>
+                          {!isPrincipal && (
+                            <button onClick={() => handleDeleteDocument(doc._id)} className="text-red-500 hover:text-red-600 transition-colors">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Other Button */}
+              {!isPrincipal && (
+                <div className="pt-2">
+                  <div className="flex gap-2">
+                    <select
+                      className="input flex-1 h-10 text-[11px] font-bold"
+                      value={selectedDocType}
+                      onChange={e => setSelectedDocType(e.target.value)}
+                    >
+                      <option value="">Other Type...</option>
+                      <option value="Transfer Certificate">Transfer Certificate</option>
+                      <option value="Medical Certificate">Medical Certificate</option>
+                      <option value="Income Certificate">Income Certificate</option>
+                      <option value="Caste Certificate">Caste Certificate</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!selectedDocType || uploading}
+                      className="btn-secondary h-10 px-4 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 hover:border-primary-200"
+                    >
+                      {uploading && !uploadingType ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary-600" /> : <PlusCircle className="h-4 w-4 text-gray-400" />}
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Upload</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                <p className="text-[9px] text-amber-800 leading-relaxed uppercase font-black tracking-widest flex items-center mb-0.5">
+                  <Clock className="h-3 w-3 mr-1.5" /> Note
+                </p>
+                <p className="text-[10px] text-amber-700 font-medium leading-tight">Clear scans/photos (Max 5MB). PDF, JPEG, PNG supported.</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
