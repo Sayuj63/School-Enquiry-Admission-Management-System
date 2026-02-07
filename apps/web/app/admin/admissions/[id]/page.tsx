@@ -992,6 +992,11 @@ export default function AdmissionDetailPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Confirm Booking</h3>
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-100 p-2.5 rounded text-xs text-red-600 font-medium">
+                {error}
+              </div>
+            )}
             <p className="text-sm text-gray-600 mb-4">
               Slot: {format(new Date(selectedSlot.date), 'dd MMM yyyy')} | {selectedSlot.startTime} - {selectedSlot.endTime}
             </p>

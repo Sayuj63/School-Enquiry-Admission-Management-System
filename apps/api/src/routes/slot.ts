@@ -753,11 +753,11 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       });
     }
 
-    // Check if admission is in 'submitted' status
-    if (admission.status !== 'submitted' && admission.status !== 'approved') {
+    // Check if admission is in an allowed status for booking
+    if (!['submitted', 'approved', 'confirmed', 'waitlisted'].includes(admission.status)) {
       return res.status(400).json({
         success: false,
-        error: 'Counselling slots can only be booked for submitted admission forms'
+        error: `Counselling slots can only be booked for submitted, approved, confirmed, or waitlisted admission forms. Current status: ${admission.status}`
       });
     }
 
