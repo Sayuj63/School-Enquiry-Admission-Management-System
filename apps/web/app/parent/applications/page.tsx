@@ -90,10 +90,10 @@ export default function parentApplicationsPage() {
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-                    <Link href="/" className="flex items-center text-primary-600 font-black text-2xl tracking-tight">
+                    <div className="flex items-center text-primary-600 font-black text-2xl tracking-tight select-none">
                         <GraduationCap className="h-10 w-10 mr-2" />
                         New Era High School
-                    </Link>
+                    </div>
                 </div>
             </header>
 
