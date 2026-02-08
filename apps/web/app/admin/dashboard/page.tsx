@@ -358,7 +358,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
-                {activities.map((activity) => (
+                {activities.slice(0, 5).map((activity) => (
                   <div key={activity.id} className="p-4 hover:bg-gray-50 transition-colors flex gap-4 items-start">
                     <div className={`mt-1 p-2 rounded-full ${activity.type === 'enquiry' ? 'bg-blue-50 text-blue-600' :
                       activity.type === 'admission' ? 'bg-orange-50 text-orange-600' :
