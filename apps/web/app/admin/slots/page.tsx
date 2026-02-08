@@ -635,37 +635,82 @@ function SlotsContent() {
               onChange={e => setAssignSearch(e.target.value)}
             />
             <div className="flex-1 overflow-y-auto space-y-2">
-              {eligibleAdmissions
-                .filter(a =>
-                  a.studentName.toLowerCase().includes(assignSearch.toLowerCase()) ||
-                  a.tokenId.toLowerCase().includes(assignSearch.toLowerCase())
-                )
-                .sort((a, b) => {
-                  // Put students without a slot at the top
-                  if (!a.slotBookingId && b.slotBookingId) return -1;
-                  if (a.slotBookingId && !b.slotBookingId) return 1;
-                  return 0;
-                })
-                .map(adm => (
-                  <div key={adm._id} className={`p-3 border rounded-lg flex justify-between items-center transition-all ${adm.slotBookingId ? 'bg-amber-50/50 border-amber-100' : 'bg-white hover:bg-gray-50'}`}>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-gray-900">{adm.studentName}</p>
-                        {adm.slotBookingId && (
-                          <span className="bg-amber-100 text-amber-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Already Assigned</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 font-mono">{adm.tokenId} • Grade {adm.grade}</p>
+              {(() => {
+                const filtered = eligibleAdmissions.filter(a => {
+                  const matchesSearch = a.studentName.toLowerCase().includes(assignSearch.toLowerCase()) ||
+                    a.tokenId.toLowerCase().includes(assignSearch.toLowerCase());
+                  if (!matchesSearch) return false;
+
+                  // By default (no search), only show those needing a slot
+                  // or those already in this slot
+                  if (!assignSearch.trim()) {
+                    const isCurrentSlot = a.slotBookingId?.slotId?._id === selectedSlot._id || a.slotBookingId?.slotId === selectedSlot._id;
+                    return !a.slotBookingId || isCurrentSlot;
+                  }
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-10 px-4">
+                      <p className="text-gray-500 text-sm italic">
+                        {assignSearch ? "No students match your search." : "No students currently pending a slot assignment."}
+                      </p>
+                      {!assignSearch && (
+                        <p className="text-[10px] text-gray-400 mt-2 font-medium uppercase tracking-tight">
+                          Search student name or token ID to reassign students from other slots.
+                        </p>
+                      )}
                     </div>
-                    <button
-                      onClick={() => handleAssignSlot(adm._id)}
-                      disabled={assigning}
-                      className={`py-1.5 px-4 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${adm.slotBookingId ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm' : 'btn-primary'}`}
-                    >
-                      {adm.slotBookingId ? 'Reassign' : 'Assign'}
-                    </button>
-                  </div>
-                ))}
+                  );
+                }
+
+                return filtered
+                  .sort((a, b) => {
+                    // Put students without a slot or in this slot at the top
+                    const aAssigned = a.slotBookingId && !(a.slotBookingId?.slotId?._id === selectedSlot._id || a.slotBookingId?.slotId === selectedSlot._id);
+                    const bAssigned = b.slotBookingId && !(b.slotBookingId?.slotId?._id === selectedSlot._id || b.slotBookingId?.slotId === selectedSlot._id);
+                    if (!aAssigned && bAssigned) return -1;
+                    if (aAssigned && !bAssigned) return 1;
+                    return 0;
+                  })
+                  .map(adm => {
+                    const isCurrentSlot = adm.slotBookingId?.slotId?._id === selectedSlot._id || adm.slotBookingId?.slotId === selectedSlot._id;
+                    const assignedSlot = adm.slotBookingId?.slotId;
+
+                    return (
+                      <div key={adm._id} className={`p-3 border rounded-lg flex justify-between items-center transition-all ${adm.slotBookingId ? 'bg-amber-50/50 border-amber-100' : 'bg-white hover:bg-gray-50'}`}>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-gray-900">{adm.studentName}</p>
+                            {adm.slotBookingId && (
+                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isCurrentSlot ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {isCurrentSlot ? 'In this Slot' : 'Already Assigned'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 font-mono">
+                            {adm.tokenId} • Grade {adm.grade}
+                            {assignedSlot && !isCurrentSlot && (
+                              <span className="block text-[10px] text-amber-600 mt-0.5">
+                                Booked for: {format(parseLocalDate((assignedSlot as any).date), 'dd MMM')} at {(assignedSlot as any).startTime}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleAssignSlot(adm._id)}
+                          disabled={assigning || isCurrentSlot}
+                          className={`py-1.5 px-4 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${isCurrentSlot ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
+                            adm.slotBookingId ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm' : 'btn-primary'
+                            }`}
+                        >
+                          {isCurrentSlot ? 'Assigned' : adm.slotBookingId ? 'Reassign' : 'Assign'}
+                        </button>
+                      </div>
+                    );
+                  });
+              })()}
             </div>
             <button onClick={() => setShowAssignModal(false)} className="btn-secondary mt-4 w-full font-bold">Cancel</button>
           </div>

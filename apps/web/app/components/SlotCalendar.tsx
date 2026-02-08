@@ -175,7 +175,41 @@ export default function SlotCalendar({
 
     // Convert slots to calendar events
     const events = (() => {
+        const isMonthView = currentView === 'month';
+
         if (type === 'available') {
+            if (isMonthView) {
+                // Group by date for Month view to avoid clutter
+                const groupedByDate: Record<string, Slot[]> = {};
+                slots.forEach(slot => {
+                    const d = slot.date.split('T')[0];
+                    if (!groupedByDate[d]) groupedByDate[d] = [];
+                    groupedByDate[d].push(slot);
+                });
+
+                return Object.entries(groupedByDate).map(([dateStr, daySlots]): any => {
+                    const totalBooked = daySlots.reduce((sum, s) => sum + s.bookedCount, 0);
+                    const totalCapacity = daySlots.reduce((sum, s) => sum + s.capacity, 0);
+
+                    const sorted = [...daySlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                    const start = parseTimeToDate(dateStr, sorted[0].startTime);
+                    const end = parseTimeToDate(dateStr, sorted[sorted.length - 1].endTime);
+
+                    return {
+                        title: `${daySlots.length} Slots (${totalBooked}/${totalCapacity})`,
+                        start,
+                        end,
+                        resource: {
+                            type: 'grouped_slots',
+                            items: sorted,
+                            date: dateStr
+                        },
+                        colorType: totalBooked >= totalCapacity ? 'red' : 'indigo'
+                    };
+                });
+            }
+
+            // Individual slots for Week/Day view
             return slots.map((slot): any => {
                 const slotDateObj = new Date(slot.date)
                 const year = slotDateObj.getUTCFullYear()
@@ -193,7 +227,7 @@ export default function SlotCalendar({
                 else if (slotsLeft === 2) colorType = 'indigo'
 
                 return {
-                    title: `${slotsLeft}/${slot.capacity} available`,
+                    title: `${slot.bookedCount}/${slot.capacity} booked`,
                     start,
                     end,
                     resource: slot,
@@ -204,7 +238,7 @@ export default function SlotCalendar({
         }
 
         // type === 'bookings'
-        // Group all bookings by date
+        // Group all bookings by date AND time slot to avoid confusion (Requirement: show counts per slot)
         const grouped: Record<string, any[]> = {}
 
         slots.forEach(slot => {
@@ -213,8 +247,9 @@ export default function SlotCalendar({
             const month = String(slotDateObj.getUTCMonth() + 1).padStart(2, '0')
             const day = String(slotDateObj.getUTCDate()).padStart(2, '0')
             const dateStr = `${year}-${month}-${day}`
+            const groupKey = isMonthView ? dateStr : `${dateStr}_${slot.startTime}`
 
-            if (!grouped[dateStr]) grouped[dateStr] = []
+            if (!grouped[groupKey]) grouped[groupKey] = []
 
             if (slot.bookings) {
                 slot.bookings.forEach(booking => {
@@ -223,7 +258,7 @@ export default function SlotCalendar({
                     if (status === 'approved') colorType = 'green'
                     if (status === 'rejected') colorType = 'red'
 
-                    grouped[dateStr].push({
+                    grouped[groupKey].push({
                         slot,
                         booking,
                         status,
@@ -242,23 +277,22 @@ export default function SlotCalendar({
 
         return Object.entries(grouped)
             .filter(([_, items]) => items.length > 0)
-            .map(([dateStr, items]): any => {
-                // Find earliest start and latest end to position the group correctly
-                const sortedItems = [...items].sort((a, b) => a.slot.startTime.localeCompare(b.slot.startTime))
-                const earliestItem = sortedItems[0]
-                const latestItem = [...items].sort((a, b) => b.slot.endTime.localeCompare(a.slot.endTime))[0]
+            .map(([groupKey, items]): any => {
+                const dateStr = isMonthView ? groupKey : groupKey.split('_')[0];
+                const sortedItems = [...items]
+                const firstItem = sortedItems[0]
 
-                const start = parseTimeToDate(dateStr, earliestItem.slot.startTime)
-                const end = parseTimeToDate(dateStr, latestItem.slot.endTime)
+                const start = parseTimeToDate(dateStr, firstItem.slot.startTime)
+                const end = parseTimeToDate(dateStr, firstItem.slot.endTime)
 
                 return {
-                    title: `${items.length} ${items.length === 1 ? 'Meeting' : 'Meetings'} Today`,
+                    title: `${items.length} ${items.length === 1 ? 'Meeting' : 'Meetings'}`,
                     start,
                     end,
                     resource: {
                         type: 'grouped',
                         items: sortedItems,
-                        colorType: 'purple' // Special color for grouped items
+                        colorType: items.length > 1 ? 'purple' : items[0].colorType
                     }
                 }
             })
@@ -384,9 +418,9 @@ export default function SlotCalendar({
                     onNavigate={(date) => setCurrentDate(date)}
                     onView={() => { }} // Managed internally
                     onSelectEvent={(event) => {
-                        if (type === 'available' && onSelectSlot) {
+                        if (type === 'available' && onSelectSlot && event.resource?.type !== 'grouped_slots') {
                             onSelectSlot(event.resource)
-                        } else if (event.resource?.type === 'grouped') {
+                        } else if (event.resource?.type === 'grouped' || event.resource?.type === 'grouped_slots') {
                             setSelectedGroup(event.resource.items)
                         } else {
                             setSelectedEvent(event)
@@ -407,8 +441,10 @@ export default function SlotCalendar({
                             <div>
                                 <h3 className="text-2xl font-black text-gray-900 tracking-tight">Daily Schedule</h3>
                                 <p className="text-gray-400 font-medium text-sm mt-1">
-                                    {selectedGroup.length} {selectedGroup.length === 1 ? 'meeting' : 'meetings'}
-                                    {selectedGroup[0]?.slot?.date && ` on ${format(new Date(selectedGroup[0].slot.date), 'MMMM d, yyyy')}`}
+                                    {selectedGroup.length} {type === 'available' ? (selectedGroup.length === 1 ? 'slot' : 'slots') : (selectedGroup.length === 1 ? 'meeting' : 'meetings')}
+                                    {selectedGroup[0] && (
+                                        ` on ${format(new Date(type === 'available' ? selectedGroup[0].date : selectedGroup[0].slot.date), 'MMMM d, yyyy')}`
+                                    )}
                                 </p>
                             </div>
                             <button
@@ -420,80 +456,110 @@ export default function SlotCalendar({
                         </div>
 
                         <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-                            {(() => {
-                                // Group items by time slot
-                                const timeGroups: Record<string, any[]> = {}
-                                selectedGroup.forEach(item => {
-                                    if (!timeGroups[item.time]) timeGroups[item.time] = []
-                                    timeGroups[item.time].push(item)
-                                })
-
-                                // Sort time slots and render
-                                return Object.entries(timeGroups)
-                                    .sort(([timeA], [timeB]) => timeA.localeCompare(timeB))
-                                    .map(([time, items], groupIdx) => (
-                                        <div key={groupIdx} className="space-y-3">
-                                            {/* Time Slot Header */}
-                                            <div className="flex items-center gap-3 px-1">
-                                                <div className="flex items-center gap-2 bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-100">
-                                                    <Clock className="h-3.5 w-3.5 text-primary-600" />
-                                                    <span className="text-xs font-black text-primary-700 tracking-tight">
-                                                        {time}
-                                                    </span>
-                                                </div>
-                                                <div className="h-px flex-1 bg-gradient-to-r from-gray-100 to-transparent" />
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                                    {items.length} {items.length === 1 ? 'Booking' : 'Bookings'}
-                                                </span>
-                                            </div>
-
-                                            {/* Students in this slot */}
-                                            <div className="grid gap-3">
-                                                {items.map((item, idx) => (
-                                                    <div
-                                                        key={idx}
-                                                        onClick={() => {
-                                                            const slotDateOnly = item.slot.date.split('T')[0]
-                                                            setSelectedEvent({
-                                                                start: parseTimeToDate(slotDateOnly, item.slot.startTime),
-                                                                resource: item,
-                                                                previousGroup: selectedGroup // Store the group to return to
-                                                            })
-                                                            setSelectedGroup(null)
-                                                        }}
-                                                        className="p-5 border border-gray-100 rounded-[24px] hover:border-primary-200 hover:bg-primary-50/40 transition-all cursor-pointer group bg-white shadow-sm hover:shadow-md"
-                                                    >
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider ${item.colorType === 'green' ? 'bg-green-100/80 text-green-700' :
-                                                                    item.colorType === 'red' ? 'bg-red-100/80 text-red-700' :
-                                                                        'bg-blue-100/80 text-blue-700'
-                                                                    }`}>
-                                                                    {item.status}
-                                                                </span>
-                                                            </div>
-                                                            <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
-                                                                <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-primary-600 transition-colors" />
-                                                            </div>
-                                                        </div>
-                                                        <h4 className="text-lg font-bold text-gray-900 group-hover:text-primary-700 transition-colors">{item.studentName}</h4>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <Link
-                                                                href={item.booking.admissionId ? `${linkPrefix}/${item.booking.admissionId._id || item.booking.admissionId}` : '#'}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                className="text-sm text-primary-600 font-mono font-bold hover:underline"
-                                                            >
-                                                                {item.tokenId}
-                                                            </Link>
-                                                            <div className="w-1 h-1 rounded-full bg-gray-300" />
-                                                            <p className="text-sm text-gray-500 font-medium">Grade {item.grade}</p>
-                                                        </div>
+                            {type === 'available' ? (
+                                <div className="space-y-4">
+                                    {selectedGroup.map((slot, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => {
+                                                if (onSelectSlot) onSelectSlot(slot);
+                                                setSelectedGroup(null);
+                                            }}
+                                            className="p-5 border border-gray-100 rounded-[24px] hover:border-primary-200 hover:bg-primary-50/40 transition-all cursor-pointer group bg-white shadow-sm hover:shadow-md"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="bg-primary-50 p-2.5 rounded-2xl">
+                                                        <Clock className="h-6 w-6 text-primary-600" />
                                                     </div>
-                                                ))}
+                                                    <div>
+                                                        <p className="text-lg font-black text-gray-900 tracking-tight">{slot.startTime} - {slot.endTime}</p>
+                                                        <p className="text-sm text-gray-500 font-bold uppercase tracking-widest">{slot.bookedCount} / {slot.capacity} Booked</p>
+                                                    </div>
+                                                </div>
+                                                <div className="h-10 w-10 rounded-2xl bg-gray-50 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
+                                                    <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-primary-600 transition-colors" />
+                                                </div>
                                             </div>
                                         </div>
-                                    ))
-                            })()}
+                                    ))}
+                                </div>
+                            ) : (
+                                (() => {
+                                    // Group items by time slot
+                                    const timeGroups: Record<string, any[]> = {}
+                                    selectedGroup.forEach(item => {
+                                        if (!timeGroups[item.time]) timeGroups[item.time] = []
+                                        timeGroups[item.time].push(item)
+                                    })
+
+                                    // Sort time slots and render
+                                    return Object.entries(timeGroups)
+                                        .sort(([timeA], [timeB]) => timeA.localeCompare(timeB))
+                                        .map(([time, items], groupIdx) => (
+                                            <div key={groupIdx} className="space-y-3">
+                                                {/* Time Slot Header */}
+                                                <div className="flex items-center gap-3 px-1">
+                                                    <div className="flex items-center gap-2 bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-100">
+                                                        <Clock className="h-3.5 w-3.5 text-primary-600" />
+                                                        <span className="text-xs font-black text-primary-700 tracking-tight">
+                                                            {time}
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-px flex-1 bg-gradient-to-r from-gray-100 to-transparent" />
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                        {items.length} {items.length === 1 ? 'Booking' : 'Bookings'}
+                                                    </span>
+                                                </div>
+
+                                                {/* Students in this slot */}
+                                                <div className="grid gap-3">
+                                                    {items.map((item, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                const slotDateOnly = item.slot.date.split('T')[0]
+                                                                setSelectedEvent({
+                                                                    start: parseTimeToDate(slotDateOnly, item.slot.startTime),
+                                                                    resource: item,
+                                                                    previousGroup: selectedGroup // Store the group to return to
+                                                                })
+                                                                setSelectedGroup(null)
+                                                            }}
+                                                            className="p-5 border border-gray-100 rounded-[24px] hover:border-primary-200 hover:bg-primary-50/40 transition-all cursor-pointer group bg-white shadow-sm hover:shadow-md"
+                                                        >
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider ${item.colorType === 'green' ? 'bg-green-100/80 text-green-700' :
+                                                                        item.colorType === 'red' ? 'bg-red-100/80 text-red-700' :
+                                                                            'bg-blue-100/80 text-blue-700'
+                                                                        }`}>
+                                                                        {item.status}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
+                                                                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-primary-600 transition-colors" />
+                                                                </div>
+                                                            </div>
+                                                            <h4 className="text-lg font-bold text-gray-900 group-hover:text-primary-700 transition-colors">{item.studentName}</h4>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <Link
+                                                                    href={item.booking.admissionId ? `${linkPrefix}/${item.booking.admissionId._id || item.booking.admissionId}` : '#'}
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="text-sm text-primary-600 font-mono font-bold hover:underline"
+                                                                >
+                                                                    {item.tokenId}
+                                                                </Link>
+                                                                <div className="w-1 h-1 rounded-full bg-gray-300" />
+                                                                <p className="text-sm text-gray-500 font-medium">Grade {item.grade}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))
+                                })()
+                            )}
                         </div>
 
                         <button
