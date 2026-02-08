@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { GraduationCap, ArrowLeft, Loader2, CheckCircle, Calendar, Save, FileText, Info, PlusCircle, ChevronRight, User, LogOut, Upload, Trash2, X } from 'lucide-react'
+import { GraduationCap, ArrowLeft, Loader2, CheckCircle, Calendar, Save, FileText, Info, PlusCircle, ChevronRight, User, Upload, Trash2, X } from 'lucide-react'
 import { sendOTP, verifyOTP, submitEnquiry, getEnquiryTemplate, getGradeRules, getAvailableSlots, getEnquiryDraft, lookupEnquiries, getEnquiriesByMobile, getExistingBookingByMobile, getDocumentsList, uploadParentDocument } from '@/lib/api'
 import ConfirmModal from '@/app/components/ConfirmModal'
 
@@ -288,11 +288,7 @@ function EnquiryContent() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('parent_session')
-    localStorage.removeItem('parent_mobile_verified')
-    router.push('/')
-  }
+
 
   const handleFileChange = (type: string, file: File | null) => {
     if (!file) {
@@ -420,15 +416,6 @@ function EnquiryContent() {
           </div>
           {otpVerified && (
             <div className="flex flex-col items-end gap-2">
-              {!hasOtherEnquiries && (
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center text-sm font-bold text-gray-400 hover:text-red-600 transition-colors uppercase tracking-wider"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Log Out
-                </button>
-              )}
               <button
                 onClick={onSaveDraft}
                 className="flex items-center text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
