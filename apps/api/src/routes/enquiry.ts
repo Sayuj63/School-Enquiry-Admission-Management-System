@@ -418,7 +418,7 @@ router.post('/', async (req, res: Response) => {
             studentName: enquiry.childName,
             slotDate: slotDateFormatted,
             slotTime: `${slot.startTime} - ${slot.endTime}`,
-            location: 'School Campus'
+            location: 'New Era High School- Dombivli (East)'
           });
 
           // Send Calendar Invites
@@ -430,7 +430,7 @@ router.post('/', async (req, res: Response) => {
             slotDate: slot.date,
             slotStartTime: slot.startTime,
             slotEndTime: slot.endTime,
-            location: 'School Campus'
+            location: 'New Era High School- Dombivli (East)'
           }).catch(err => console.error('Parent calendar invite error:', err));
 
           await sendPrincipalCalendarInvite({
@@ -440,7 +440,7 @@ router.post('/', async (req, res: Response) => {
             slotDate: slot.date,
             slotStartTime: slot.startTime,
             slotEndTime: slot.endTime,
-            location: 'School Campus'
+            location: 'New Era High School- Dombivli (East)'
           }).catch(err => console.error('Principal calendar invite error:', err));
         }
 
@@ -527,7 +527,7 @@ router.get('/token/:tokenId', async (req, res: Response) => {
           date: slot.date,
           startTime: slot.startTime,
           endTime: slot.endTime,
-          location: 'School Campus, Counselling Room 101' // Default or dynamic
+          location: 'New Era High School- Dombivli (East)' // Default or dynamic
         };
       }
     }
@@ -731,7 +731,7 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
           studentName: enquiry.childName,
           slotDate: slotDateFormatted,
           slotTime: `${slot.startTime} - ${slot.endTime}`,
-          location: 'School Campus'
+          location: 'New Era High School- Dombivli (East)'
         });
 
         // Send Calendar Invites
@@ -743,7 +743,7 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
           slotDate: slot.date,
           slotStartTime: slot.startTime,
           slotEndTime: slot.endTime,
-          location: 'School Campus'
+          location: 'New Era High School- Dombivli (East)'
         }).catch(err => console.error('Parent calendar invite error:', err));
 
         await sendPrincipalCalendarInvite({
@@ -753,7 +753,7 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
           slotDate: slot.date,
           slotStartTime: slot.startTime,
           slotEndTime: slot.endTime,
-          location: 'School Campus'
+          location: 'New Era High School- Dombivli (East)'
         }).catch(err => console.error('Principal calendar invite error:', err));
       }
 
@@ -953,7 +953,7 @@ router.post('/:id/notify', authenticate, async (req: AuthRequest, res: Response)
           studentName: enquiry.childName,
           slotDate: slotDateFormatted,
           slotTime: `${slot.startTime} - ${slot.endTime}`,
-          location: 'School Campus'
+          location: 'New Era High School- Dombivli (East)'
         });
 
         // Also resend calendar invites (Emails)
@@ -966,7 +966,7 @@ router.post('/:id/notify', authenticate, async (req: AuthRequest, res: Response)
             slotDate: new Date(slot.date),
             slotStartTime: slot.startTime,
             slotEndTime: slot.endTime,
-            location: 'School Campus'
+            location: 'New Era High School- Dombivli (East)'
           }),
           sendPrincipalCalendarInvite({
             studentName: enquiry.childName,
@@ -975,7 +975,7 @@ router.post('/:id/notify', authenticate, async (req: AuthRequest, res: Response)
             slotDate: new Date(slot.date),
             slotStartTime: slot.startTime,
             slotEndTime: slot.endTime,
-            location: 'School Campus'
+            location: 'New Era High School- Dombivli (East)'
           })
         ]);
       }

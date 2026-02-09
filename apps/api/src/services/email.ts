@@ -88,6 +88,7 @@ export async function sendParentCalendarInvite(data: {
   slotStartTime: string;
   slotEndTime: string;
   location: string;
+  isReschedule?: boolean;
 }): Promise<SendEmailResult> {
   const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
     ? process.env.SCHOOL_NAME
@@ -109,7 +110,7 @@ export async function sendParentCalendarInvite(data: {
   const endDate = new Date(year, month, day, endHour, endMin, 0, 0);
 
   const event: CalendarEventData = {
-    title: `Counselling Session - ${schoolName}`,
+    title: `${data.isReschedule ? 'RESCHEDULED: ' : ''}Counselling Session - ${schoolName}`,
     description: `Student: ${data.studentName}\\nToken ID: ${data.tokenId}\\n\\nPlease bring all required documents.`,
     location: data.location,
     startDate,
@@ -122,7 +123,7 @@ export async function sendParentCalendarInvite(data: {
   const emailBody = `
 Dear ${data.parentName},
 
-Your counselling session for ${data.studentName}'s admission has been scheduled.
+${data.isReschedule ? 'Please note that your counselling session has been rescheduled.' : `Your counselling session for ${data.studentName}'s admission has been scheduled.`}
 
 Details:
 - Token ID: ${data.tokenId}
@@ -144,7 +145,7 @@ ${schoolName} Admissions Team
       console.log('EMAIL SERVICE (MOCK MODE)');
       console.log('----------------------------------------');
       console.log(`To: ${data.parentEmail}`);
-      console.log(`Subject: Counselling Slot Confirmation - ${data.tokenId}`);
+      console.log(`Subject: ${data.isReschedule ? 'Rescheduled: ' : ''}Counselling Slot Confirmation - ${data.tokenId}`);
       console.log('Body:');
       console.log(emailBody);
       console.log('========================================');
@@ -178,7 +179,7 @@ ${schoolName} Admissions Team
     const { data: emailData, error } = await resend.emails.send({
       from: fromAddress,
       to: [data.parentEmail],
-      subject: `Counselling Slot Confirmation - ${data.tokenId}`,
+      subject: `${data.isReschedule ? 'Rescheduled: ' : ''}Counselling Slot Confirmation - ${data.tokenId}`,
       text: emailBody,
       attachments: [
         {
@@ -227,6 +228,7 @@ export async function sendPrincipalCalendarInvite(data: {
   slotStartTime: string;
   slotEndTime: string;
   location: string;
+  isReschedule?: boolean;
 }): Promise<SendEmailResult> {
   const principalEmail = process.env.PRINCIPAL_EMAIL || 'admissions@nes.edu.in';
   const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
@@ -249,7 +251,7 @@ export async function sendPrincipalCalendarInvite(data: {
   const endDate = new Date(year, month, day, endHour, endMin, 0, 0);
 
   const event: CalendarEventData = {
-    title: `Counselling: ${data.studentName} - ${data.tokenId}`,
+    title: `${data.isReschedule ? 'RESCHEDULED: ' : ''}Counselling: ${data.studentName} - ${data.tokenId}`,
     description: `Student: ${data.studentName}\\nParent: ${data.parentName}\\nToken ID: ${data.tokenId}`,
     location: data.location,
     startDate,
@@ -260,7 +262,7 @@ export async function sendPrincipalCalendarInvite(data: {
   const icsContent = generateICSContent(event);
 
   const emailBody = `
-Counselling Session Scheduled
+${data.isReschedule ? 'RESCHEDULED: ' : ''}Counselling Session Scheduled
 
 Student: ${data.studentName}
 Parent: ${data.parentName}
@@ -278,7 +280,7 @@ Location: ${data.location}
       console.log('EMAIL SERVICE (PRINCIPAL MOCK MODE)');
       console.log('----------------------------------------');
       console.log(`To: ${principalEmail}`);
-      console.log(`Subject: Counselling Session - ${data.slotStartTime} - ${data.studentName}`);
+      console.log(`Subject: ${data.isReschedule ? 'Rescheduled: ' : ''}Counselling Session - ${data.slotStartTime} - ${data.studentName}`);
       console.log('Body:');
       console.log(emailBody);
       console.log('========================================');
@@ -311,7 +313,7 @@ Location: ${data.location}
     const { data: emailData, error } = await resend.emails.send({
       from: fromAddress,
       to: [principalEmail],
-      subject: `Counselling Session - ${data.slotStartTime} - ${data.studentName}`,
+      subject: `${data.isReschedule ? 'Rescheduled: ' : ''}Counselling Session - ${data.slotStartTime} - ${data.studentName}`,
       text: emailBody,
       attachments: [
         {
@@ -348,6 +350,7 @@ Location: ${data.location}
     };
   }
 }
+
 /**
  * Send waitlist joining confirmation email to parent using Resend
  */
@@ -366,13 +369,13 @@ export async function sendWaitlistEmail(data: {
   const emailBody = `
 Dear ${data.parentName},
 
-Thank you for your interest in ${schoolName}.
+We have received your admission application for ${data.studentName} for Grade ${data.grade}.
 
-This is to confirm that ${data.studentName} has been added to our waitlist for Grade ${data.grade}.
+Currently, all available counselling slots for this grade are full. Your application has been placed on our waitlist (Token ID: ${data.tokenId}).
 
-Token ID: ${data.tokenId}
+We will notify you via email and WhatsApp as soon as new slots become available. You will then be able to log in to our portal and book a preferred time for your counselling session.
 
-We have currently reached our maximum capacity for this grade. Should a seat become available, our admissions team will contact you directly to proceed with the next steps.
+Thank you for your patience and interest in ${schoolName}.
 
 Best regards,
 ${schoolName} Admissions Team
@@ -384,23 +387,21 @@ ${schoolName} Admissions Team
       console.log('EMAIL SERVICE (WAITLIST MOCK MODE)');
       console.log('----------------------------------------');
       console.log(`To: ${data.parentEmail}`);
-      console.log(`Subject: Waitlist Application Confirmation - ${data.tokenId}`);
+      console.log(`Subject: Application Waitlisted - ${data.tokenId}`);
       console.log('Body:');
       console.log(emailBody);
       console.log('========================================');
 
       return {
         success: true,
-        message: 'Waitlist email sent successfully (dev mode)',
+        message: 'Waitlist email sent (dev mode)',
         mockMessage: emailBody,
         to: data.parentEmail
       };
     }
 
     const resend = getResendClient();
-    if (!resend) {
-      return { success: false, message: 'Email service not configured' };
-    }
+    if (!resend) return { success: false, message: 'Email service not configured.' };
 
     const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@nes.edu.in' || !schoolEmail)
       ? 'onboarding@resend.dev'
@@ -409,95 +410,108 @@ ${schoolName} Admissions Team
     await resend.emails.send({
       from: fromAddress,
       to: [data.parentEmail],
-      subject: `Waitlist Application Confirmation - ${data.tokenId}`,
-      text: emailBody
+      subject: `Application Waitlisted - ${data.tokenId}`,
+      text: emailBody,
     });
 
-    console.log('✅ Waitlist email sent successfully via Resend.');
-    return {
-      success: true,
-      message: 'Waitlist confirmation email sent to parent'
-    };
-  } catch (error: any) {
-    console.error('❌ Waitlist email sending error:', error);
-    return {
-      success: false,
-      message: `Failed to send email: ${error.message}`
-    };
+    return { success: true, message: 'Waitlist notification sent' };
+  } catch (err: any) {
+    console.error('Waitlist email error:', err);
+    return { success: false, message: err.message };
   }
 }
 
 /**
- * Send admission status update email to parent
+ * Send admission status update email (Confirmed, Approved, Rejected)
  */
 export async function sendAdmissionStatusEmail(data: {
   parentEmail: string;
   parentName: string;
   studentName: string;
   tokenId: string;
-  status: 'approved' | 'rejected' | 'waitlisted' | 'confirmed';
+  status: 'confirmed' | 'approved' | 'rejected' | 'waitlisted';
 }): Promise<SendEmailResult> {
   const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
     ? process.env.SCHOOL_NAME
     : 'New Era High School';
   const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
-  let statusText = '';
-  let statusDetail = '';
+  let subject = '';
+  let emailBody = '';
+
+  const dashboardUrl = (process.env.FRONTEND_URL || 'https://nes.edu.in') + '/parent/login';
 
   switch (data.status) {
-    case 'approved':
     case 'confirmed':
-      statusText = 'Admission Confirmed';
-      statusDetail = 'Congratulations! We are pleased to inform you that your child\'s admission has been approved. Our team will contact you shortly regarding the next steps, fee payment, and documentation.';
-      break;
-    case 'rejected':
-      statusText = 'Admission Update';
-      statusDetail = 'We regret to inform you that we are unable to proceed with your admission application at this time.';
-      break;
-    case 'waitlisted':
-      statusText = 'Waitlist Status';
-      statusDetail = 'Your application has been placed on the waitlist. We will notify you if a seat becomes available.';
-      break;
-  }
-
-  const subject = `${statusText} - ${data.studentName} (${data.tokenId})`;
-
-  const emailBody = `
+      subject = `Admission Confirmed - ${data.studentName}`;
+      emailBody = `
 Dear ${data.parentName},
 
-This is an update regarding ${data.studentName}'s admission application at ${schoolName}.
+Congratulations! The admission for ${data.studentName} (Token: ${data.tokenId}) has been CONFIRMED.
 
-Token ID: ${data.tokenId}
-New Status: ${data.status.toUpperCase()}
+Our team will contact you shortly regarding the next steps, fee payment, and document submission.
 
-${statusDetail}
+You can also check your status on our portal: ${dashboardUrl}
 
 Best regards,
 ${schoolName} Admissions Team
-  `.trim();
+      `.trim();
+      break;
+    case 'approved':
+      subject = `Admission Approved - ${data.studentName}`;
+      emailBody = `
+Dear ${data.parentName},
+
+We are pleased to inform you that the admission application for ${data.studentName} (Token: ${data.tokenId}) has been APPROVED.
+
+Please log in to our portal to complete the remaining formalities: ${dashboardUrl}
+
+Best regards,
+${schoolName} Admissions Team
+      `.trim();
+      break;
+    case 'rejected':
+      subject = `Admission Update - ${data.studentName}`;
+      emailBody = `
+Dear ${data.parentName},
+
+Thank you for your interest in ${schoolName}.
+
+After careful consideration of the application for ${data.studentName} (Token: ${data.tokenId}), we regret to inform you that we are unable to offer admission at this time.
+
+We wish ${data.studentName} the very best in their future academic endeavors.
+
+Best regards,
+${schoolName} Admissions Team
+      `.trim();
+      break;
+    case 'waitlisted':
+      subject = `Admission Waitlisted - ${data.studentName}`;
+      emailBody = `
+Dear ${data.parentName},
+
+The application for ${data.studentName} (Token: ${data.tokenId}) has been placed on our waitlist.
+
+This usually happens when all available seats for the requested grade are currently filled or pending confirmation. We will notify you if a seat becomes available.
+
+Best regards,
+${schoolName} Admissions Team
+      `.trim();
+      break;
+  }
 
   try {
     if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
       console.log('========================================');
-      console.log('EMAIL SERVICE (STATUS MOCK MODE)');
-      console.log('----------------------------------------');
+      console.log('EMAIL SERVICE (STATUS UPDATE MOCK)');
       console.log(`To: ${data.parentEmail}`);
       console.log(`Subject: ${subject}`);
-      console.log('Body:');
-      console.log(emailBody);
       console.log('========================================');
-
-      return {
-        success: true,
-        message: 'Status update email sent (dev mode)',
-        mockMessage: emailBody,
-        to: data.parentEmail
-      };
+      return { success: true, message: 'Status email sent (mock)' };
     }
 
     const resend = getResendClient();
-    if (!resend) return { success: false, message: 'Email service not configured' };
+    if (!resend) return { success: false, message: 'Email service not configured.' };
 
     const fromAddress = (process.env.USE_RESEND_ONBOARDING === 'true' || schoolEmail === 'info@nes.edu.in' || !schoolEmail)
       ? 'onboarding@resend.dev'
@@ -506,13 +520,13 @@ ${schoolName} Admissions Team
     await resend.emails.send({
       from: fromAddress,
       to: [data.parentEmail],
-      subject: subject,
-      text: emailBody
+      subject,
+      text: emailBody,
     });
 
     return { success: true, message: 'Status update email sent' };
-  } catch (error: any) {
-    console.error('❌ Status update email error:', error);
-    return { success: false, message: error.message };
+  } catch (err: any) {
+    console.error('Status email error:', err);
+    return { success: false, message: err.message };
   }
 }

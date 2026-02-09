@@ -153,7 +153,7 @@ export default function DashboardPage() {
                     isToday: slotDateStr === todayStr,
                     isPast: isPast,
                     admissionId: booking.admissionId?._id,
-                    location: slot.location || 'School Campus'
+                    location: slot.location || 'New Era High School- Dombivli (East)'
                   })
                 }
               })

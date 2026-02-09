@@ -518,7 +518,7 @@ export async function sendSlotRescheduleWhatsApp(data: {
 
 Dear Parent,
 
-We have rescheduled ${data.studentName}'s counselling session due to school administrative reasons.
+Your counselling session for ${data.studentName} has been rescheduled.
 
 📋 *Token ID:* ${data.tokenId}
 📅 *New Date:* ${data.slotDate}
