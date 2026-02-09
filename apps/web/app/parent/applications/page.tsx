@@ -71,7 +71,7 @@ export default function parentApplicationsPage() {
     const handleLogout = () => {
         localStorage.removeItem('parent_session')
         localStorage.removeItem('parent_mobile_verified')
-        router.push('/')
+        router.push('/parent/login')
     }
 
     const startNewEnquiry = () => {
@@ -94,6 +94,13 @@ export default function parentApplicationsPage() {
                         <GraduationCap className="h-10 w-10 mr-2" />
                         New Era High School
                     </div>
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center text-sm font-bold text-red-500 hover:text-red-600 transition-all bg-white px-4 py-2 rounded-xl border border-red-50 shadow-sm hover:shadow-md active:scale-95"
+                    >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Log out
+                    </button>
                 </div>
             </header>
 

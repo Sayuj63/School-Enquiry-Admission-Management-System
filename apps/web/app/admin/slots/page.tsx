@@ -55,7 +55,11 @@ function SlotsContent() {
 
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'completed'>('active')
+
+  // Dashboard redirection support
+  const initialStatusFilter = dateParam === 'today' ? 'all' : 'active'
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'completed'>(initialStatusFilter as any)
+  const [dateFilter, setDateFilter] = useState(dateParam || '')
 
   const [newSlot, setNewSlot] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -189,7 +193,7 @@ function SlotsContent() {
     setLoading(true)
     const result = await generateSaturdaySlots()
     if (result.success) {
-      setSuccess(`Successfully generated ${result.data.length} Saturday slots`)
+      setSuccess(result.message || `Successfully generated ${result.data.length} Saturday slots`)
       fetchSlots()
     } else {
       setError(result.error || 'Failed to generate Saturday slots')
@@ -361,6 +365,13 @@ function SlotsContent() {
     if (statusFilter === 'completed' && !isPast) return acc
 
     const dateKey = slot.date.split('T')[0]
+
+    // Date filter: if dateFilter=today, only show today's keys
+    if (dateFilter === 'today') {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      if (dateKey !== today) return acc
+    }
+
     if (!acc[dateKey]) acc[dateKey] = []
     acc[dateKey].push(slot)
     return acc
@@ -373,9 +384,19 @@ function SlotsContent() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Counselling Slots</h2>
-          <p className="text-gray-600">Manage available slots for counselling sessions</p>
+          <p className="text-gray-600">
+            {dateFilter === 'today' ? "Today's scheduled sessions" : "Manage available slots for counselling sessions"}
+          </p>
         </div>
         <div className="flex gap-2">
+          {dateFilter === 'today' && (
+            <button
+              onClick={() => { setDateFilter(''); setStatusFilter('active'); }}
+              className="btn-secondary text-xs uppercase font-black tracking-widest bg-gray-100 border-gray-200"
+            >
+              <X className="h-3 w-3 mr-1" /> Clear Date Filter
+            </button>
+          )}
           {!isPrincipal && (
             <>
               <button onClick={() => setShowBulkModal(true)} className="btn-secondary bg-primary-50 border-primary-100 text-primary-700 hover:bg-primary-100">

@@ -49,7 +49,7 @@ export async function checkAndSendReminders() {
                     if (!enquiry || !enquiry.mobile) continue;
 
                     const dateFormatted = slot.date.toLocaleDateString('en-IN', {
-                        weekday: 'short', month: 'short', day: 'numeric'
+                        weekday: 'short', month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata'
                     });
 
                     const result = await sendSlotReminderWhatsApp({

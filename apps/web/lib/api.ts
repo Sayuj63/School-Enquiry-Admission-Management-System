@@ -237,7 +237,7 @@ export async function verifyOTP(mobile: string, otp: string) {
 
 // Enquiry functions
 export async function submitEnquiry(data: any) {
-  return api.post<{ tokenId: string }>('/api/enquiry', data);
+  return api.post<{ id: string; tokenId: string }>('/api/enquiry', data);
 }
 
 export async function adminSubmitEnquiry(data: any) {
@@ -284,6 +284,18 @@ export async function resendNotification(id: string) {
 
 export async function getEnquiryDraft(id: string) {
   return api.get<any>(`/api/enquiry/draft/${id}`);
+}
+
+export async function uploadEnquiryDraftDocument(enquiryId: string, documentType: string, file: File) {
+  const formData = new FormData();
+  formData.append('document', file);
+  formData.append('documentType', documentType);
+
+  return api.post<any>(`/api/enquiry/draft/${enquiryId}/documents`, formData);
+}
+
+export async function deleteEnquiryDraftDocument(enquiryId: string, docId: string) {
+  return api.delete<any>(`/api/enquiry/draft/${enquiryId}/documents/${docId}`);
 }
 
 export async function getEnquiriesByMobile(mobile: string) {

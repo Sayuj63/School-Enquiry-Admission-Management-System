@@ -59,6 +59,8 @@ function generateICSContent(event: CalendarEventData): string {
       end.getHours(),
       end.getMinutes()
     ],
+    startOutputType: 'local',
+    endOutputType: 'local',
     attendees: event.attendees.map(a => ({
       email: a.email,
       name: a.name,
@@ -124,7 +126,7 @@ Your counselling session for ${data.studentName}'s admission has been scheduled.
 
 Details:
 - Token ID: ${data.tokenId}
-- Date: ${data.slotDate.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+- Date: ${data.slotDate.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' })}
 - Time: ${data.slotStartTime} - ${data.slotEndTime}
 - Location: ${data.location}
 
@@ -263,7 +265,7 @@ Counselling Session Scheduled
 Student: ${data.studentName}
 Parent: ${data.parentName}
 Token ID: ${data.tokenId}
-Date: ${data.slotDate.toLocaleDateString('en-IN')}
+Date: ${data.slotDate.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}
 Time: ${data.slotStartTime} - ${data.slotEndTime}
 Location: ${data.location}
   `.trim();

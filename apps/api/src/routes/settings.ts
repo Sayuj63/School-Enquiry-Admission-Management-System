@@ -119,6 +119,17 @@ router.put('/grade-rules', authenticate, async (req: AuthRequest, res: Response)
     try {
         const { rules, settings } = req.body;
 
+        if (settings && settings.cutOffDate) {
+            // Validate MM-DD format
+            const cutOffRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+            if (!cutOffRegex.test(settings.cutOffDate)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid Cut-off Date format. Please use MM-DD (e.g., 07-31)'
+                });
+            }
+        }
+
         if (settings) {
             await GradeSettings.findOneAndUpdate(
                 { key: 'global' },

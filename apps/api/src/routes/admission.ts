@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import mongoose, { Types } from 'mongoose';
 import { Enquiry, Admission, SlotBooking, GradeRule } from '../models';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { upload } from '../middleware/upload';
+import { upload, handleUploadError } from '../middleware/upload';
 import cloudinary from '../config/cloudinary';
 import { isMobileVerified, logActivity } from '../services';
 
@@ -461,7 +461,7 @@ router.get('/documents/:publicId', authenticate, async (req: AuthRequest, res: R
  * POST /api/admission/:id/documents
  * Upload document (admin only)
  */
-router.post('/:id/documents', authenticate, upload.single('document'), async (req: AuthRequest, res: Response) => {
+router.post('/:id/documents', authenticate, upload.single('document'), handleUploadError, async (req: AuthRequest, res: Response) => {
   try {
     // Validate ObjectId format
     const id = req.params.id.trim().split(':')[0];
@@ -521,11 +521,25 @@ router.post('/:id/documents', authenticate, upload.single('document'), async (re
         document: admission.documents[admission.documents.length - 1]
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload document error:', error);
+
+    // Provide specific error messages
+    let errorMessage = 'Failed to upload document';
+    if (error.message) {
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'Upload timed out. Please try again with a smaller file or better connection.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
     res.status(500).json({
       success: false,
-      error: 'Failed to upload document'
+      error: errorMessage,
+      errorCode: 'UPLOAD_FAILED'
     });
   }
 });
@@ -594,7 +608,7 @@ router.delete('/:id/documents/:docId', authenticate, async (req: AuthRequest, re
  * POST /api/admission/parent/:tokenId/documents
  * Upload document by parent (verified by OTP)
  */
-router.post('/parent/:tokenId/documents', upload.single('document'), async (req, res: Response) => {
+router.post('/parent/:tokenId/documents', upload.single('document'), handleUploadError, async (req: any, res: Response) => {
   try {
     const { tokenId } = req.params;
     const { documentType } = req.body;
@@ -663,9 +677,28 @@ router.post('/parent/:tokenId/documents', upload.single('document'), async (req,
         document: admission.documents[admission.documents.length - 1]
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Parent upload document error:', error);
-    res.status(500).json({ success: false, error: 'Failed to upload document' });
+
+    // Provide specific error messages
+    let errorMessage = 'Failed to upload document';
+    if (error.message) {
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('network')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'Upload timed out. The file may be too large or your connection too slow. Please try again.';
+      } else if (error.message.includes('cloudinary')) {
+        errorMessage = 'Storage service error. Please try again in a few moments.';
+      } else {
+        errorMessage = error.message;
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      errorCode: 'UPLOAD_FAILED'
+    });
   }
 });
 

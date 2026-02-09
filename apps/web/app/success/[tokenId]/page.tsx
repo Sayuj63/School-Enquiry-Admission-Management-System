@@ -104,9 +104,6 @@ function SuccessContent() {
             <Link href="/parent/applications" className="text-sm font-medium text-gray-400 hover:text-primary-600">
               Go to My Applications
             </Link>
-            <Link href="/" className="text-sm font-medium text-gray-400 hover:text-primary-600">
-              Go to Homepage
-            </Link>
           </div>
         </div>
       </div>

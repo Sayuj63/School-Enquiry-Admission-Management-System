@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { GraduationCap, ArrowLeft, Loader2, Calendar, FileText, CheckCircle, Clock, Upload, Trash2, ExternalLink } from 'lucide-react'
+import { GraduationCap, ArrowLeft, Loader2, Calendar, FileText, CheckCircle, Clock, Upload, Trash2, ExternalLink, LogOut } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import {
@@ -82,15 +82,43 @@ export default function ParentEnquiryDetail() {
 
     const handleUpload = async (type: string, file: File) => {
         setUploadLoading(type)
+
+        // Client-side validation
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            toast.error('File size exceeds 5MB limit. Please choose a smaller file.')
+            setUploadLoading(null)
+            return
+        }
+
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Invalid file type. Only PDF, JPG, and PNG files are allowed.')
+            setUploadLoading(null)
+            return
+        }
+
         try {
             const res = await uploadParentDocument(tokenId as string, type, file)
             if (res.success) {
+                toast.success('Document uploaded successfully!')
                 await fetchData()
             } else {
-                toast.error(res.error || 'Upload failed')
+                // Display specific error message from server
+                const errorMsg = res.error || 'Upload failed. Please try again.'
+                toast.error(errorMsg)
             }
-        } catch (err) {
-            toast.error('Upload failed due to a network error')
+        } catch (err: any) {
+            // Handle network errors
+            let errorMessage = 'Upload failed due to a network error. Please check your connection and try again.'
+            if (err.message) {
+                if (err.message.includes('timeout')) {
+                    errorMessage = 'Upload timed out. Please try again with a better connection.'
+                } else if (err.message.includes('Failed to fetch')) {
+                    errorMessage = 'Cannot connect to server. Please check your internet connection.'
+                }
+            }
+            toast.error(errorMessage)
         } finally {
             setUploadLoading(null)
         }
@@ -161,6 +189,11 @@ export default function ParentEnquiryDetail() {
         }
     }
 
+    const handleLogout = () => {
+        localStorage.removeItem('parent_session');
+        router.push('/parent/login');
+    }
+
     const fetchAvailableSlots = async () => {
         try {
             const res = await getAvailableSlots()
@@ -217,7 +250,16 @@ export default function ParentEnquiryDetail() {
                         </button>
                         <h1 className="font-bold text-gray-900">Application Status</h1>
                     </div>
-                    <div className="text-sm font-mono text-gray-500">{tokenId}</div>
+                    <div className="flex items-center gap-4">
+                        <div className="text-sm font-mono text-gray-500 hidden sm:block">{tokenId}</div>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center text-sm font-medium text-red-500 hover:text-red-600 transition-colors bg-white px-3 py-1.5 rounded-lg border border-red-100 shadow-sm"
+                        >
+                            <LogOut className="h-4 w-4 mr-2" />
+                            Log out
+                        </button>
+                    </div>
                 </div>
             </header>
 

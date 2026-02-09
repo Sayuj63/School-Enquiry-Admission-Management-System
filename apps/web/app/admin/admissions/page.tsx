@@ -48,7 +48,7 @@ function AdmissionsContent() {
 
   const searchParams = useSearchParams()
   const statusParam = searchParams.get('status')
-  const initialStatusFilter = statusParam && ['draft', 'submitted', 'approved', 'rejected'].includes(statusParam) ? statusParam : ''
+  const initialStatusFilter = statusParam && ['draft', 'submitted', 'approved', 'rejected', 'confirmed', 'waitlisted'].includes(statusParam) ? statusParam : ''
 
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter)
   const [counsellingFilter, setCounsellingFilter] = useState('')

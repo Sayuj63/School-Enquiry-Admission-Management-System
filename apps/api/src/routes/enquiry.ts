@@ -4,6 +4,8 @@ import { generateTokenId } from '../utils/token';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { Types } from 'mongoose';
 import { sendEnquiryWhatsApp, sendSlotConfirmationWhatsApp, isMobileVerified, sendParentCalendarInvite, sendPrincipalCalendarInvite, sendWaitlistEmail, logActivity } from '../services';
+import { upload, handleUploadError } from '../middleware/upload';
+import cloudinary from '../config/cloudinary';
 
 const router: Router = Router();
 
@@ -27,6 +29,99 @@ router.get('/draft/:id', async (req, res: Response) => {
     res.json({ success: true, data: enquiry });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to fetch draft' });
+  }
+});
+
+/**
+ * POST /api/enquiry/draft/:id/documents
+ * Upload document for an enquiry draft
+ */
+router.post('/draft/:id/documents', upload.single('document'), handleUploadError, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { documentType } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    if (!documentType) {
+      return res.status(400).json({ success: false, error: 'Document type is required' });
+    }
+
+    const enquiry = await Enquiry.findById(id);
+    if (!enquiry) {
+      return res.status(404).json({ success: false, error: 'Enquiry record not found' });
+    }
+
+    // Security check: verify ownership
+    const isVerified = await isMobileVerified(enquiry.mobile);
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const file = req.file as any;
+    const newDoc = {
+      type: documentType,
+      fileName: req.file.originalname,
+      fileId: file.filename,
+      url: file.path,
+      uploadedAt: new Date()
+    };
+
+    enquiry.documents.push(newDoc);
+    await enquiry.save();
+
+    res.json({
+      success: true,
+      data: {
+        document: enquiry.documents[enquiry.documents.length - 1]
+      }
+    });
+  } catch (error) {
+    console.error('Draft upload document error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload document' });
+  }
+});
+
+/**
+ * DELETE /api/enquiry/draft/:id/documents/:docId
+ * Delete document from an enquiry draft
+ */
+router.delete('/draft/:id/documents/:docId', async (req, res: Response) => {
+  try {
+    const { id, docId } = req.params;
+
+    const enquiry = await Enquiry.findById(id);
+    if (!enquiry) {
+      return res.status(404).json({ success: false, error: 'Enquiry record not found' });
+    }
+
+    // Security check
+    const isVerified = await isMobileVerified(enquiry.mobile);
+    if (!isVerified && process.env.NODE_ENV !== 'development') {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const docIndex = enquiry.documents.findIndex(d => d._id?.toString() === docId);
+    if (docIndex === -1) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    const doc = enquiry.documents[docIndex];
+    try {
+      await cloudinary.uploader.destroy(doc.fileId);
+    } catch (err) {
+      console.error('Cloudinary destroy error:', err);
+    }
+
+    enquiry.documents.splice(docIndex, 1);
+    await enquiry.save();
+
+    res.json({ success: true, message: 'Document deleted successfully' });
+  } catch (error) {
+    console.error('Draft delete document error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete document' });
   }
 });
 
@@ -254,10 +349,17 @@ router.post('/', async (req, res: Response) => {
         email: enquiry.email,
         city: enquiry.city,
         grade: enquiry.grade,
+        studentDob: enquiry.dob,
         status: isWaitlist ? 'waitlisted' : 'draft',
         waitlistType: isWaitlist ? 'parent' : undefined,
         waitlistDate: isWaitlist ? new Date() : undefined,
-        documents: [],
+        documents: enquiry.documents.map(doc => ({
+          type: doc.type,
+          fileName: doc.fileName,
+          fileId: doc.fileId,
+          url: doc.url,
+          uploadedAt: doc.uploadedAt
+        })),
         slotBookingId: bookingId as any,
         additionalFields: new Map()
       });
@@ -307,7 +409,7 @@ router.post('/', async (req, res: Response) => {
 
         if (enquiry.slotBookingId && slot) {
           const slotDateFormatted = slot.date.toLocaleDateString('en-IN', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata'
           });
 
           await sendSlotConfirmationWhatsApp({
@@ -371,6 +473,7 @@ router.post('/', async (req, res: Response) => {
     res.status(isDraft ? 200 : 201).json({
       success: true,
       data: {
+        id: enquiry._id,
         tokenId: enquiry.tokenId,
         message: isDraft ? 'Draft saved successfully' : 'Enquiry submitted successfully'
       }
@@ -461,8 +564,10 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
       mobile: req.body.mobile,
       email: req.body.email,
       grade: req.body.grade,
+      dob: req.body.dob,
       city: req.body.city || '',
-      message: req.body.message || ''
+      message: req.body.message || '',
+      slotId: req.body.slotId
     };
 
     if (!data.parentName || !data.childName || !data.mobile || !data.grade) {
@@ -514,7 +619,7 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     const tokenId = generateTokenId();
-    const standardKeys = ['parentName', 'childName', 'mobile', 'email', 'city', 'grade', 'message'];
+    const standardKeys = ['parentName', 'childName', 'mobile', 'email', 'city', 'grade', 'message', 'dob', 'slotId'];
     const additionalFields: Record<string, any> = {};
 
     Object.keys(req.body).forEach(key => {
@@ -729,7 +834,7 @@ router.post('/:id/notify', authenticate, async (req: AuthRequest, res: Response)
       if (booking && booking.slotId) {
         const slot = booking.slotId as any; // Cast to any or ICounsellingSlot for simplicity in this context
         const slotDateFormatted = new Date(slot.date).toLocaleDateString('en-IN', {
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata'
         });
 
         await sendSlotConfirmationWhatsApp({

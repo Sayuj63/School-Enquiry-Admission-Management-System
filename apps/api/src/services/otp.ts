@@ -184,8 +184,8 @@ export async function isMobileVerified(mobile: string): Promise<boolean> {
   const verifiedOTP = await OTP.findOne({
     mobile: normalizedMobile,
     verified: true,
-    // Allow some grace period for form submission
-    createdAt: { $gt: new Date(Date.now() - 30 * 60 * 1000) }
+    // Allow some grace period for form submission (2 hours)
+    createdAt: { $gt: new Date(Date.now() - 120 * 60 * 1000) }
   });
 
   return !!verifiedOTP;

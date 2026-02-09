@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Save, Upload, Trash2, Calendar as CalendarIcon, Loader2, CheckCircle, User, Phone, GraduationCap, X, Clock, FileText, PlusCircle } from 'lucide-react'
-import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking, getCurrentUser } from '@/lib/api'
+import { getAdmission, updateAdmission, uploadDocument, deleteDocument, getAvailableSlots, bookSlot, getAdmissionTemplate, getDocumentsList, cancelBooking, getCurrentUser, getGradeRules } from '@/lib/api'
 import { format } from 'date-fns'
 import SlotCalendar from '../../../components/SlotCalendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
@@ -75,6 +75,7 @@ export default function AdmissionDetailPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  const [gradeRules, setGradeRules] = useState<any[]>([])
 
   // Form state
   const [formData, setFormData] = useState({
@@ -126,16 +127,21 @@ export default function AdmissionDetailPage() {
   const fetchData = async () => {
     setLoading(true)
 
-    const [admissionResult, slotsResult, docsResult, templateResult, userResult] = await Promise.all([
+    const [admissionResult, slotsResult, docsResult, templateResult, userResult, gradeRulesResult] = await Promise.all([
       getAdmission(admissionId),
       getAvailableSlots(),
       getDocumentsList(),
       getAdmissionTemplate(),
-      getCurrentUser()
+      getCurrentUser(),
+      getGradeRules()
     ])
 
     if (userResult.success) {
       setUser(userResult.data)
+    }
+
+    if (gradeRulesResult.success) {
+      setGradeRules(gradeRulesResult.data.rules || [])
     }
 
     if (admissionResult.success && admissionResult.data) {
@@ -669,12 +675,17 @@ export default function AdmissionDetailPage() {
               {(baseFields.grade !== false) && (
                 <div>
                   <label className="label">Grade</label>
-                  <input
+                  <select
                     className="input"
                     value={formData.grade}
                     onChange={e => setFormData({ ...formData, grade: e.target.value })}
                     disabled={isPrincipal}
-                  />
+                  >
+                    <option value="">Select Grade</option>
+                    {gradeRules.map(rule => (
+                      <option key={rule._id} value={rule.grade}>{rule.grade}</option>
+                    ))}
+                  </select>
                 </div>
               )}
               {(baseFields.parentName !== false) && (

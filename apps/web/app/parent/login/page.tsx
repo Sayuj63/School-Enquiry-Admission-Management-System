@@ -9,7 +9,7 @@ type Step = 'mobile' | 'otp' | 'loading'
 
 export default function ParentLoginPage() {
     const router = useRouter()
-    const [step, setStep] = useState<Step>('mobile')
+    const [step, setStep] = useState<Step>('loading')
     const [mobile, setMobile] = useState('')
     const [otp, setOtp] = useState('')
     const [devOtp, setDevOtp] = useState<string | null>(null)
@@ -32,9 +32,13 @@ export default function ParentLoginPage() {
                             router.replace('/enquiry')
                         }
                     })
+                    return // Keep step as 'loading' during redirect
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error('Session restore failed', e)
+            }
         }
+        setStep('mobile')
     }, [router])
 
     const handleSendOTP = async (e: React.FormEvent) => {
@@ -74,7 +78,7 @@ export default function ParentLoginPage() {
             // CREATE PERSISTENT SESSION (20 Minutes)
             const session = {
                 mobile: mobile,
-                expires: new Date().getTime() + (20 * 60 * 1000)
+                expires: new Date().getTime() + (120 * 60 * 1000)
             }
             localStorage.setItem('parent_session', JSON.stringify(session))
 
@@ -94,7 +98,7 @@ export default function ParentLoginPage() {
     const startNewEnquiry = () => {
         const session = {
             mobile: mobile,
-            expires: new Date().getTime() + (20 * 60 * 1000)
+            expires: new Date().getTime() + (120 * 60 * 1000)
         }
         localStorage.setItem('parent_session', JSON.stringify(session))
         router.push('/enquiry')
@@ -113,6 +117,12 @@ export default function ParentLoginPage() {
 
             <main className="flex-1 flex items-center justify-center p-4 py-12">
                 <div className="max-w-md w-full">
+                    {step === 'loading' && (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
+                            <p className="text-gray-500 font-medium">Checking your session...</p>
+                        </div>
+                    )}
                     {step === 'mobile' && (
                         <div className="card p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="flex justify-center mb-6">

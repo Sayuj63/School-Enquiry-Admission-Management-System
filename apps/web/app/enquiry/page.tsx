@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { GraduationCap, ArrowLeft, Loader2, CheckCircle, Calendar, Save, FileText, Info, PlusCircle, ChevronRight, User, Upload, Trash2, X } from 'lucide-react'
-import { sendOTP, verifyOTP, submitEnquiry, getEnquiryTemplate, getGradeRules, getAvailableSlots, getEnquiryDraft, lookupEnquiries, getEnquiriesByMobile, getExistingBookingByMobile, getDocumentsList, uploadParentDocument } from '@/lib/api'
+import { GraduationCap, ArrowLeft, Loader2, CheckCircle, Calendar, Save, FileText, Info, PlusCircle, ChevronRight, User, Upload, Trash2, X, LogOut } from 'lucide-react'
+import { sendOTP, verifyOTP, submitEnquiry, getEnquiryTemplate, getGradeRules, getAvailableSlots, getEnquiryDraft, lookupEnquiries, getEnquiriesByMobile, getExistingBookingByMobile, getDocumentsList, uploadParentDocument, uploadEnquiryDraftDocument, deleteEnquiryDraftDocument } from '@/lib/api'
 import ConfirmModal from '@/app/components/ConfirmModal'
 
 interface FormField {
@@ -47,6 +47,7 @@ function EnquiryContent() {
   const [devOtp, setDevOtp] = useState<string | null>(null)
   const [hasOtherEnquiries, setHasOtherEnquiries] = useState(false)
   const [requiredDocs, setRequiredDocs] = useState<any[]>([])
+  const [uploadedDocs, setUploadedDocs] = useState<{ [key: string]: any }>({})
   const [pendingFiles, setPendingFiles] = useState<{ [key: string]: File }>({})
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: boolean }>({})
   const [confirmModal, setConfirmModal] = useState<{
@@ -75,6 +76,14 @@ function EnquiryContent() {
     if (!dobValue || !gradeRules.length || !gradeSettings) return []
 
     const birthDate = new Date(dobValue)
+
+    // Validate cutOffDate format MM-DD
+    const cutOffRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+    if (!gradeSettings.cutOffDate || !cutOffRegex.test(gradeSettings.cutOffDate)) {
+      console.error('Invalid cutOffDate setting:', gradeSettings.cutOffDate);
+      return [];
+    }
+
     const [month, day] = gradeSettings.cutOffDate.split('-').map(Number)
 
     // Academic Year Target: e.g. 2026
@@ -174,6 +183,12 @@ function EnquiryContent() {
                 Object.keys(draftData[key]).forEach(subKey => {
                   setValue(subKey, draftData[key][subKey])
                 })
+              } else if (key === 'documents' && Array.isArray(draftData[key])) {
+                const docsMap: { [key: string]: any } = {}
+                draftData[key].forEach((doc: any) => {
+                  docsMap[doc.type] = doc
+                })
+                setUploadedDocs(docsMap)
               } else {
                 setValue(key, draftData[key])
               }
@@ -207,6 +222,7 @@ function EnquiryContent() {
                   }
                 }).catch(e => console.error('Silent enquiry check failed', e))
               } else {
+                setValue('mobile', session.mobile)
                 localStorage.removeItem('parent_session')
               }
             } catch (e) {
@@ -265,7 +281,7 @@ function EnquiryContent() {
       // CREATE PERSISTENT SESSION (20 Minutes)
       const session = {
         mobile: mobileValue,
-        expires: new Date().getTime() + (20 * 60 * 1000)
+        expires: new Date().getTime() + (120 * 60 * 1000)
       }
       localStorage.setItem('parent_session', JSON.stringify(session))
 
@@ -314,15 +330,51 @@ function EnquiryContent() {
     }
     setLoading(true)
     const result = await submitEnquiry({ ...data, status: 'draft' })
-    setLoading(false)
+
     if (result.success) {
+      const enquiryId = result.data?.id
+      if (enquiryId) {
+        // UPLOAD PENDING DOCUMENTS
+        const fileTypes = Object.keys(pendingFiles)
+        if (fileTypes.length > 0) {
+          toast.loading('Uploading documents...', { id: 'upload-draft' })
+          let uploadErrors: string[] = []
+
+          for (const type of fileTypes) {
+            setUploadProgress(prev => ({ ...prev, [type]: true }))
+            try {
+              const uploadResult = await uploadEnquiryDraftDocument(enquiryId, type, pendingFiles[type])
+              if (!uploadResult.success) {
+                uploadErrors.push(`${type}: ${uploadResult.error || 'Upload failed'}`)
+              }
+            } catch (fileErr: any) {
+              uploadErrors.push(`${type}: Upload failed`)
+            }
+            setUploadProgress(prev => ({ ...prev, [type]: false }))
+          }
+
+          if (uploadErrors.length === 0) {
+            toast.success('Documents saved with draft', { id: 'upload-draft' })
+          } else {
+            toast.error(`Some documents failed to save: ${uploadErrors.join(', ')}`, { id: 'upload-draft' })
+          }
+        }
+      }
+
+      setLoading(false)
       // Clear autosave since draft is now saved on server
       localStorage.removeItem(`enquiry_autosave_${mobileValue}`)
       toast.success('Draft saved successfully! You can resume it later using your mobile number.')
       router.push('/parent/login')
     } else {
+      setLoading(false)
       toast.error(result.error || 'Failed to save draft')
     }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('parent_session');
+    router.push('/parent/login');
   }
 
 
@@ -364,16 +416,37 @@ function EnquiryContent() {
       const fileTypes = Object.keys(pendingFiles)
       if (fileTypes.length > 0) {
         toast.loading('Uploading documents...', { id: 'upload' })
+        let uploadErrors: string[] = []
+
         try {
           for (const type of fileTypes) {
             setUploadProgress(prev => ({ ...prev, [type]: true }))
-            await uploadParentDocument(tokenId, type, pendingFiles[type])
+            try {
+              const uploadResult = await uploadParentDocument(tokenId, type, pendingFiles[type])
+              if (!uploadResult.success) {
+                uploadErrors.push(`${type}: ${uploadResult.error || 'Upload failed'}`)
+              }
+            } catch (fileErr: any) {
+              const errorMsg = fileErr.message?.includes('timeout')
+                ? 'Upload timed out'
+                : fileErr.message?.includes('Failed to fetch')
+                  ? 'Network error'
+                  : 'Upload failed'
+              uploadErrors.push(`${type}: ${errorMsg}`)
+            }
             setUploadProgress(prev => ({ ...prev, [type]: false }))
           }
-          toast.success('Documents uploaded successfully', { id: 'upload' })
+
+          if (uploadErrors.length === 0) {
+            toast.success('Documents uploaded successfully', { id: 'upload' })
+          } else if (uploadErrors.length < fileTypes.length) {
+            toast.error(`Some documents failed: ${uploadErrors.join(', ')}. You can upload them later from the Status page.`, { id: 'upload' })
+          } else {
+            toast.error('All documents failed to upload. You can upload them later from the Status page.', { id: 'upload' })
+          }
         } catch (err) {
           console.error('Document upload failed', err)
-          toast.error('Some documents failed to upload. You can upload them later from the Status page.', { id: 'upload' })
+          toast.error('Document upload encountered an error. You can upload them later from the Status page.', { id: 'upload' })
         }
       }
 
@@ -415,14 +488,23 @@ function EnquiryContent() {
             </div>
           </div>
           {otpVerified && (
-            <div className="flex flex-col items-end gap-2">
-              <button
-                onClick={onSaveDraft}
-                className="flex items-center text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Save as Draft
-              </button>
+            <div className="flex flex-col items-end gap-2 text-right">
+              <div className="flex gap-2">
+                <button
+                  onClick={onSaveDraft}
+                  className="flex items-center text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save as Draft
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center text-sm font-medium text-red-500 hover:text-red-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log out
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -546,7 +628,34 @@ function EnquiryContent() {
                 return (
                   <div key={docType} className="space-y-2">
                     <label className="text-sm font-bold text-gray-700">{docType} {doc.required && <span className="text-red-500">*</span>}</label>
-                    {pendingFiles[docType] ? (
+                    {uploadedDocs[docType] ? (
+                      <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl group">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-bold text-green-700 block truncate">{uploadedDocs[docType].fileName}</span>
+                          <span className="text-[10px] text-green-500 uppercase font-black">Saved in Draft</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (resumeId) {
+                              const result = await deleteEnquiryDraftDocument(resumeId, uploadedDocs[docType]._id)
+                              if (result.success) {
+                                const newDocs = { ...uploadedDocs }
+                                delete newDocs[docType]
+                                setUploadedDocs(newDocs)
+                                toast.success('Document removed')
+                              } else {
+                                toast.error('Failed to remove document')
+                              }
+                            }
+                          }}
+                          className="p-1 hover:bg-white rounded-lg transition-colors text-green-400 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : pendingFiles[docType] ? (
                       <div className="flex items-center gap-3 p-3 bg-primary-50 border border-primary-100 rounded-xl group">
                         <FileText className="h-5 w-5 text-primary-600" />
                         <span className="text-xs font-medium text-primary-700 flex-1 truncate">{pendingFiles[docType].name}</span>

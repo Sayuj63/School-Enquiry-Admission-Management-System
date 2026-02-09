@@ -367,9 +367,12 @@ router.post('/generate-saturday-defaults', authenticate, async (req: AuthRequest
 
       let currentMinutes = timeToMinutes(startTimeStr);
       const endMinutes = timeToMinutes(endTimeStr);
-      let slotsForThisDay = 0;
 
-      while (currentMinutes + duration <= endMinutes && slotsForThisDay < maxSlots) {
+      // Fix: Count existing slots for this day to avoid releasing more than maxSlots total
+      const existingCount = await CounsellingSlot.countDocuments({ date: slotDate });
+      let totalSlotsForDay = existingCount;
+
+      while (currentMinutes + duration <= endMinutes && totalSlotsForDay < maxSlots) {
         const slotStartTime = minutesToTime(currentMinutes);
         const slotEndTime = minutesToTime(currentMinutes + duration);
 
@@ -394,14 +397,28 @@ router.post('/generate-saturday-defaults', authenticate, async (req: AuthRequest
             status: 'available'
           });
           createdSlots.push(slot);
-          slotsForThisDay++;
+          totalSlotsForDay++;
         }
 
         currentMinutes += duration + gap;
       }
     }
 
-    res.json({ success: true, count: createdSlots.length, data: createdSlots });
+    if (createdSlots.length === 0) {
+      return res.json({
+        success: true,
+        count: 0,
+        message: 'Saturday slots for this period are already released or no new slots needed.',
+        data: []
+      });
+    }
+
+    res.json({
+      success: true,
+      count: createdSlots.length,
+      message: `Successfully generated ${createdSlots.length} new Saturday slots.`,
+      data: createdSlots
+    });
   } catch (error) {
     console.error('Generate Saturday slots error:', error);
     res.status(500).json({ success: false, error: 'Failed to generate Saturday slots' });
@@ -609,7 +626,8 @@ router.post('/book-parent/:tokenId', async (req: AuthRequest, res: Response) => 
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'Asia/Kolkata'
     });
 
     // Send WhatsApp confirmation
@@ -866,7 +884,8 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'Asia/Kolkata'
     });
 
     // Use a collector for mock notifications in dev mode
@@ -1205,7 +1224,7 @@ router.post('/bookings/:bookingId/no-show', authenticate, async (req: AuthReques
       try {
         const { sendNoShowRescheduleWhatsApp } = require('../services/whatsapp');
         const formattedDate = nextSlot.date.toLocaleDateString('en-IN', {
-          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata'
         });
 
         // Send WhatsApp notification
@@ -1373,7 +1392,7 @@ router.post('/:id/cancel', authenticate, async (req, res: Response) => {
           const admission = await Admission.findById(firstBooking.admissionId);
           if (admission) {
             const formattedDate = nextSlot.date.toLocaleDateString('en-IN', {
-              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata'
             });
 
             // Send WhatsApp notification

@@ -1,5 +1,14 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IEnquiryDocument {
+  _id?: mongoose.Types.ObjectId;
+  type: string;
+  fileName: string;
+  fileId: string;
+  url: string;
+  uploadedAt: Date;
+}
+
 export interface IEnquiry extends Document {
   tokenId?: string;
   parentName: string;
@@ -14,10 +23,19 @@ export interface IEnquiry extends Document {
   slotBookingId?: mongoose.Types.ObjectId;
   message: string;
   additionalFields?: Record<string, any>;
+  documents: IEnquiryDocument[];
   whatsappSent: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const enquiryDocumentSchema = new Schema({
+  type: { type: String, required: true },
+  fileName: { type: String, required: true },
+  fileId: { type: String, required: true },
+  url: { type: String, required: true },
+  uploadedAt: { type: Date, default: Date.now }
+});
 
 const enquirySchema = new Schema<IEnquiry>(
   {
@@ -82,7 +100,8 @@ const enquirySchema = new Schema<IEnquiry>(
     additionalFields: {
       type: Schema.Types.Mixed,
       default: {}
-    }
+    },
+    documents: [enquiryDocumentSchema]
   },
   {
     timestamps: true

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus, Trash2, Save, Loader2, GripVertical, CheckSquare, Square } from 'lucide-react'
 import {
   getEnquiryTemplate,
@@ -45,7 +46,7 @@ const ADMISSION_BASE_FIELDS = [
   { name: 'grade', label: 'Grade/Class' }
 ]
 
-export default function SettingsPage() {
+function SettingsContent() {
   const [activeTab, setActiveTab] = useState<'enquiry' | 'admission' | 'documents' | 'notifications' | 'slots' | 'grades' | 'maintenance'>('enquiry')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -102,6 +103,15 @@ export default function SettingsPage() {
     message: string
     onConfirm: () => void
   }>({ isOpen: false, title: '', message: '', onConfirm: () => { } })
+
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab')
+
+  useEffect(() => {
+    if (tabParam && ['enquiry', 'admission', 'documents', 'notifications', 'slots', 'grades', 'maintenance'].includes(tabParam)) {
+      setActiveTab(tabParam as any)
+    }
+  }, [tabParam])
 
   useEffect(() => {
     fetchData()
@@ -270,6 +280,15 @@ export default function SettingsPage() {
     setError('')
     setSuccess('')
 
+    if (gradeSettings?.cutOffDate) {
+      const cutOffRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+      if (!cutOffRegex.test(gradeSettings.cutOffDate)) {
+        setError('Invalid Cut-off Date format. Please use MM-DD (e.g., 07-31)')
+        setSaving(false)
+        return
+      }
+    }
+
     const result = await updateGradeRules({ rules: gradeRules, settings: gradeSettings })
 
     if (result.success) {
@@ -419,6 +438,8 @@ export default function SettingsPage() {
       </div>
     )
   }
+
+
 
   return (
     <div>
@@ -1195,5 +1216,17 @@ export default function SettingsPage() {
         confirmText="Yes, Delete Everything"
       />
     </div>
+  )
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   )
 }
