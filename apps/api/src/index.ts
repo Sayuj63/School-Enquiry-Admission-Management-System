@@ -31,6 +31,7 @@ import settingsRoutes from './routes/settings';
 import { startReminderJob } from './services/reminder';
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5002;
 
 // 1. CORS Configuration
