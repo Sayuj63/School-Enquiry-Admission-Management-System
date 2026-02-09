@@ -6,6 +6,7 @@ import { GraduationCap, LogOut, Loader2, ArrowRight, PlusCircle, FileText, Chevr
 import Link from 'next/link'
 import { lookupEnquiries } from '@/lib/api'
 
+
 interface EnquirySummary {
     _id: string
     tokenId?: string
@@ -109,7 +110,7 @@ export default function parentApplicationsPage() {
                     <div className="inline-flex items-center justify-center p-3 bg-primary-100 rounded-2xl mb-4">
                         <User className="h-8 w-8 text-primary-600" />
                     </div>
-                    <h1 className="text-4xl font-black text-gray-900 mb-2">My Applications</h1>
+                    <h1 className="text-4xl font-black text-gray-900 mb-2">Application Status</h1>
                     <p className="text-gray-500 font-medium">Manage enquiries for mobile number <span className="text-gray-900 font-bold">+91 {mobile}</span></p>
                 </div>
 
@@ -145,11 +146,11 @@ export default function parentApplicationsPage() {
                                         <div className="flex items-center justify-between md:justify-end gap-6">
                                             <div className="text-right">
                                                 <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${enq.status === 'draft' ? 'bg-amber-100 text-amber-700' :
-                                                    enq.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                                                    enq.status === 'token_number_generated' ? 'bg-blue-100 text-blue-700' :
                                                         enq.status === 'converted' ? 'bg-green-100 text-green-700' :
                                                             'bg-gray-100 text-gray-700'
                                                     }`}>
-                                                    {enq.status.replace('_', ' ')}
+                                                    {enq.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                                 </span>
                                                 <p className="text-[10px] text-gray-400 font-bold mt-1.5 uppercase tracking-tighter">
                                                     {new Date(enq.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}

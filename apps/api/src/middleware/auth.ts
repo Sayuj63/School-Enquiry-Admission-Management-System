@@ -5,6 +5,7 @@ import { AdminUser, IAdminUser } from '../models';
 export interface AuthRequest extends Request {
   user?: IAdminUser;
   userId?: string;
+  parentMobile?: string;
 }
 
 /**
@@ -25,19 +26,30 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
     const token = authHeader.split(' ')[1];
     const secret = process.env.JWT_SECRET || 'default-secret';
 
-    const decoded = jwt.verify(token, secret) as { userId: string };
+    const decoded = jwt.verify(token, secret) as any;
 
-    const user = await AdminUser.findById(decoded.userId);
-    if (!user) {
+    if (decoded.userId) {
+      const user = await AdminUser.findById(decoded.userId);
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          error: 'User not found'
+        });
+        return;
+      }
+
+      req.user = user;
+      req.userId = user._id.toString();
+    } else if (decoded.mobile) {
+      req.parentMobile = decoded.mobile;
+    } else {
       res.status(401).json({
         success: false,
-        error: 'User not found'
+        error: 'Invalid token payload'
       });
       return;
     }
 
-    req.user = user;
-    req.userId = user._id.toString();
     next();
   } catch (error) {
     res.status(401).json({
@@ -50,7 +62,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
 /**
  * Generate JWT token
  */
-export function generateToken(userId: string): string {
+export function generateToken(payload: any, expiresIn: string | number = '7d'): string {
   const secret = process.env.JWT_SECRET || 'default-secret';
-  return jwt.sign({ userId }, secret, { expiresIn: '7d' });
+  return jwt.sign(payload, secret, { expiresIn: expiresIn as any });
 }

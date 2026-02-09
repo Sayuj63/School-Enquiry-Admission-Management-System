@@ -113,16 +113,15 @@ export default function AdmissionDetailPage() {
     fetchData()
   }, [admissionId])
 
-  // Auto-clear alerts after 5 seconds
+  // Auto-clear success alerts after 5 seconds (Keep errors permanent)
   useEffect(() => {
-    if (error || success) {
+    if (success) {
       const timer = setTimeout(() => {
-        setError('')
         setSuccess('')
       }, 5000)
       return () => clearTimeout(timer)
     }
-  }, [error, success])
+  }, [success])
 
   const fetchData = async () => {
     setLoading(true)
@@ -224,16 +223,6 @@ export default function AdmissionDetailPage() {
           }
           if (val && val === admission?.mobile) {
             missingFields.push('Emergency Contact Number cannot be the same as the primary Mobile number')
-          }
-        }
-      })
-
-      // Validate required documents from settings
-      requiredDocs.forEach(rd => {
-        if (rd.required) {
-          const isUploaded = admission?.documents.some(doc => doc.type === rd.name)
-          if (!isUploaded) {
-            missingFields.push(`Required Document: ${rd.name}`)
           }
         }
       })
@@ -610,8 +599,18 @@ export default function AdmissionDetailPage() {
 
       {/* Alerts */}
       {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded p-3">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mb-6 bg-red-50 border border-red-200 rounded p-3 overflow-hidden relative group">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-red-600 font-bold">{error}</p>
+              <p className="text-[10px] text-red-400 mt-1 uppercase tracking-widest font-black">
+                Current Status: <span className="text-red-600">{admission.status.replace('_', ' ')}</span>
+              </p>
+            </div>
+            <button onClick={() => setError('')} className="text-red-400 hover:text-red-600 transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
       {(admission.status === 'approved' || admission.status === 'confirmed') && (
@@ -828,7 +827,7 @@ export default function AdmissionDetailPage() {
             ) : (
               <button
                 onClick={() => setShowSlotModal(true)}
-                disabled={admission.status !== 'submitted' || isPrincipal}
+                disabled={!['submitted', 'draft'].includes(admission.status) || isPrincipal}
                 className="btn-primary w-full justify-center disabled:opacity-50 grad-indigo shadow-lg border-none py-3 font-black uppercase tracking-widest text-xs"
               >
                 <CalendarIcon className="h-4 w-4 mr-2" /> Book Counselling Slot

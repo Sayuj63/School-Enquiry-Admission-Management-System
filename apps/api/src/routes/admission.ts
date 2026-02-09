@@ -56,8 +56,14 @@ router.post('/create/:enquiryId', authenticate, async (req: AuthRequest, res: Re
       studentDob: enquiry.dob,
       status: 'draft',
       documents: [],
+      slotBookingId: enquiry.slotBookingId,
       additionalFields: new Map()
     });
+
+    // Link slot booking to admission if it exists
+    if (enquiry.slotBookingId) {
+      await SlotBooking.findByIdAndUpdate(enquiry.slotBookingId, { admissionId: admission._id });
+    }
 
     // Update enquiry status
     enquiry.status = 'in_progress';

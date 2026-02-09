@@ -73,9 +73,16 @@ router.post('/verify', async (req, res: Response) => {
       });
     }
 
+    // Generate a 2-hour persistent token for Parent
+    const { generateToken } = require('../middleware/auth');
+    // Normalize mobile for token payload
+    const normalizedMobile = mobile.replace(/\D/g, '').length === 10 ? '91' + mobile.replace(/\D/g, '') : mobile.replace(/\D/g, '');
+    const token = generateToken({ mobile: normalizedMobile, type: 'parent' }, '2h');
+
     res.json({
       success: true,
-      message: result.message
+      message: result.message,
+      token
     });
   } catch (error) {
     console.error('Verify OTP error:', error);

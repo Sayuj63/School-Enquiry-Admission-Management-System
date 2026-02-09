@@ -1,4 +1,4 @@
-export type EnquiryStatus = 'new' | 'in_progress' | 'converted';
+export type EnquiryStatus = 'token_number_generated' | 'in_progress' | 'converted';
 
 export interface Enquiry {
   _id: string;

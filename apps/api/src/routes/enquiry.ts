@@ -187,7 +187,7 @@ router.post('/', async (req, res: Response) => {
       grade: req.body.grade,
       dob: req.body.dob,
       message: req.body.message || '',
-      status: isDraft ? 'draft' : 'new'
+      status: isDraft ? 'draft' : 'token_number_generated'
     };
 
     if (!data.mobile) {
@@ -317,7 +317,7 @@ router.post('/', async (req, res: Response) => {
     if (!isDraft && (slot || isWaitlist)) {
       // 1. Generate unique token ID
       enquiry.tokenId = generateTokenId();
-      enquiry.status = 'new';
+      enquiry.status = 'token_number_generated';
 
       let bookingId = null;
       if (slot) {
@@ -633,8 +633,77 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
       additionalFields,
       tokenId,
       mobileVerified: true,
-      status: 'new'
+      status: 'token_number_generated'
     });
+
+    let slot = null;
+    let bookingId = null;
+    let admissionId = null;
+
+    // Handle Slot Booking if slotId provided
+    if (data.slotId) {
+      slot = await CounsellingSlot.findById(data.slotId);
+      if (slot && slot.status === 'available' && slot.bookedCount < slot.capacity) {
+        const booking = await SlotBooking.create({
+          slotId: slot._id,
+          enquiryId: enquiry._id,
+          tokenId: enquiry.tokenId,
+          parentEmail: enquiry.email
+        });
+        bookingId = booking._id;
+        enquiry.slotBookingId = bookingId as any;
+
+        // Update slot count
+        slot.bookedCount += 1;
+        if (slot.bookedCount >= slot.capacity) slot.status = 'full';
+        await slot.save();
+      }
+    }
+
+    // Automatically create Admission record (mirroring public submission)
+    const admission = await Admission.create({
+      enquiryId: enquiry._id,
+      tokenId: enquiry.tokenId,
+      studentName: enquiry.childName,
+      parentName: enquiry.parentName,
+      mobile: enquiry.mobile,
+      email: enquiry.email,
+      city: enquiry.city,
+      grade: enquiry.grade,
+      studentDob: enquiry.dob,
+      status: 'draft',
+      documents: [],
+      slotBookingId: bookingId as any,
+      additionalFields: new Map()
+    });
+    admissionId = admission._id;
+
+    if (bookingId) {
+      await SlotBooking.findByIdAndUpdate(bookingId, { admissionId });
+    }
+
+    await enquiry.save();
+
+    // Log Activity
+    await logActivity({
+      type: 'enquiry',
+      action: 'submitted',
+      description: `Manual enquiry entry for ${enquiry.childName} (Admin)`,
+      refId: enquiry._id,
+      tokenId: enquiry.tokenId,
+      metadata: { grade: enquiry.grade, adminId: (req as any).user?._id }
+    });
+
+    if (bookingId && slot) {
+      await logActivity({
+        type: 'slot',
+        action: 'booked',
+        description: `Counselling slot booked for ${enquiry.childName} (Admin)`,
+        refId: enquiry._id,
+        tokenId: enquiry.tokenId,
+        metadata: { slotTime: slot.startTime, slotDate: slot.date }
+      });
+    }
 
     let mockNotification;
     try {
@@ -645,8 +714,48 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
         parentName: data.parentName
       });
 
-      enquiry.whatsappSent = whatsappResult.success;
-      await enquiry.save();
+      if (whatsappResult.success) {
+        enquiry.whatsappSent = true;
+        await enquiry.save();
+      }
+
+      // If slot booked, send slot confirmation too
+      if (bookingId && slot) {
+        const slotDateFormatted = slot.date.toLocaleDateString('en-IN', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata'
+        });
+
+        await sendSlotConfirmationWhatsApp({
+          to: enquiry.mobile,
+          tokenId: enquiry.tokenId || '',
+          studentName: enquiry.childName,
+          slotDate: slotDateFormatted,
+          slotTime: `${slot.startTime} - ${slot.endTime}`,
+          location: 'School Campus'
+        });
+
+        // Send Calendar Invites
+        await sendParentCalendarInvite({
+          parentEmail: enquiry.email,
+          parentName: enquiry.parentName,
+          studentName: enquiry.childName,
+          tokenId: enquiry.tokenId || '',
+          slotDate: slot.date,
+          slotStartTime: slot.startTime,
+          slotEndTime: slot.endTime,
+          location: 'School Campus'
+        }).catch(err => console.error('Parent calendar invite error:', err));
+
+        await sendPrincipalCalendarInvite({
+          studentName: enquiry.childName,
+          parentName: enquiry.parentName,
+          tokenId: enquiry.tokenId || '',
+          slotDate: slot.date,
+          slotStartTime: slot.startTime,
+          slotEndTime: slot.endTime,
+          location: 'School Campus'
+        }).catch(err => console.error('Principal calendar invite error:', err));
+      }
 
       if ((process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') && whatsappResult.mockMessage) {
         mockNotification = {
@@ -663,6 +772,7 @@ router.post('/admin', authenticate, async (req: AuthRequest, res: Response) => {
       success: true,
       data: {
         ...enquiry.toObject(),
+        admissionId,
         mockNotification
       }
     });

@@ -19,14 +19,14 @@ interface Enquiry {
   city: string
   grade: string
   message: string
-  status: 'new' | 'draft' | 'in_progress' | 'converted' | 'pending_admission'
+  status: 'token_number_generated' | 'draft' | 'in_progress' | 'converted' | 'pending_admission'
   additionalFields?: Record<string, any>
   whatsappSent: boolean
   createdAt: string
 }
 
 const statusColors = {
-  new: 'bg-blue-100 text-blue-800',
+  token_number_generated: 'bg-blue-100 text-blue-800',
   draft: 'bg-orange-100 text-orange-800',
   in_progress: 'bg-orange-100 text-orange-800',
   pending_admission: 'bg-yellow-100 text-yellow-800',
@@ -34,7 +34,7 @@ const statusColors = {
 }
 
 const statusLabels = {
-  new: 'New',
+  token_number_generated: 'token number generated',
   draft: 'Draft (Incomplete)',
   in_progress: 'Draft (Incomplete)',
   pending_admission: 'Pending Admission',

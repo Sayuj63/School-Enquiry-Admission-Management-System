@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react'
 import { getCurrentUser, logout } from '@/lib/api'
+import Breadcrumb from '../components/Breadcrumb'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -173,6 +174,7 @@ export default function AdminLayout({
 
         {/* Page content */}
         <main className="p-4 lg:p-8">
+          <Breadcrumb />
           {children}
         </main>
       </div>

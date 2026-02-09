@@ -19,7 +19,7 @@ export interface IEnquiry extends Document {
   city: string;
   grade: string;
   dob?: Date;
-  status: 'draft' | 'new' | 'in_progress' | 'converted';
+  status: 'draft' | 'token_number_generated' | 'in_progress' | 'converted';
   slotBookingId?: mongoose.Types.ObjectId;
   message: string;
   additionalFields?: Record<string, any>;
@@ -86,8 +86,8 @@ const enquirySchema = new Schema<IEnquiry>(
     },
     status: {
       type: String,
-      enum: ['draft', 'new', 'in_progress', 'converted'],
-      default: 'new'
+      enum: ['draft', 'token_number_generated', 'in_progress', 'converted'],
+      default: 'token_number_generated'
     },
     slotBookingId: {
       type: Schema.Types.ObjectId,

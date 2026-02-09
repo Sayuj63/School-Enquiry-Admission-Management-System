@@ -35,7 +35,9 @@ router.post('/login', async (req, res: Response) => {
       });
     }
 
-    const token = generateToken(user._id.toString());
+    // Admin tokens are long-lived because they are stored in sessionStorage on the frontend
+    // and effectively expire when the tab/browser is closed.
+    const token = generateToken({ userId: user._id.toString() }, '365d');
 
     res.json({
       success: true,

@@ -936,14 +936,14 @@ function SettingsContent() {
               <p className="text-xs text-gray-400 mt-1">Default: 3 parents</p>
             </div>
             <div>
-              <label className="label">Max Saturday Default Slots</label>
+              <label className="label">Maximum Slots Configuration</label>
               <input
                 type="number"
                 className="input"
-                value={slotSettings.maxDefaultSaturdaySlots}
-                onChange={e => setSlotSettings({ ...slotSettings, maxDefaultSaturdaySlots: parseInt(e.target.value) })}
+                value={slotSettings.maxSlotsPerDay}
+                onChange={e => setSlotSettings({ ...slotSettings, maxSlotsPerDay: parseInt(e.target.value) })}
               />
-              <p className="text-xs text-gray-400 mt-1">Maximum slots to release for 2nd & 4th Saturdays</p>
+              <p className="text-xs text-gray-400 mt-1">Maximum slots allowed to be released per day (includes Saturdays)</p>
             </div>
           </div>
 

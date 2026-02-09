@@ -250,6 +250,7 @@ router.post('/generate-bulk', authenticate, async (req: AuthRequest, res: Respon
     const duration = settings?.slotDuration || 30;
     const gap = settings?.gapBetweenSlots || 0;
     const capacity = settings?.parentsPerSlot || 3;
+    const maxSlots = settings?.maxSlotsPerDay || 10;
 
     const createdSlots = [];
 
@@ -282,7 +283,9 @@ router.post('/generate-bulk', authenticate, async (req: AuthRequest, res: Respon
         }
       }
 
-      while (currentMinutes + duration <= endMinutes) {
+      let totalSlotsForDay = await CounsellingSlot.countDocuments({ date: slotDate });
+
+      while (currentMinutes + duration <= endMinutes && totalSlotsForDay < maxSlots) {
         const slotStartTime = minutesToTime(currentMinutes);
         const slotEndTime = minutesToTime(currentMinutes + duration);
 
@@ -307,6 +310,7 @@ router.post('/generate-bulk', authenticate, async (req: AuthRequest, res: Respon
             status: 'available'
           });
           createdSlots.push(slot);
+          totalSlotsForDay++;
         }
 
         currentMinutes += duration + gap;
@@ -327,7 +331,7 @@ router.post('/generate-bulk', authenticate, async (req: AuthRequest, res: Respon
 router.post('/generate-saturday-defaults', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const settings = await SlotSettings.findOne({ key: 'slots' });
-    const maxSlots = settings?.maxDefaultSaturdaySlots || 3;
+    const maxSlots = settings?.maxSlotsPerDay || 3;
     const capacity = settings?.parentsPerSlot || 3;
     const duration = settings?.slotDuration || 30;
     const gap = settings?.gapBetweenSlots || 0;
@@ -813,10 +817,10 @@ router.post('/:id/book', authenticate, async (req: AuthRequest, res: Response) =
     }
 
     // Check if admission is in an allowed status for booking
-    if (!['submitted', 'approved', 'confirmed', 'waitlisted'].includes(admission.status)) {
+    if (!['submitted', 'approved', 'confirmed', 'waitlisted', 'draft'].includes(admission.status)) {
       return res.status(400).json({
         success: false,
-        error: `Counselling slots can only be booked for submitted, approved, confirmed, or waitlisted admission forms. Current status: ${admission.status}`
+        error: `Counselling slots can only be booked for submitted, approved, confirmed, waitlisted, or draft admission forms. Current status: ${admission.status}`
       });
     }
 

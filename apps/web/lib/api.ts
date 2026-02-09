@@ -14,24 +14,29 @@ class ApiClient {
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('auth_token');
+      this.token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
     }
   }
 
-  setToken(token: string | null) {
+  setToken(token: string | null, persistent: boolean = false) {
     this.token = token;
     if (typeof window !== 'undefined') {
       if (token) {
-        localStorage.setItem('auth_token', token);
+        if (persistent) {
+          localStorage.setItem('auth_token', token);
+        } else {
+          sessionStorage.setItem('auth_token', token);
+        }
       } else {
         localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_token');
       }
     }
   }
 
   getToken(): string | null {
     if (typeof window !== 'undefined' && !this.token) {
-      this.token = localStorage.getItem('auth_token');
+      this.token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
     }
     return this.token;
   }

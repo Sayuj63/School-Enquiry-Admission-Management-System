@@ -404,7 +404,7 @@ function EnquiryContent() {
     const result = await submitEnquiry({
       ...data,
       slotId: isWaitlisted ? undefined : selectedSlotId,
-      status: 'new',
+      status: 'token_number_generated',
       waitlist: isWaitlisted
     })
 

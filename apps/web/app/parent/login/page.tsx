@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { GraduationCap, Loader2, CheckCircle, UserCircle, Phone, ArrowRight } from 'lucide-react'
-import { sendOTP, verifyOTP, lookupEnquiries } from '@/lib/api'
+import { sendOTP, verifyOTP, lookupEnquiries, api } from '@/lib/api'
 
 type Step = 'mobile' | 'otp' | 'loading'
 
@@ -75,7 +75,12 @@ export default function ParentLoginPage() {
         const verifyResult = await verifyOTP(mobile, otp)
 
         if (verifyResult.success) {
-            // CREATE PERSISTENT SESSION (20 Minutes)
+            // Set the JWT token for Parent (persistent for 2 hours)
+            if ((verifyResult as any).token) {
+                api.setToken((verifyResult as any).token, true);
+            }
+
+            // CREATE PERSISTENT SESSION (2 Hours)
             const session = {
                 mobile: mobile,
                 expires: new Date().getTime() + (120 * 60 * 1000)

@@ -386,10 +386,10 @@ export default function DashboardPage() {
                       <p className="text-xs text-gray-600 mt-0.5">{activity.description}</p>
                       {activity.status && (
                         <div className="mt-2 flex items-center gap-2">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${activity.status === 'new' || activity.status === 'submitted' ? 'bg-green-100 text-green-700' :
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${activity.status === 'token_number_generated' || activity.status === 'submitted' ? 'bg-green-100 text-green-700' :
                             'bg-yellow-100 text-yellow-700'
                             }`}>
-                            {activity.status}
+                            {activity.status === 'token_number_generated' ? 'token number generated' : activity.status}
                           </span>
                         </div>
                       )}

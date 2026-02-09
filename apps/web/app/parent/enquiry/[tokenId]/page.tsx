@@ -281,11 +281,11 @@ export default function ParentEnquiryDetail() {
                                     {admission.status === 'approved' || admission.status === 'confirmed' ? 'ADMISSION CONFIRMED' : admission.status.replace('_', ' ')}
                                 </span>
                             ) : (
-                                <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase ${enquiry.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                                <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase ${enquiry.status === 'token_number_generated' ? 'bg-blue-100 text-blue-700' :
                                     enquiry.status === 'converted' ? 'bg-green-100 text-green-700' :
                                         'bg-amber-100 text-amber-700'
                                     }`}>
-                                    {enquiry.status.replace('_', ' ')}
+                                    {enquiry.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                 </span>
                             )}
                             <p className="text-xs text-gray-400 mt-2">Submitted on {new Date(enquiry.createdAt).toLocaleDateString()}</p>

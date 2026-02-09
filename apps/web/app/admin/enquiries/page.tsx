@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense, useMemo } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Search, Filter, ChevronLeft, ChevronRight, Eye, Plus, X, Loader2, CheckCircle, User, Calendar, Info } from 'lucide-react'
 import { getEnquiries, getEnquiryTemplate, adminSubmitEnquiry, sendOTP, verifyOTP, getAvailableSlots, getGradeRules } from '@/lib/api'
 import { format, startOfDay, startOfWeek, startOfMonth } from 'date-fns'
@@ -15,7 +15,7 @@ interface Enquiry {
   mobile: string
   email: string
   grade: string
-  status: 'new' | 'draft' | 'pending_admission' | 'converted'
+  status: 'token_number_generated' | 'draft' | 'pending_admission' | 'converted'
   createdAt: string
   slotBooked?: boolean
   bookedCount?: number
@@ -23,20 +23,21 @@ interface Enquiry {
 }
 
 const statusColors: any = {
-  new: 'bg-blue-100 text-blue-800',
+  token_number_generated: 'bg-blue-100 text-blue-800',
   draft: 'bg-orange-100 text-orange-800',
   pending_admission: 'bg-yellow-100 text-yellow-800',
   converted: 'bg-green-100 text-green-800'
 }
 
 const statusLabels = {
-  new: 'New',
+  token_number_generated: 'token number generated',
   draft: 'Draft (Incomplete)',
   pending_admission: 'Pending Admission',
   converted: 'Admission Approved'
 }
 
 function EnquiriesContent() {
+  const router = useRouter()
   const [enquiries, setEnquiries] = useState<Enquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -281,7 +282,11 @@ function EnquiriesContent() {
       setModalSuccess('Enquiry created successfully!')
       setTimeout(() => {
         setShowAddModal(false)
-        fetchEnquiries()
+        if (result.data?.admissionId) {
+          router.push(`/admin/admissions/${result.data.admissionId}`)
+        } else {
+          fetchEnquiries()
+        }
       }, 1500)
     } else {
       setModalError(result.error || 'Failed to create enquiry')
@@ -370,7 +375,7 @@ function EnquiriesContent() {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">All Status</option>
-              <option value="new">New</option>
+              <option value="token_number_generated">token number generated</option>
               <option value="draft">Incomplete (Draft)</option>
               <option value="pending_admission">Pending Admission</option>
               <option value="converted">Completed</option>
@@ -434,9 +439,9 @@ function EnquiriesContent() {
                       {enquiry.grade}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {enquiry.status === 'new' ? (
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.new}`}>
-                          {statusLabels.new}
+                      {enquiry.status === 'token_number_generated' ? (
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.token_number_generated}`}>
+                          {statusLabels.token_number_generated}
                         </span>
                       ) : enquiry.status === 'draft' ? (
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors.draft}`}>

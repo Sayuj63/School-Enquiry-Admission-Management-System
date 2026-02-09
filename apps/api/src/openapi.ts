@@ -284,7 +284,7 @@ The POST /api/enquiry endpoint is designed for external frontend integration and
         parameters: [
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['new', 'in_progress', 'converted'] } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['token_number_generated', 'in_progress', 'converted'] } },
           { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by token ID, name, or mobile' },
           { name: 'grade', in: 'query', schema: { type: 'string' } }
         ],
@@ -730,7 +730,7 @@ The POST /api/enquiry endpoint is designed for external frontend integration and
           city: { type: 'string' },
           grade: { type: 'string' },
           message: { type: 'string' },
-          status: { type: 'string', enum: ['new', 'in_progress', 'converted'] },
+          status: { type: 'string', enum: ['token_number_generated', 'in_progress', 'converted'] },
           whatsappSent: { type: 'boolean' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' }
