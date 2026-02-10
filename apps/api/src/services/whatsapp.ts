@@ -110,12 +110,32 @@ ${schoolName} Admissions Team
         console.warn('Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in environment variables to enable WhatsApp.');
       } else {
         const client = twilio(accountSid, authToken);
-        await client.messages.create({
-          body: message,
-          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: normalizeWhatsAppNumber(data.to)
-        });
-        console.log(`[PROD] WhatsApp message sent successfully to ${data.to}`);
+        const contentSid = process.env.TWILIO_ENQUIRY_SID;
+
+        if (contentSid) {
+          await client.messages.create({
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+              "1": schoolName,
+              "2": data.parentName,
+              "3": data.studentName,
+              "4": data.tokenId,
+              "5": documentsList,
+              "6": "https://brochure-magnum-solutions.tiiny.site",
+              "7": schoolPhone,
+              "8": schoolEmail
+            }),
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        } else {
+          await client.messages.create({
+            body: message,
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        }
+        console.log(`[PROD] WhatsApp enquiry message sent successfully to ${data.to}`);
       }
     } catch (error) {
       console.error('Error sending WhatsApp via Twilio:', error);
@@ -191,11 +211,29 @@ ${schoolName} Admissions Team
         console.warn('⚠️  Twilio credentials missing or invalid (SID must start with AC). WhatsApp will not be sent.');
       } else {
         const client = twilio(accountSid, authToken);
-        await client.messages.create({
-          body: message,
-          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: normalizeWhatsAppNumber(data.to)
-        });
+        const contentSid = process.env.TWILIO_SLOT_CONFIRMATION_SID;
+
+        if (contentSid) {
+          await client.messages.create({
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+              "1": schoolName,
+              "2": data.tokenId,
+              "3": data.studentName,
+              "4": data.slotDate,
+              "5": data.slotTime,
+              "6": data.location
+            }),
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        } else {
+          await client.messages.create({
+            body: message,
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        }
         console.log(`[PROD] Slot confirmation WhatsApp sent successfully to ${data.to}`);
       }
     } catch (error) {
@@ -344,11 +382,29 @@ ${schoolName} Admissions Team
         console.warn('⚠️  Twilio credentials missing or invalid for No-Show reminder.');
       } else {
         const client = twilio(accountSid, authToken);
-        await client.messages.create({
-          body: message,
-          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: normalizeWhatsAppNumber(data.to)
-        });
+        const contentSid = process.env.TWILIO_NOSHOW_RESCHEDULE_SID;
+
+        if (contentSid) {
+          await client.messages.create({
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+              "1": schoolName,
+              "2": data.studentName,
+              "3": data.tokenId,
+              "4": data.slotDate,
+              "5": data.slotTime
+            }),
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        } else {
+          await client.messages.create({
+            body: message,
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        }
+        console.log(`[PROD] No-show reschedule WhatsApp sent successfully to ${data.to}`);
       }
     } catch (error) {
       console.error('Error sending No-Show WhatsApp:', error);
@@ -437,11 +493,37 @@ ${schoolName} Admissions Team
         console.warn('⚠️  Twilio credentials missing or invalid for Status update.');
       } else {
         const client = twilio(accountSid, authToken);
-        await client.messages.create({
-          body: message,
-          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: normalizeWhatsAppNumber(data.to)
-        });
+        const contentSid = process.env.TWILIO_STATUS_UPDATE_SID;
+
+        if (contentSid) {
+          // Map internal status to template display text
+          let templateStatus = '';
+          switch (data.status) {
+            case 'confirmed':
+            case 'approved': templateStatus = 'ADMISSION CONFIRMED'; break;
+            case 'waitlisted': templateStatus = 'WAITLISTED'; break;
+            case 'rejected': templateStatus = 'REJECTED'; break;
+          }
+
+          await client.messages.create({
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+              "1": schoolName,
+              "2": data.studentName,
+              "3": data.tokenId,
+              "4": templateStatus
+            }),
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        } else {
+          await client.messages.create({
+            body: message,
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        }
+        console.log(`[PROD] Status update WhatsApp sent successfully to ${data.to}`);
       }
     } catch (error) {
       console.error('Error sending Status WhatsApp:', error);
@@ -559,11 +641,30 @@ ${schoolName} Admissions Team
         console.warn('⚠️  Twilio credentials missing or invalid for Reschedule notification.');
       } else {
         const client = twilio(accountSid, authToken);
-        await client.messages.create({
-          body: message,
-          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: normalizeWhatsAppNumber(data.to)
-        });
+        const contentSid = process.env.TWILIO_MANUAL_RESCHEDULE_SID;
+
+        if (contentSid) {
+          await client.messages.create({
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+              "1": schoolName,
+              "2": data.studentName,
+              "3": data.tokenId,
+              "4": data.slotDate,
+              "5": data.slotTime,
+              "6": data.reason || 'Administrative adjustment'
+            }),
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        } else {
+          await client.messages.create({
+            body: message,
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        }
+        console.log(`[PROD] Manual reschedule WhatsApp sent successfully to ${data.to}`);
       }
     } catch (error) {
       console.error('Error sending Reschedule WhatsApp:', error);

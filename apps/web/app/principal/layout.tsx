@@ -33,7 +33,7 @@ export default function PrincipalLayout({
     const [sidebarOpen, setSidebarOpen] = useState(false)
 
     // Skip auth check for login page
-    const isLoginPage = pathname === '/principal/login'
+    const isLoginPage = pathname === '/'
 
     useEffect(() => {
         if (isLoginPage) {
@@ -50,7 +50,7 @@ export default function PrincipalLayout({
                     router.push('/admin/dashboard')
                 }
             } else {
-                router.push('/admin/login')
+                router.push('/')
             }
             setLoading(false)
         }
@@ -60,7 +60,7 @@ export default function PrincipalLayout({
 
     const handleLogout = () => {
         logout()
-        router.push('/admin/login')
+        router.push('/')
     }
 
     // Show only children for login page

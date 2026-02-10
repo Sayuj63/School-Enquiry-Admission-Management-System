@@ -14,7 +14,7 @@ class ApiClient {
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     if (typeof window !== 'undefined') {
-      this.token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+      this.token = sessionStorage.getItem('auth_token');
     }
   }
 
@@ -36,7 +36,7 @@ class ApiClient {
 
   getToken(): string | null {
     if (typeof window !== 'undefined' && !this.token) {
-      this.token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+      this.token = sessionStorage.getItem('auth_token');
     }
     return this.token;
   }
@@ -62,7 +62,7 @@ class ApiClient {
     } else {
       // Try one more time if running in browser
       if (typeof window !== 'undefined') {
-        const freshToken = localStorage.getItem('auth_token');
+        const freshToken = sessionStorage.getItem('auth_token');
         if (freshToken) {
           this.token = freshToken;
           (headers as Record<string, string>)['Authorization'] = `Bearer ${freshToken}`;

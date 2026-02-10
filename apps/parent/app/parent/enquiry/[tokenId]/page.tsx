@@ -45,6 +45,28 @@ export default function ParentEnquiryDetail() {
         onConfirm: () => void
     }>({ isOpen: false, title: '', message: '', variant: 'warning', onConfirm: () => { } })
 
+    // Check for existing session
+    useEffect(() => {
+        const sessionStr = localStorage.getItem('parent_session')
+        if (!sessionStr) {
+            router.push('/')
+            return
+        }
+
+        try {
+            const session = JSON.parse(sessionStr)
+            const now = new Date().getTime()
+            if (!session.mobile || !session.expires || now > session.expires) {
+                localStorage.removeItem('parent_session')
+                router.push('/')
+                return
+            }
+        } catch (e) {
+            localStorage.removeItem('parent_session')
+            router.push('/')
+        }
+    }, [router])
+
     // Auto-clear alerts after 5 seconds
     useEffect(() => {
         if (error) {
@@ -70,7 +92,7 @@ export default function ParentEnquiryDetail() {
             } else {
                 setError(result.error || 'Failed to fetch details')
                 if (result.error === 'Unauthorized access to this enquiry') {
-                    router.push('/parent/login')
+                    router.push('/')
                 }
             }
         } catch (err) {
@@ -191,7 +213,7 @@ export default function ParentEnquiryDetail() {
 
     const handleLogout = () => {
         localStorage.removeItem('parent_session');
-        router.push('/parent/login');
+        router.push('/');
     }
 
     const fetchAvailableSlots = async () => {
@@ -229,7 +251,7 @@ export default function ParentEnquiryDetail() {
                 <div className="bg-red-50 text-red-700 p-6 rounded-lg border border-red-100 max-w-md w-full text-center">
                     <h2 className="text-xl font-bold mb-2">Error</h2>
                     <p className="mb-6">{error}</p>
-                    <Link href="/parent/login" className="btn-primary inline-flex items-center">
+                    <Link href="/" className="btn-primary inline-flex items-center">
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back to Login
                     </Link>

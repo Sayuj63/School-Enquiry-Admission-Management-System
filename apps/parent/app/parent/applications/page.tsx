@@ -26,7 +26,7 @@ export default function parentApplicationsPage() {
     useEffect(() => {
         const sessionStr = localStorage.getItem('parent_session')
         if (!sessionStr) {
-            router.push('/parent/login')
+            router.push('/')
             return
         }
 
@@ -35,7 +35,7 @@ export default function parentApplicationsPage() {
             const now = new Date().getTime()
             if (!session.mobile || !session.expires || now > session.expires) {
                 localStorage.removeItem('parent_session')
-                router.push('/parent/login')
+                router.push('/')
                 return
             }
 
@@ -43,7 +43,7 @@ export default function parentApplicationsPage() {
             fetchEnquiries(session.mobile)
         } catch (e) {
             localStorage.removeItem('parent_session')
-            router.push('/parent/login')
+            router.push('/')
         }
     }, [router])
 
@@ -61,7 +61,7 @@ export default function parentApplicationsPage() {
             // If it's an authentication/verification error, just go back to login instead of showing an "error"
             if (result.error === 'Mobile number not verified' || result.error === 'Unauthorized') {
                 localStorage.removeItem('parent_session')
-                router.replace('/parent/login')
+                router.replace('/')
                 return
             }
             setError('Failed to load your applications.')
@@ -72,7 +72,7 @@ export default function parentApplicationsPage() {
     const handleLogout = () => {
         localStorage.removeItem('parent_session')
         localStorage.removeItem('parent_mobile_verified')
-        router.push('/parent/login')
+        router.push('/')
     }
 
     const startNewEnquiry = () => {

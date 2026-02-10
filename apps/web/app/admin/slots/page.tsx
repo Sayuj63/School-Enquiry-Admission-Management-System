@@ -57,9 +57,10 @@ function SlotsContent() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
 
   // Dashboard redirection support
-  const initialStatusFilter = dateParam === 'today' ? 'all' : 'active'
+  const initialStatusFilter = dateParam === 'today' || dateParam ? 'all' : 'active'
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'completed'>(initialStatusFilter as any)
-  const [dateFilter, setDateFilter] = useState(dateParam || '')
+  const [dateFilter, setDateFilter] = useState(dateParam === 'today' ? format(new Date(), 'yyyy-MM-dd') : (dateParam || ''))
+  const [timeFilter, setTimeFilter] = useState('')
 
   const [newSlot, setNewSlot] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -366,10 +367,14 @@ function SlotsContent() {
 
     const dateKey = slot.date.split('T')[0]
 
-    // Date filter: if dateFilter=today, only show today's keys
-    if (dateFilter === 'today') {
-      const today = format(new Date(), 'yyyy-MM-dd')
-      if (dateKey !== today) return acc
+    // Date filter
+    if (dateFilter && dateFilter !== 'all') {
+      if (dateKey !== dateFilter) return acc
+    }
+
+    // Time filter
+    if (timeFilter && !slot.startTime.includes(timeFilter)) {
+      return acc
     }
 
     if (!acc[dateKey]) acc[dateKey] = []
@@ -385,18 +390,10 @@ function SlotsContent() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Counselling Slots</h2>
           <p className="text-gray-600">
-            {dateFilter === 'today' ? "Today's scheduled sessions" : "Manage available slots for counselling sessions"}
+            {dateFilter === format(new Date(), 'yyyy-MM-dd') ? "Today's scheduled sessions" : "Manage available slots for counselling sessions"}
           </p>
         </div>
         <div className="flex gap-2">
-          {dateFilter === 'today' && (
-            <button
-              onClick={() => { setDateFilter(''); setStatusFilter('active'); }}
-              className="btn-secondary text-xs uppercase font-black tracking-widest bg-gray-100 border-gray-200"
-            >
-              <X className="h-3 w-3 mr-1" /> Clear Date Filter
-            </button>
-          )}
           {!isPrincipal && (
             <>
               <button onClick={() => setShowBulkModal(true)} className="btn-secondary bg-primary-50 border-primary-100 text-primary-700 hover:bg-primary-100">
@@ -416,19 +413,54 @@ function SlotsContent() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="bg-gray-100 p-1 rounded-lg inline-flex">
-          {['all', 'active', 'disabled', 'completed'].map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f as any)}
-              className={`px-4 py-2 rounded-md text-sm font-medium capitalize ${statusFilter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-            >
-              {f}
-            </button>
-          ))}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="bg-gray-100 p-1 rounded-lg inline-flex">
+            {['all', 'active', 'disabled', 'completed'].map((f) => (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f as any)}
+                className={`px-4 py-2 rounded-md text-sm font-medium capitalize ${statusFilter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <input
+                type="date"
+                className="input pl-10 py-2 text-sm w-44 h-10"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              />
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Filter by time..."
+                className="input pl-10 py-2 text-sm w-44 h-10"
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+              />
+            </div>
+
+            {(dateFilter || timeFilter) && (
+              <button
+                onClick={() => { setDateFilter(''); setTimeFilter(''); setStatusFilter('active'); }}
+                className="text-gray-400 hover:text-gray-600 text-xs font-bold uppercase tracking-wider ml-2"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
-        <div className="bg-gray-100 p-1 rounded-lg inline-flex">
+
+        <div className="bg-gray-100 p-1 rounded-lg inline-flex h-fit self-end lg:self-center">
           <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${view === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
             <List className="h-4 w-4 mr-2" /> List
           </button>

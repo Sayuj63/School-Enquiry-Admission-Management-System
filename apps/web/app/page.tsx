@@ -1,71 +1,142 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
 import Link from 'next/link'
-import { GraduationCap, ClipboardList, UserCircle, Shield } from 'lucide-react'
+import { GraduationCap, Loader2, ArrowLeft } from 'lucide-react'
+import { login } from '@/lib/api'
+
+interface LoginFormData {
+  email: string
+  password: string
+}
 
 export default function Home() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm<LoginFormData>()
+
+  const onSubmit = async (data: LoginFormData) => {
+    setLoading(true)
+    setError('')
+
+    const result = await login(data.email, data.password)
+
+    setLoading(false)
+
+    if (result.success) {
+      // Store user data for role-based UI
+      if (result.data?.user) {
+        sessionStorage.setItem('user_data', JSON.stringify(result.data.user))
+      }
+
+      // Redirect based on user role
+      const userRole = result.data?.user?.username?.toLowerCase()
+      if (userRole === 'principal') {
+        router.push('/principal/dashboard')
+      } else {
+        router.push('/admin/dashboard')
+      }
+    } else {
+      setError(result.error || 'Login failed')
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-4">
-            <GraduationCap className="h-16 w-16 text-primary-600" />
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full">
+        <div className="card">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <GraduationCap className="h-12 w-12 text-primary-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Staff Portal
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Sign in as Admin or Principal to continue
+            </p>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            New Era High School
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Welcome to our School Admission Portal. Start your child&apos;s journey with us today.
-          </p>
-        </div>
 
-        {/* Portal Options */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Parent Portal */}
-          <Link href="/parent/login" className="block">
-            <div className="card h-full hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer p-8 group border-2 border-primary-200 hover:border-primary-500">
-              <div className="flex items-center mb-6">
-                <div className="p-4 bg-primary-100 rounded-2xl group-hover:bg-primary-600 group-hover:text-white transition-all">
-                  <ClipboardList className="h-8 w-8 text-primary-600 group-hover:text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 ml-4">
-                  Parent Portal
-                </h2>
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded p-3">
+                <p className="text-sm text-red-600">{error}</p>
               </div>
-              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                Start a new enquiry for your child or view your existing applications. Fast and secure OTP-based access.
-              </p>
-              <div className="flex items-center text-primary-600 font-bold text-lg mt-auto">
-                Enquire Now
-                <span className="ml-2 group-hover:translate-x-2 transition-transform">&rarr;</span>
-              </div>
+            )}
+
+            <div>
+              <label htmlFor="email" className="label">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                className={`input ${errors.email ? 'input-error' : ''}`}
+                placeholder="admin@school.com"
+                {...register('email', {
+                  required: 'Email is required',
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: 'Invalid email address'
+                  }
+                })}
+              />
+              {errors.email && (
+                <p className="error-text">{errors.email.message}</p>
+              )}
             </div>
-          </Link>
 
-          {/* Staff Portal */}
-          <Link href="/admin/login" className="block">
-            <div className="card h-full hover:shadow-xl hover:scale-[1.02] transition-all cursor-pointer p-8 group border-2 border-gray-100 hover:border-primary-500">
-              <div className="flex items-center mb-6">
-                <div className="p-4 bg-gray-100 rounded-2xl group-hover:bg-primary-600 group-hover:text-white transition-all">
-                  <UserCircle className="h-8 w-8 text-gray-600 group-hover:text-white" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 ml-4">
-                  Staff Portal
-                </h2>
-              </div>
-              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                Authorized access for administration staff. Manage enquiries, schedule counselling, and process admissions.
-              </p>
-              <div className="flex items-center text-gray-400 group-hover:text-primary-600 font-bold text-lg mt-auto">
-                Admin Login
-                <span className="ml-2 group-hover:translate-x-2 transition-transform">&rarr;</span>
-              </div>
+            <div>
+              <label htmlFor="password" className="label">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                className={`input ${errors.password ? 'input-error' : ''}`}
+                placeholder="Enter your password"
+                {...register('password', {
+                  required: 'Password is required'
+                })}
+              />
+              {errors.password && (
+                <p className="error-text">{errors.password.message}</p>
+              )}
             </div>
-          </Link>
-        </div>
 
-        {/* Footer */}
-        <div className="text-center mt-12 text-gray-500 text-sm">
-          <p>Contact us: admissions@nes.edu.in | +91 98765 43210</p>
+            <button
+              type="submit"
+              className="btn-primary w-full py-3"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Signing in...
+                </span>
+              ) : (
+                'Sign In'
+              )}
+            </button>
+          </form>
+
+          {/* Dev Mode Hint */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="text-xs text-gray-500 text-center space-y-1">
+              <p>Admin: admin@school.com / admin123</p>
+              <p>Principal: principal@school.com / principal123</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -31,3 +31,6 @@ uploads/
 
 # Testing
 coverage/
+
+# WhatsApp Templates
+WHATSAPP_TEMPLATES.md

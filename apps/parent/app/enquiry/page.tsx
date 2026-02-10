@@ -197,7 +197,7 @@ function EnquiryContent() {
             setOtpVerified(true)
           }
         } else {
-          // CHECK PERSISTENT SESSION (Requirement: stay logged in for 20 mins)
+          // CHECK PERSISTENT SESSION (Requirement: stay logged in for 2 hours)
           const sessionStr = localStorage.getItem('parent_session')
           if (sessionStr) {
             try {
@@ -365,7 +365,7 @@ function EnquiryContent() {
       // Clear autosave since draft is now saved on server
       localStorage.removeItem(`enquiry_autosave_${mobileValue}`)
       toast.success('Draft saved successfully! You can resume it later using your mobile number.')
-      router.push('/parent/login')
+      router.push('/')
     } else {
       setLoading(false)
       toast.error(result.error || 'Failed to save draft')
@@ -374,7 +374,7 @@ function EnquiryContent() {
 
   const handleLogout = () => {
     localStorage.removeItem('parent_session');
-    router.push('/parent/login');
+    router.push('/');
   }
 
 
@@ -746,11 +746,45 @@ function EnquiryContent() {
               )}
 
               {slotChangedWarning && (
-                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-                  <Info className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-amber-800 font-bold">Important Note</p>
-                    <p className="text-xs text-amber-700">You already have a slot booked for another application. By choosing a different slot, you would have to visit the school twice.</p>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                  <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+                    <button
+                      onClick={() => {
+                        setSlotChangedWarning(false)
+                        if (existingBooking) setSelectedSlotId(existingBooking.slotId._id)
+                      }}
+                      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                    <div className="flex items-start gap-4">
+                      <div className="bg-amber-100 p-3 rounded-xl flex-shrink-0">
+                        <Info className="h-6 w-6 text-amber-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">Important Note</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          You already have a slot booked for another application. By choosing a different slot, you would have to visit the school twice.
+                        </p>
+                        <div className="flex gap-3 mt-6">
+                          <button
+                            onClick={() => {
+                              setSlotChangedWarning(false)
+                              if (existingBooking) setSelectedSlotId(existingBooking.slotId._id)
+                            }}
+                            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => setSlotChangedWarning(false)}
+                            className="flex-1 bg-primary-600 text-white py-3 rounded-xl font-bold hover:bg-primary-700 transition-colors"
+                          >
+                            I Understand
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

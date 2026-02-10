@@ -37,7 +37,7 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Skip auth check for login page
-  const isLoginPage = pathname === '/admin/login'
+  const isLoginPage = pathname === '/'
 
   useEffect(() => {
     if (isLoginPage) {
@@ -50,7 +50,7 @@ export default function AdminLayout({
       if (result.success && result.data) {
         setUser(result.data)
       } else {
-        router.push('/admin/login')
+        router.push('/')
       }
       setLoading(false)
     }
@@ -60,7 +60,7 @@ export default function AdminLayout({
 
   const handleLogout = () => {
     logout()
-    router.push('/admin/login')
+    router.push('/')
   }
 
   // Show only children for login page
