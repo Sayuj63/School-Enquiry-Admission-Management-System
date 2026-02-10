@@ -310,7 +310,17 @@ ${schoolName} Admissions Team
         const client = twilio(accountSid, authToken);
         const contentSid = process.env.TWILIO_REMINDER_SID;
         const reminderPoint = data.reminderDay === 1 ? 'tomorrow' : `in ${data.reminderDay} days`;
-        const docsNote = 'Please ensure you have uploaded all required documents in the parent portal before your visit.';
+
+        // Dynamic notes based on the reminder day
+        const reminderNotes: Record<number, string> = {
+          1: "We look forward to meeting you tomorrow! Please ensure all documents are uploaded to the portal to avoid delays.",
+          2: "Your session is just 2 days away. Have you uploaded all the required documents yet?",
+          3: "This is a reminder for your session in 3 days. We look forward to seeing you at the school.",
+          4: "Friendly reminder: Your counselling session is scheduled for 4 days from now.",
+          5: "Early reminder: You have a counselling session booked in 5 days. See you soon!"
+        };
+
+        const docsNote = reminderNotes[data.reminderDay] || 'Please ensure you have uploaded all required documents in the parent portal before your visit.';
 
         if (contentSid) {
           await client.messages.create({
@@ -328,8 +338,26 @@ ${schoolName} Admissions Team
             to: normalizeWhatsAppNumber(data.to)
           });
         } else {
+          // Re-construct message with dynamic note for non-template fallback
+          const fallbackMessage = `
+🔔 *Reminder: Counselling Session at ${schoolName}*
+
+Dear Parent,
+
+This is a reminder for ${data.studentName}'s counselling session scheduled for ${reminderPoint}.
+
+📋 *Token ID:* ${data.tokenId}
+📅 *Date:* ${data.slotDate}
+⏰ *Time:* ${data.slotTime}
+
+${docsNote}
+
+Best regards,
+${schoolName} Admissions Team
+`.trim();
+
           await client.messages.create({
-            body: message,
+            body: fallbackMessage,
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
