@@ -37,7 +37,12 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5002;
 // 1. CORS Configuration
 const rawOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(',')
-  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  : [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3001'
+  ];
 
 // Normalize origins: remove trailing slashes to match browser expectations
 const allowedOrigins = rawOrigins.map(url => url.replace(/\/$/, ''));

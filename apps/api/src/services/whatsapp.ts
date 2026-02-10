@@ -54,22 +54,22 @@ export async function sendEnquiryWhatsApp(data: WhatsAppMessage): Promise<SendWh
   const documentsList = await getDocumentsList();
 
   const message = `
-🎓 *Thank you for your interest in ${schoolName}!*
+*Enquiry Received - ${schoolName}*
 
 Dear ${data.parentName},
 
-We have received your enquiry for ${data.studentName}'s admission.
+We have received your enquiry for the admission of ${data.studentName}.
 
-📋 *Your Enquiry Token ID:* ${data.tokenId}
+*Enquiry Token ID:* ${data.tokenId}
 (Please keep this for future reference)
 
-📄 *Documents Required for School Visit:*
+*Documents Required for School Visit:*
 ${documentsList}
 
-📥 *School Brochure:*
+*School Brochure:*
 [Brochure PDF would be attached here]
 
-📞 *Contact Us:*
+*Contact Us:*
 Phone: ${schoolPhone}
 Email: ${schoolEmail}
 
@@ -115,7 +115,7 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: JSON.stringify({
+            contentVariables: {
               "1": schoolName,
               "2": data.parentName,
               "3": data.studentName,
@@ -124,7 +124,7 @@ ${schoolName} Admissions Team
               "6": "https://brochure-magnum-solutions.tiiny.site",
               "7": schoolPhone,
               "8": schoolEmail
-            }),
+            },
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -208,7 +208,7 @@ ${schoolName} Admissions Team
       const whatsappFrom = process.env.WHATSAPP_NUMBER || 'whatsapp:+14155238886';
 
       if (!accountSid || !authToken || !accountSid.startsWith('AC')) {
-        console.warn('⚠️  Twilio credentials missing or invalid (SID must start with AC). WhatsApp will not be sent.');
+        console.warn('⚠️  Twilio credentials missing or invalid for Slot confirmation.');
       } else {
         const client = twilio(accountSid, authToken);
         const contentSid = process.env.TWILIO_SLOT_CONFIRMATION_SID;
@@ -216,14 +216,14 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: JSON.stringify({
+            contentVariables: {
               "1": schoolName,
               "2": data.tokenId,
               "3": data.studentName,
               "4": data.slotDate,
               "5": data.slotTime,
               "6": data.location
-            }),
+            },
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -261,19 +261,19 @@ export async function sendSlotReminderWhatsApp(data: {
   const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
-🔔 *Reminder: Counselling Session at ${schoolName}*
+*Counselling Session Reminder - ${schoolName}*
 
 Dear Parent,
 
-This is a reminder for ${data.studentName}'s counselling session scheduled for ${data.reminderDay === 1 ? 'tomorrow' : `in ${data.reminderDay} days`}.
+This is a reminder regarding the counselling session for ${data.studentName} scheduled for ${data.reminderDay === 1 ? 'tomorrow' : `in ${data.reminderDay} days`}.
 
-📋 *Token ID:* ${data.tokenId}
-📅 *Date:* ${data.slotDate}
-⏰ *Time:* ${data.slotTime}
+*Token ID:* ${data.tokenId}
+*Date:* ${data.slotDate}
+*Time:* ${data.slotTime}
 
 Please ensure you have uploaded all required documents in the parent portal before your visit.
 
-We look forward to meeting you!
+We look forward to meeting you.
 
 Best regards,
 ${schoolName} Admissions Team
@@ -325,7 +325,7 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: JSON.stringify({
+            contentVariables: {
               "1": schoolName,
               "2": data.studentName,
               "3": reminderPoint,
@@ -333,22 +333,22 @@ ${schoolName} Admissions Team
               "5": data.slotDate,
               "6": data.slotTime,
               "7": docsNote
-            }),
+            },
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
         } else {
           // Re-construct message with dynamic note for non-template fallback
           const fallbackMessage = `
-🔔 *Reminder: Counselling Session at ${schoolName}*
+*Counselling Session Reminder - ${schoolName}*
 
 Dear Parent,
 
-This is a reminder for ${data.studentName}'s counselling session scheduled for ${reminderPoint}.
+This is a reminder regarding the counselling session for ${data.studentName} scheduled for ${reminderPoint}.
 
-📋 *Token ID:* ${data.tokenId}
-📅 *Date:* ${data.slotDate}
-⏰ *Time:* ${data.slotTime}
+*Token ID:* ${data.tokenId}
+*Date:* ${data.slotDate}
+*Time:* ${data.slotTime}
 
 ${docsNote}
 
@@ -387,17 +387,17 @@ export async function sendNoShowRescheduleWhatsApp(data: {
   const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
-⚠️ *Update: No-Show & Auto-Reschedule - ${schoolName}*
+*Notification: Appointment Rescheduled - ${schoolName}*
 
 Dear Parent,
 
-We missed you at ${data.studentName}'s counselling session today. As per school policy, we have automatically rescheduled your session to the next available slot:
+The counselling session for ${data.studentName} scheduled for today was missed. As per school policy, the appointment has been automatically rescheduled to:
 
-📋 *Token ID:* ${data.tokenId}
-📅 *New Date:* ${data.slotDate}
-⏰ *New Time:* ${data.slotTime}
+*Token ID:* ${data.tokenId}
+*New Date:* ${data.slotDate}
+*New Time:* ${data.slotTime}
 
-Please note that this is a *one-time auto-reschedule*. If you miss this session as well, your application will be automatically rejected.
+Please note that this is a one-time auto-reschedule. If this session is missed, the application will be rejected.
 
 Best regards,
 ${schoolName} Admissions Team
@@ -436,13 +436,13 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: JSON.stringify({
+            contentVariables: {
               "1": schoolName,
               "2": data.studentName,
               "3": data.tokenId,
               "4": data.slotDate,
               "5": data.slotTime
-            }),
+            },
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -498,14 +498,14 @@ export async function sendStatusUpdateWhatsApp(data: {
   }
 
   const message = `
-${colorEmoji} *Admission Status Updated - ${schoolName}*
+*Admission Status Updated - ${schoolName}*
 
 Dear Parent,
 
 The status for ${data.studentName}'s admission application has been updated:
 
-📋 *Token ID:* ${data.tokenId}
-📊 *New Status:* ${statusText}
+*Token ID:* ${data.tokenId}
+*New Status:* ${statusText}
 
 ${additionalInfo}
 
@@ -556,12 +556,12 @@ ${schoolName} Admissions Team
 
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: JSON.stringify({
+            contentVariables: {
               "1": schoolName,
               "2": data.studentName,
               "3": data.tokenId,
               "4": templateStatus
-            }),
+            },
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -595,15 +595,15 @@ export async function sendWaitlistReminderWhatsApp(data: {
   const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
-⏳ *Waitlist Update - ${schoolName}*
+*Waitlist Status Update - ${schoolName}*
 
 Dear Parent,
 
-This is a reminder that the application for ${data.studentName} is still on the waitlist. 
+This is to inform you that the application for ${data.studentName} remains on the waitlist. 
 
-📋 *Token ID:* ${data.tokenId}
+*Token ID:* ${data.tokenId}
 
-We will notify you immediately once a seat becomes available for the selected grade.
+We will notify you if a seat becomes available for the selected grade.
 
 Best regards,
 ${schoolName} Admissions Team
@@ -641,11 +641,11 @@ ${schoolName} Admissions Team
       if (contentSid) {
         await client.messages.create({
           contentSid: contentSid,
-          contentVariables: JSON.stringify({
+          contentVariables: {
             "1": schoolName,
             "2": data.studentName,
             "3": data.tokenId
-          }),
+          },
           from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
           to: normalizeWhatsAppNumber(data.to)
         });
@@ -683,18 +683,18 @@ export async function sendSlotRescheduleWhatsApp(data: {
   const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
-⚠️ *Update: Appointment Rescheduled - ${schoolName}*
+*Notification: Appointment Rescheduled - ${schoolName}*
 
 Dear Parent,
 
-Your counselling session for ${data.studentName} has been rescheduled.
+The counselling session for ${data.studentName} has been rescheduled.
 
-📋 *Token ID:* ${data.tokenId}
-📅 *New Date:* ${data.slotDate}
-⏰ *New Time:* ${data.slotTime}
-ℹ️ *Reason:* ${data.reason || 'Administrative adjustment'}
+*Token ID:* ${data.tokenId}
+*New Date:* ${data.slotDate}
+*New Time:* ${data.slotTime}
+*Reason:* ${data.reason || 'Administrative adjustment'}
 
-We apologize for any inconvenience caused. We look forward to meeting you!
+We apologize for any inconvenience caused.
 
 Best regards,
 ${schoolName} Admissions Team
@@ -733,14 +733,14 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: JSON.stringify({
+            contentVariables: {
               "1": schoolName,
               "2": data.studentName,
               "3": data.tokenId,
               "4": data.slotDate,
               "5": data.slotTime,
               "6": data.reason || 'Administrative adjustment'
-            }),
+            },
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
