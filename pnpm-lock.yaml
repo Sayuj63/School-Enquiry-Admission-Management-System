@@ -103,6 +103,64 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  apps/parent:
+    dependencies:
+      '@sayuj/shared':
+        specifier: file:./shared
+        version: file:apps/parent/shared
+      clsx:
+        specifier: ^2.0.0
+        version: 2.1.1
+      date-fns:
+        specifier: ^3.0.6
+        version: 3.6.0
+      lucide-react:
+        specifier: ^0.303.0
+        version: 0.303.0(react@18.3.1)
+      next:
+        specifier: 14.0.4
+        version: 14.0.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-big-calendar:
+        specifier: ^1.19.4
+        version: 1.19.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+      react-hook-form:
+        specifier: ^7.49.2
+        version: 7.70.0(react@18.3.1)
+      react-hot-toast:
+        specifier: ^2.6.0
+        version: 2.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.5
+        version: 20.19.27
+      '@types/react':
+        specifier: ^18.2.45
+        version: 18.3.27
+      '@types/react-big-calendar':
+        specifier: ^1.16.3
+        version: 1.16.3
+      '@types/react-dom':
+        specifier: ^18.2.18
+        version: 18.3.7(@types/react@18.3.27)
+      autoprefixer:
+        specifier: ^10.4.16
+        version: 10.4.23(postcss@8.5.6)
+      postcss:
+        specifier: ^8.4.32
+        version: 8.5.6
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19(tsx@4.21.0)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   apps/web:
     dependencies:
       '@sayuj/shared':
@@ -542,6 +600,9 @@ packages:
     resolution: {integrity: sha512-f7aCv7c+nU/3mF7NWLtVVr0Ra80RqsO89hO72r+Y/nvQr5+q0UFGkocElTH6MJApvReVh6JHUFYn2cw1WdHF3w==}
     peerDependencies:
       react: '>=16.8.0'
+
+  '@sayuj/shared@file:apps/parent/shared':
+    resolution: {directory: apps/parent/shared, type: directory}
 
   '@scalar/core@0.2.9':
     resolution: {integrity: sha512-jiUVjN2EubmhitkiXdVxqpkuEbo3e4gQLjla4NfIjgvkJFwF5FmMXQQK6m5AQ5SUgvMCK6hskVMeIYx9bhsgaQ==}
@@ -2535,6 +2596,8 @@ snapshots:
     dependencies:
       dequal: 2.0.3
       react: 18.3.1
+
+  '@sayuj/shared@file:apps/parent/shared': {}
 
   '@scalar/core@0.2.9':
     dependencies:
