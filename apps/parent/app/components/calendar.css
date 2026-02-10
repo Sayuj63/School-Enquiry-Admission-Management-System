@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+.premium-calendar {
+    font-family: 'Inter', sans-serif !important;
+    --primary-color: #7c3aed;
+    --border-color: #e2e8f0;
+    --bg-header: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --grid-line: #edf2f7;
+}
+
+.premium-calendar .rbc-header {
+    padding: 12px 6px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color) !important;
+}
+
+.premium-calendar .rbc-month-view,
+.premium-calendar .rbc-time-view {
+    border: none !important;
+    background: white;
+}
+
+.premium-calendar .rbc-day-bg {
+    border-left: 1px solid var(--border-color) !important;
+}
+
+.premium-calendar .rbc-month-row {
+    border-top: 1px solid var(--border-color) !important;
+}
+
+.premium-calendar .rbc-off-range-bg {
+    background-color: #fcfcfc;
+}
+
+.premium-calendar .rbc-today {
+    background-color: transparent !important;
+}
+
+/* Date Numbers */
+.premium-calendar .rbc-date-cell {
+    padding: 8px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-align: left;
+}
+
+.premium-calendar .rbc-now .rbc-button-link {
+    background: var(--primary-color);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.premium-calendar .rbc-event {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.event-capsule {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+    border-left-width: 4px;
+    border-left-style: solid;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+}
+
+.event-capsule:hover {
+    filter: brightness(0.95);
+    transform: translateY(-1px);
+}
+
+.event-capsule.blue {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    border-left-color: #3b82f6;
+}
+
+.event-capsule.green {
+    background-color: #f0fdf4;
+    color: #15803d;
+    border-left-color: #22c55e;
+}
+
+.event-capsule.red {
+    background-color: #fef2f2;
+    color: #b91c1c;
+    border-left-color: #ef4444;
+}
+
+.event-capsule.purple {
+    background-color: #f5f3ff;
+    color: #6d28d9;
+    border-left-color: #8b5cf6;
+}
+
+.event-capsule.yellow {
+    background-color: #fffbeb;
+    color: #b45309;
+    border-left-color: #f59e0b;
+}
+
+.event-capsule.orange {
+    background-color: #fff7ed;
+    color: #c2410c;
+    border-left-color: #f97316;
+}
+
+.event-capsule.indigo {
+    background-color: #eef2ff;
+    color: #3730a3;
+    border-left-color: #6366f1;
+}
+
+.rbc-time-view .rbc-event {
+    border: none !important;
+    min-height: 50px !important;
+    overflow: visible !important;
+    z-index: 5;
+}
+
+.premium-calendar .rbc-timeslot-group {
+    border-bottom: 1px solid var(--grid-line) !important;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+}
+
+.premium-calendar .rbc-time-slot {
+    flex: 1;
+    border-top: 1px solid var(--grid-line) !important;
+}
+
+.premium-calendar .rbc-time-slot:first-child {
+    border-top: none !important;
+}
+
+.premium-calendar .rbc-time-content {
+    border-top: none !important;
+}
+
+.premium-calendar .rbc-time-header.rbc-overflowing {
+    border-right: none !important;
+}
+
+.premium-calendar .rbc-time-slot {
+    border-top: 1px solid var(--grid-line) !important;
+}
+
+.rbc-current-time-indicator {
+    display: none !important;
+}
+
+.rbc-time-gutter .rbc-timeslot-group {
+    border-bottom: none !important;
+}
+
+.rbc-label {
+    padding: 0 10px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    color: var(--text-muted) !important;
+}
