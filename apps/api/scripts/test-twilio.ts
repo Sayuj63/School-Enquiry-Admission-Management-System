@@ -23,81 +23,81 @@ const templates = [
         name: '1. Enquiry Confirmation',
         sid: process.env.TWILIO_ENQUIRY_SID,
         variables: {
-            "1": "School Name",
-            "2": "Parent Name",
-            "3": "Student Name",
-            "4": "Token ID",
-            "5": " Documents List",
-            "6": "Brochure Link",
-            "7": "School Phone",
-            "8": "School Email"
+            "1": "New Era High School",
+            "2": "Adarsh Singh",
+            "3": "Aryan Singh",
+            "4": "ENQ-2026-TEST",
+            "5": "Birth Certificate, Aadhar Card, Photo",
+            "6": "https://brochure-magnum-solutions.tiiny.site",
+            "7": "+91 98765 43210",
+            "8": "admissions@nes.edu.in"
         }
     },
     {
         name: '2. Slot Confirmation',
         sid: process.env.TWILIO_SLOT_CONFIRMATION_SID,
         variables: {
-            "1": "School",
-            "2": "TOKEN123",
-            "3": "Student",
-            "4": "Friday",
-            "5": "10 AM",
-            "6": "Office"
+            "1": "New Era High School",
+            "2": "ENQ-2026-TEST",
+            "3": "Aryan Singh",
+            "4": "Friday, 13 Feb",
+            "5": "10:30 AM",
+            "6": "School Main Office"
         }
     },
     {
         name: '3. No-Show Auto-Reschedule',
         sid: process.env.TWILIO_NOSHOW_RESCHEDULE_SID,
         variables: {
-            "1": "School Name",
-            "2": "Student Name",
-            "3": "Token ID",
-            "4": "New Date",
-            "5": "New Time"
+            "1": "New Era High School",
+            "2": "Aryan Singh",
+            "3": "ENQ-2026-TEST",
+            "4": "Monday, 16 Feb",
+            "5": "11:00 AM"
         }
     },
     {
         name: '4. Manual Reschedule',
         sid: process.env.TWILIO_MANUAL_RESCHEDULE_SID,
         variables: {
-            "1": "School",
-            "2": "Student",
-            "3": "TOKEN123",
-            "4": "Tuesday",
-            "5": "9 AM",
-            "6": "Reason"
+            "1": "New Era High School",
+            "2": "Aryan Singh",
+            "3": "ENQ-2026-TEST",
+            "4": "Tuesday, 17 Feb",
+            "5": "09:00 AM",
+            "6": "Administrative adjustment"
         }
     },
     {
         name: '5. Status Update',
         sid: process.env.TWILIO_STATUS_UPDATE_SID,
         variables: {
-            "1": "School",
-            "2": "Student",
-            "3": "TOKEN123",
-            "4": "CONFIRMED"
+            "1": "New Era High School",
+            "2": "Aryan Singh",
+            "3": "ENQ-2026-TEST",
+            "4": "ADMISSION CONFIRMED"
         }
     },
     {
         name: '6. Slot Reminder',
         sid: process.env.TWILIO_REMINDER_SID,
         variables: {
-            "1": "School Name",
-            "2": "Student Name",
+            "1": "New Era High School",
+            "2": "Aryan Singh",
             "3": "tomorrow",
-            "4": "Token ID",
-            "5": "Date",
-            "6": "Time",
-            "7": "Custom Note"
+            "4": "ENQ-2026-TEST",
+            "5": "Friday, 13 Feb",
+            "6": "10:30 AM",
+            "7": "Please ensure all original documents are present."
         }
     },
     {
         name: '7. Waitlist Reminder',
         sid: process.env.TWILIO_WAITLIST_SID,
         variables: {
-            "1": "School Name",
-            "2": "Student Name",
-            "3": "Token ID"
+            "1": "New Era High School",
+            "2": "Aryan Singh",
+            "3": "ENQ-2026-TEST"
         }
     }
 ];
