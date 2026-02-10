@@ -112,8 +112,7 @@ export async function checkWaitlistReminders() {
                 const result = await sendWaitlistReminderWhatsApp({
                     to: adm.mobile,
                     tokenId: adm.tokenId,
-                    studentName: adm.studentName,
-                    template: settings.waitlistReminderTemplate
+                    studentName: adm.studentName
                 });
 
                 if (result.success) {

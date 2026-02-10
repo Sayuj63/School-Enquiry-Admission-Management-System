@@ -591,19 +591,39 @@ export async function sendWaitlistReminderWhatsApp(data: {
   to: string;
   tokenId: string;
   studentName: string;
-  template: string;
 }): Promise<SendWhatsAppResult> {
-  // Replace placeholders in template
-  const message = data.template
-    .replace('childName', data.studentName)
-    .replace('tokenId', data.tokenId);
+  const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
+
+  const message = `
+⏳ *Waitlist Update - ${schoolName}*
+
+Dear Parent,
+
+This is a reminder that the application for ${data.studentName} is still on the waitlist. 
+
+📋 *Token ID:* ${data.tokenId}
+
+We will notify you immediately once a seat becomes available for the selected grade.
+
+Best regards,
+${schoolName} Admissions Team
+`.trim();
 
   if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
+    console.log('========================================');
+    console.log('WHATSAPP WAITLIST REMINDER (MOCK MODE)');
     console.log('----------------------------------------');
-    console.log('WHATSAPP REMINDER (MOCK)');
     console.log(`To: ${data.to}`);
-    console.log(`Message: ${message}`);
-    console.log('----------------------------------------');
+    console.log('Message:');
+    console.log(message);
+    console.log('========================================');
+
+    return {
+      success: true,
+      message: 'Waitlist reminder sent (dev mode)',
+      mockMessage: message,
+      to: data.to
+    };
   }
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -615,11 +635,27 @@ export async function sendWaitlistReminderWhatsApp(data: {
       const twilio = require('twilio');
       const client = twilio(accountSid, authToken);
 
-      await client.messages.create({
-        body: message,
-        from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-        to: normalizeWhatsAppNumber(data.to)
-      });
+      // Support for Content SID if available
+      const contentSid = process.env.TWILIO_WAITLIST_SID;
+
+      if (contentSid) {
+        await client.messages.create({
+          contentSid: contentSid,
+          contentVariables: JSON.stringify({
+            "1": schoolName,
+            "2": data.studentName,
+            "3": data.tokenId
+          }),
+          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+          to: normalizeWhatsAppNumber(data.to)
+        });
+      } else {
+        await client.messages.create({
+          body: message,
+          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+          to: normalizeWhatsAppNumber(data.to)
+        });
+      }
     } catch (error) {
       console.error(`Error sending waitlist reminder WhatsApp:`, error);
       return { success: false, message: 'Twilio error' };
@@ -630,6 +666,8 @@ export async function sendWaitlistReminderWhatsApp(data: {
 
   return { success: true, message: 'Waitlist reminder sent' };
 }
+
+
 
 /**
  * Send school-initiated slot reschedule WhatsApp

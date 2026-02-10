@@ -858,15 +858,6 @@ function SettingsContent() {
                   </button>
                 ))}
               </div>
-
-              <label className="label">Waitlist Reminder Template</label>
-              <textarea
-                className="input min-h-[100px]"
-                placeholder="Hello! This is a reminder for childName..."
-                value={notificationSettings.waitlistReminderTemplate || ''}
-                onChange={e => setNotificationSettings({ ...notificationSettings, waitlistReminderTemplate: e.target.value })}
-              />
-              <p className="text-[10px] text-gray-400 mt-1">Use <strong>childName</strong> and <strong>tokenId</strong> as placeholders.</p>
             </div>
 
             <div className="pt-4 border-t border-gray-100">
