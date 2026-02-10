@@ -308,11 +308,32 @@ ${schoolName} Admissions Team
         console.warn(`⚠️  Twilio credentials missing or invalid for T-${data.reminderDay} reminder.`);
       } else {
         const client = twilio(accountSid, authToken);
-        await client.messages.create({
-          body: message,
-          from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-          to: normalizeWhatsAppNumber(data.to)
-        });
+        const contentSid = process.env.TWILIO_REMINDER_SID;
+        const reminderPoint = data.reminderDay === 1 ? 'tomorrow' : `in ${data.reminderDay} days`;
+        const docsNote = 'Please ensure you have uploaded all required documents in the parent portal before your visit.';
+
+        if (contentSid) {
+          await client.messages.create({
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+              "1": schoolName,
+              "2": data.studentName,
+              "3": reminderPoint,
+              "4": data.tokenId,
+              "5": data.slotDate,
+              "6": data.slotTime,
+              "7": docsNote
+            }),
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        } else {
+          await client.messages.create({
+            body: message,
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
+        }
       }
     } catch (error) {
       console.error(`Error sending T-${data.reminderDay} WhatsApp:`, error);
