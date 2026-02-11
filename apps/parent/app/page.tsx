@@ -113,9 +113,9 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center">
-          <div className="flex items-center text-primary-600 font-bold text-xl select-none">
-            <img src="/assets/logo.jpeg" alt="Logo" className="h-10 w-auto mr-2" />
-            New Era High School
+          <div className="flex items-center text-primary-600 font-bold text-lg sm:text-xl select-none truncate">
+            <img src="/assets/logo.jpeg" alt="Logo" className="h-8 sm:h-10 w-auto mr-2" />
+            <span className="truncate">New Era High School</span>
           </div>
         </div>
       </header>
@@ -129,7 +129,7 @@ export default function HomePage() {
             </div>
           )}
           {step === 'mobile' && (
-            <div className="card p-8 bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="card p-6 sm:p-8 bg-white rounded-xl shadow-sm border border-gray-100 mx-2 sm:mx-0">
               <div className="flex justify-center mb-6">
                 <div className="p-4 bg-primary-50 rounded-full">
                   <UserCircle className="h-12 w-12 text-primary-600" />
@@ -173,7 +173,7 @@ export default function HomePage() {
           )}
 
           {step === 'otp' && (
-            <div className="card p-8 bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="card p-6 sm:p-8 bg-white rounded-xl shadow-sm border border-gray-100 mx-2 sm:mx-0">
               <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">Verify OTP</h1>
               <p className="text-center text-gray-600 mb-6">
                 We've sent a 6-digit code to <span className="font-semibold text-gray-900">+91 {mobile}</span>

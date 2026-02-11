@@ -90,14 +90,14 @@ export default function parentApplicationsPage() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-                    <div className="flex items-center text-primary-600 font-black text-2xl tracking-tight select-none">
-                        <img src="/assets/logo.jpeg" alt="Logo" className="h-10 w-auto mr-2" />
-                        New Era High School
+                <div className="max-w-7xl mx-auto px-4 py-2 sm:h-20 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div className="flex items-center text-primary-600 font-black text-lg sm:text-2xl tracking-tight select-none">
+                        <img src="/assets/logo.jpeg" alt="Logo" className="h-8 sm:h-10 w-auto mr-2" />
+                        <span className="truncate">New Era High School</span>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center text-sm font-bold text-red-500 hover:text-red-600 transition-all bg-white px-4 py-2 rounded-xl border border-red-50 shadow-sm hover:shadow-md active:scale-95"
+                        className="flex items-center text-xs sm:text-sm font-bold text-red-500 hover:text-red-600 transition-all bg-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-red-50 shadow-sm"
                     >
                         <LogOut className="h-4 w-4 mr-2" />
                         Log out
@@ -105,13 +105,13 @@ export default function parentApplicationsPage() {
                 </div>
             </header>
 
-            <main className="flex-1 max-w-4xl w-full mx-auto p-4 py-12">
-                <div className="mb-12 text-center">
-                    <div className="inline-flex items-center justify-center p-3 bg-primary-100 rounded-2xl mb-4">
-                        <User className="h-8 w-8 text-primary-600" />
+            <main className="flex-1 max-w-4xl w-full mx-auto p-4 py-8 sm:py-12">
+                <div className="mb-8 sm:mb-12 text-center">
+                    <div className="inline-flex items-center justify-center p-2 sm:p-3 bg-primary-100 rounded-2xl mb-4">
+                        <User className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600" />
                     </div>
-                    <h1 className="text-4xl font-black text-gray-900 mb-2">Application Status</h1>
-                    <p className="text-gray-500 font-medium">Manage enquiries for mobile number <span className="text-gray-900 font-bold">+91 {mobile}</span></p>
+                    <h1 className="text-2xl sm:text-4xl font-black text-gray-900 mb-2">Application Status</h1>
+                    <p className="text-sm sm:text-base text-gray-500 font-medium">Manage enquiries for <span className="text-gray-900 font-bold whitespace-nowrap">+91 {mobile}</span></p>
                 </div>
 
                 {enquiries.length > 0 ? (
@@ -120,7 +120,7 @@ export default function parentApplicationsPage() {
                             {enquiries.map((enq) => (
                                 <div
                                     key={enq._id}
-                                    className="group bg-white p-6 rounded-[24px] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-primary-100/20 hover:border-primary-200 transition-all cursor-pointer"
+                                    className="group bg-white p-4 sm:p-6 rounded-[24px] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-primary-100/20 hover:border-primary-200 transition-all cursor-pointer"
                                     onClick={() => {
                                         if (enq.status === 'draft') {
                                             router.push(`/enquiry?resume=${enq._id}`)
@@ -130,16 +130,16 @@ export default function parentApplicationsPage() {
                                     }}
                                 >
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div className="flex items-center gap-5">
-                                            <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center group-hover:bg-primary-50 transition-colors">
-                                                <FileText className="h-7 w-7 text-gray-400 group-hover:text-primary-600" />
+                                        <div className="flex items-center gap-3 sm:gap-5">
+                                            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-50 rounded-2xl flex items-center justify-center group-hover:bg-primary-50 transition-colors">
+                                                <FileText className="h-6 w-6 sm:h-7 sm:w-7 text-gray-400 group-hover:text-primary-600" />
                                             </div>
                                             <div>
-                                                <h3 className="text-xl font-bold text-gray-900 group-hover:text-primary-600 transition-colors uppercase tracking-tight">{enq.childName}</h3>
+                                                <h3 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-primary-600 transition-colors uppercase tracking-tight">{enq.childName}</h3>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <span className="text-sm font-bold text-gray-400">{enq.grade}</span>
+                                                    <span className="text-xs sm:text-sm font-bold text-gray-400">{enq.grade}</span>
                                                     <span className="text-gray-200">•</span>
-                                                    <span className="text-xs font-mono text-gray-400">{enq.tokenId || 'ID: Draft'}</span>
+                                                    <span className="text-[10px] sm:text-xs font-mono text-gray-400">{enq.tokenId || 'Draft'}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -166,18 +166,18 @@ export default function parentApplicationsPage() {
                         <div className="pt-8">
                             <button
                                 onClick={startNewEnquiry}
-                                className="w-full group relative overflow-hidden bg-primary-600 hover:bg-primary-700 text-white rounded-[24px] p-8 transition-all hover:shadow-2xl hover:shadow-primary-200 active:scale-[0.98]"
+                                className="w-full group relative overflow-hidden bg-primary-600 hover:bg-primary-700 text-white rounded-[24px] p-6 sm:p-8 transition-all active:scale-[0.98]"
                             >
-                                <div className="relative z-10 flex items-center justify-between">
+                                <div className="relative z-10 flex items-center justify-between gap-4">
                                     <div className="text-left">
-                                        <h3 className="text-2xl font-black mb-1">Apply for another child</h3>
-                                        <p className="text-primary-100 font-medium">Start a fresh admission enquiry for a sibling</p>
+                                        <h3 className="text-xl sm:text-2xl font-black mb-1">Apply for sibling</h3>
+                                        <p className="text-xs sm:text-sm text-primary-100 font-medium">Start a fresh admission enquiry</p>
                                     </div>
-                                    <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm group-hover:scale-110 transition-transform">
-                                        <PlusCircle className="h-8 w-8" />
+                                    <div className="bg-white/20 p-3 sm:p-4 rounded-2xl backdrop-blur-sm group-hover:scale-110 transition-transform flex-shrink-0">
+                                        <PlusCircle className="h-6 w-6 sm:h-8 sm:w-8" />
                                     </div>
                                 </div>
-                                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-700"></div>
+                                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white/10 rounded-full blur-3xl transition-all duration-700"></div>
                             </button>
                         </div>
                     </div>

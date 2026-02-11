@@ -264,22 +264,22 @@ export default function ParentEnquiryDetail() {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-12">
-            <header className="bg-white border-b sticky top-0 z-10">
+            <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
                 <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-                    <div className="flex items-center">
-                        <button onClick={() => router.back()} className="mr-4 text-gray-400 hover:text-gray-600 transition-colors">
+                    <div className="flex items-center min-w-0">
+                        <button onClick={() => router.back()} className="mr-3 sm:mr-4 text-gray-400 hover:text-gray-600 transition-colors shrink-0">
                             <ArrowLeft className="h-5 w-5" />
                         </button>
-                        <h1 className="font-bold text-gray-900">Application Status</h1>
+                        <h1 className="font-bold text-gray-900 truncate text-sm sm:text-base">Application Status</h1>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="text-sm font-mono text-gray-500 hidden sm:block">{tokenId}</div>
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="text-[10px] sm:text-sm font-mono text-gray-400 hidden md:block">{tokenId}</div>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center text-sm font-medium text-red-500 hover:text-red-600 transition-colors bg-white px-3 py-1.5 rounded-lg border border-red-100 shadow-sm"
+                            className="flex items-center text-xs font-medium text-red-500 hover:text-red-600 transition-colors bg-white px-2 sm:px-3 py-1.5 rounded-lg border border-red-100 shadow-sm"
                         >
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Log out
+                            <LogOut className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Log out</span>
                         </button>
                     </div>
                 </div>
@@ -287,15 +287,15 @@ export default function ParentEnquiryDetail() {
 
             <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
                 {/* Status Header */}
-                <div className="card p-8 bg-white shadow-sm border-t-4 border-primary-600">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="card p-6 sm:p-8 bg-white shadow-sm border-t-4 border-primary-600 mx-1 sm:mx-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
                         <div>
-                            <h2 className="text-2xl font-bold text-gray-900 mb-1">{enquiry.childName}</h2>
-                            <p className="text-gray-500">{enquiry.grade} • Looking for admission in 2026-27</p>
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{enquiry.childName}</h2>
+                            <p className="text-xs sm:text-sm text-gray-500">{enquiry.grade} • Looking for admission in 2026-27</p>
                         </div>
-                        <div className="flex flex-col items-end">
+                        <div className="flex flex-col items-start sm:items-end">
                             {admission ? (
-                                <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase ${(admission.status === 'approved' || admission.status === 'confirmed') ? 'bg-green-100 text-green-700' :
+                                <span className={`px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-sm font-bold uppercase ${(admission.status === 'approved' || admission.status === 'confirmed') ? 'bg-green-100 text-green-700' :
                                     admission.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                         admission.status === 'waitlisted' ? 'bg-amber-100 text-amber-700' :
                                             'bg-blue-100 text-blue-700'
@@ -303,14 +303,14 @@ export default function ParentEnquiryDetail() {
                                     {admission.status === 'approved' || admission.status === 'confirmed' ? 'ADMISSION CONFIRMED' : admission.status.replace('_', ' ')}
                                 </span>
                             ) : (
-                                <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase ${enquiry.status === 'token_number_generated' ? 'bg-blue-100 text-blue-700' :
+                                <span className={`px-3 sm:px-4 py-1.5 rounded-full text-[10px] sm:text-sm font-bold uppercase ${enquiry.status === 'token_number_generated' ? 'bg-blue-100 text-blue-700' :
                                     enquiry.status === 'converted' ? 'bg-green-100 text-green-700' :
                                         'bg-amber-100 text-amber-700'
                                     }`}>
                                     {enquiry.status.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                                 </span>
                             )}
-                            <p className="text-xs text-gray-400 mt-2">Submitted on {new Date(enquiry.createdAt).toLocaleDateString()}</p>
+                            <p className="text-[10px] text-gray-400 mt-2">Submitted on {new Date(enquiry.createdAt).toLocaleDateString()}</p>
                         </div>
                     </div>
                 </div>
@@ -369,7 +369,7 @@ export default function ParentEnquiryDetail() {
                                 <GraduationCap className="h-5 w-5 mr-2 text-primary-600" />
                                 Student Details
                             </h3>
-                            <div className="grid grid-cols-2 gap-y-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p className="text-gray-500">Student Name</p>
                                     <p className="font-medium uppercase tracking-tight">{enquiry.childName}</p>
@@ -389,9 +389,9 @@ export default function ParentEnquiryDetail() {
                         <section className="card p-6">
                             <h3 className="text-lg font-bold mb-4 flex items-center">
                                 <FileText className="h-5 w-5 mr-2 text-primary-600" />
-                                Parent Contact Information
+                                Parent Information
                             </h3>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p className="text-gray-500">Parent Name</p>
                                     <p className="font-medium">{enquiry.parentName}</p>
@@ -400,9 +400,9 @@ export default function ParentEnquiryDetail() {
                                     <p className="text-gray-500">Mobile Number</p>
                                     <p className="font-medium">+91 {enquiry.mobile}</p>
                                 </div>
-                                <div className="col-span-2">
+                                <div className="sm:col-span-2">
                                     <p className="text-gray-500">Email Address</p>
-                                    <p className="font-medium">{enquiry.email}</p>
+                                    <p className="font-medium break-all">{enquiry.email}</p>
                                 </div>
                                 <div>
                                     <p className="text-gray-500">City</p>

@@ -31,11 +31,11 @@ function SuccessContent() {
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 px-2">
             {isWaitlist ? 'Waitlist Joined Successfully' : 'Thank You for Your Interest!'}
           </h1>
 
-          <p className="text-lg text-gray-600 mb-8">
+          <p className="text-base sm:text-lg text-gray-600 mb-8 px-2">
             {isWaitlist
               ? 'Your application has been added to our waitlist.'
               : 'Your enquiry has been submitted successfully.'}
@@ -53,24 +53,24 @@ function SuccessContent() {
           </div>
 
           {/* What's Next */}
-          <div className="text-left bg-white border border-blue-100/50 rounded-[32px] p-8 mb-8 shadow-sm">
-            <h2 className="text-xl font-black text-gray-900 mb-8 flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                <MessageCircle className="h-5 w-5" />
+          <div className="text-left bg-white border border-blue-100/50 rounded-[24px] sm:rounded-[32px] p-6 sm:p-8 mb-8 shadow-sm">
+            <h2 className="text-lg sm:text-xl font-black text-gray-900 mb-6 sm:mb-8 flex items-center gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
               What Happens Next?
             </h2>
 
-            <div className="space-y-8 relative">
-              <div className="absolute left-6 top-1 bottom-8 w-px bg-gradient-to-b from-blue-100 to-transparent"></div>
+            <div className="space-y-6 sm:space-y-8 relative">
+              <div className="absolute left-5 sm:left-6 top-1 bottom-8 w-px bg-gradient-to-b from-blue-100 to-transparent"></div>
 
-              <div className="relative flex items-start gap-6 group">
-                <div className="w-12 h-12 rounded-2xl bg-white border-4 border-blue-50 shadow-sm flex items-center justify-center shrink-0 z-10 group-hover:border-blue-100 transition-colors">
-                  <MessageCircle className="h-5 w-5 text-blue-600" />
+              <div className="relative flex items-start gap-4 sm:gap-6 group">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white border-4 border-blue-50 shadow-sm flex items-center justify-center shrink-0 z-10 group-hover:border-blue-100 transition-colors">
+                  <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 </div>
-                <div className="pt-1">
-                  <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">WhatsApp Confirmation</h3>
-                  <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                <div className="pt-0.5 sm:pt-1">
+                  <h3 className="text-sm sm:text-base font-black text-gray-900 uppercase tracking-tight">WhatsApp Confirmation</h3>
+                  <p className="text-xs sm:text-sm text-gray-500 mt-1 leading-relaxed">
                     {isWaitlist
                       ? 'You will receive a WhatsApp confirmation of your waitlist status and periodic updates regarding seat availability.'
                       : 'You\'ll receive a WhatsApp message with our school brochure and a detailed checklist of required documents.'}
@@ -95,12 +95,13 @@ function SuccessContent() {
           </div>
 
           {/* Contact Info */}
-          <div className="text-gray-600 mb-8">
+          <div className="text-gray-600 mb-8 px-2 text-sm sm:text-base">
             <p>If you have any questions, please contact us:</p>
-            <p className="font-medium">
-              Email: <a href="mailto:info@nes.edu.in" className="text-primary-600 hover:underline">info@nes.edu.in</a> |
-              Phone: <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline ml-1">+91 98765 43210</a>
-            </p>
+            <div className="font-medium mt-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
+              <span>Email: <a href="mailto:info@nes.edu.in" className="text-primary-600 hover:underline">info@nes.edu.in</a></span>
+              <span className="hidden sm:inline">|</span>
+              <span>Phone: <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">+91 98765 43210</a></span>
+            </div>
           </div>
 
           {/* Actions */}

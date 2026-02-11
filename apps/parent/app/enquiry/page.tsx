@@ -476,35 +476,33 @@ function EnquiryContent() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex justify-between items-end">
-          <div>
-            <button onClick={() => router.back()} className="inline-flex items-center text-primary-600 hover:text-primary-700 mb-4 transition-colors">
+        <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+          <div className="w-full sm:w-auto">
+            <button onClick={() => router.back()} className="inline-flex items-center text-primary-600 hover:text-primary-700 mb-2 sm:mb-4 transition-colors">
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back
             </button>
             <div className="flex items-center">
-              <img src="/assets/logo.jpeg" alt="Logo" className="h-10 w-auto" />
-              <h1 className="text-3xl font-bold text-gray-900 ml-3">Admission Enquiry</h1>
+              <img src="/assets/logo.jpeg" alt="Logo" className="h-8 sm:h-10 w-auto" />
+              <h1 className="text-xl sm:text-3xl font-bold text-gray-900 ml-3 truncate">Admission Enquiry</h1>
             </div>
           </div>
           {otpVerified && (
-            <div className="flex flex-col items-end gap-2 text-right">
-              <div className="flex gap-2">
-                <button
-                  onClick={onSaveDraft}
-                  className="flex items-center text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save as Draft
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center text-sm font-medium text-red-500 hover:text-red-600 transition-colors bg-white px-4 py-2 rounded-lg border shadow-sm"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Log out
-                </button>
-              </div>
+            <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
+              <button
+                onClick={onSaveDraft}
+                className="flex-1 sm:flex-none flex items-center justify-center text-xs sm:text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-3 sm:px-4 py-2 rounded-lg border shadow-sm"
+              >
+                <Save className="h-4 w-4 mr-1 sm:mr-2" />
+                Draft
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 sm:flex-none flex items-center justify-center text-xs sm:text-sm font-medium text-red-500 hover:text-red-600 transition-colors bg-white px-3 sm:px-4 py-2 rounded-lg border shadow-sm"
+              >
+                <LogOut className="h-4 w-4 mr-1 sm:mr-2" />
+                Logout
+              </button>
             </div>
           )}
         </div>
@@ -546,7 +544,7 @@ function EnquiryContent() {
 
 
         <form onSubmit={handleSubmit((data) => onSubmit(data))} className="space-y-8">
-          <div className="card p-8">
+          <div className="card p-4 sm:p-8">
             <h2 className="text-xl font-bold mb-6 flex items-center">
               <FileText className="h-5 w-5 mr-2 text-primary-600" />
               Student Details
@@ -615,7 +613,7 @@ function EnquiryContent() {
           </div>
 
           {/* Optional Document Upload Section */}
-          <div className="card p-8">
+          <div className="card p-4 sm:p-8">
             <h2 className="text-xl font-bold mb-2 flex items-center">
               <Upload className="h-5 w-5 mr-2 text-primary-600" />
               Required Documents (Optional)
@@ -700,7 +698,7 @@ function EnquiryContent() {
 
           {/* Slot Booking Section (1.3.4) */}
           {!selectedGradeFull && (
-            <div className="card p-8">
+            <div className="card p-4 sm:p-8">
               <h2 className="text-xl font-bold mb-2 flex items-center">
                 <Calendar className="h-5 w-5 mr-2 text-primary-600" />
                 Counselling Slot
