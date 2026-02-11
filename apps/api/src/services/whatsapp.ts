@@ -44,14 +44,23 @@ function normalizeWhatsAppNumber(mobile: string): string {
  * Send WhatsApp message with brochure and documents list
  * In development mode, message is logged to console instead of being sent
  */
-export async function sendEnquiryWhatsApp(data: WhatsAppMessage): Promise<SendWhatsAppResult> {
+/**
+ * Send WhatsApp message with brochure and documents list
+ */
+export async function sendEnquiryWhatsApp(data: {
+  to: string;
+  tokenId: string;
+  studentName: string;
+  parentName: string;
+}): Promise<SendWhatsAppResult> {
   const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
     ? process.env.SCHOOL_NAME
     : 'New Era High School';
   const schoolPhone = process.env.SCHOOL_PHONE || '+919876543210';
   const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
-  const documentsList = await getDocumentsList();
+  // Static documents list to avoid Twilio Content API formatting issues
+  const documentsList = "Aadhar Card, Birth Certificate, Previous School Report Card, Transfer Certificate, Passport Size Photos";
 
   const message = `
 *Enquiry Received - ${schoolName}*
@@ -79,10 +88,9 @@ Best regards,
 ${schoolName} Admissions Team
 `.trim();
 
-  // In development, log message instead of sending
   if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
     console.log('========================================');
-    console.log('WHATSAPP SERVICE (MOCK MODE)');
+    console.log('WHATSAPP ENQUIRY (MOCK MODE)');
     console.log('----------------------------------------');
     console.log(`To: ${data.to}`);
     console.log('Message:');
@@ -91,7 +99,7 @@ ${schoolName} Admissions Team
 
     return {
       success: true,
-      message: 'WhatsApp message sent successfully (dev mode)',
+      message: 'WhatsApp enquiry message sent (dev mode)',
       mockMessage: message,
       to: data.to
     };
@@ -106,39 +114,27 @@ ${schoolName} Admissions Team
       const whatsappFrom = process.env.WHATSAPP_NUMBER || 'whatsapp:+14155238886';
 
       if (!accountSid || !authToken || !accountSid.startsWith('AC')) {
-        console.warn('⚠️  Twilio credentials missing or invalid (SID must start with AC). WhatsApp will not be sent.');
-        console.warn('Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in environment variables to enable WhatsApp.');
+        console.warn('⚠️  Twilio credentials missing or invalid for Enquiry confirmation.');
       } else {
         const client = twilio(accountSid, authToken);
         const contentSid = process.env.TWILIO_ENQUIRY_SID;
 
         if (contentSid) {
-          const contentVariables = {
-            "1": schoolName,
-            "2": data.parentName,
-            "3": data.studentName,
-            "4": data.tokenId,
-            "5": documentsList,
-            "6": "https://brochure-magnum-solutions.tiiny.site",
-            "7": schoolPhone,
-            "8": schoolEmail
-          };
-
-          try {
-            await client.messages.create({
-              contentSid: contentSid,
-              contentVariables: contentVariables,
-              from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-              to: normalizeWhatsAppNumber(data.to)
-            });
-          } catch (error1: any) {
-            // Fallback: Send as plain text message
-            await client.messages.create({
-              body: message,
-              from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-              to: normalizeWhatsAppNumber(data.to)
-            });
-          }
+          await client.messages.create({
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+              "1": schoolName,
+              "2": data.parentName,
+              "3": data.studentName,
+              "4": data.tokenId,
+              "5": documentsList,
+              "6": "https://brochure-magnum-solutions.tiiny.site",
+              "7": schoolPhone,
+              "8": schoolEmail
+            }),
+            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+            to: normalizeWhatsAppNumber(data.to)
+          });
         } else {
           await client.messages.create({
             body: message,
@@ -149,13 +145,13 @@ ${schoolName} Admissions Team
         console.log(`[PROD] WhatsApp enquiry message sent successfully to ${data.to}`);
       }
     } catch (error) {
-      console.error('Error sending WhatsApp via Twilio:', error);
+      console.error('Error sending Enquiry WhatsApp via Twilio:', error);
     }
   }
 
   return {
     success: true,
-    message: 'WhatsApp message sent successfully'
+    message: 'WhatsApp enquiry message sent'
   };
 }
 
