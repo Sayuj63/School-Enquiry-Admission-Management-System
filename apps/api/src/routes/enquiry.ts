@@ -398,14 +398,17 @@ router.post('/', async (req, res: Response) => {
         });
       }
 
+      console.log(`[DEBUG] Finalizing enquiry submission for ${enquiry.tokenId}...`);
       // 3. Send Notifications
       try {
-        await sendEnquiryWhatsApp({
+        console.log(`[DEBUG] Attempting to send WhatsApp enquiry message to ${enquiry.mobile}...`);
+        const whatsappResult = await sendEnquiryWhatsApp({
           to: enquiry.mobile,
           tokenId: enquiry.tokenId || '',
           studentName: enquiry.childName,
           parentName: enquiry.parentName
         });
+        console.log(`[DEBUG] sendEnquiryWhatsApp result:`, JSON.stringify(whatsappResult));
 
         if (enquiry.slotBookingId && slot) {
           const slotDateFormatted = slot.date.toLocaleDateString('en-IN', {
@@ -466,7 +469,7 @@ router.post('/', async (req, res: Response) => {
         }
         await Enquiry.findByIdAndUpdate(enquiry._id, { whatsappSent: true });
       } catch (err) {
-        console.error('Notification failed', err);
+        console.error('[ERROR] Notification flow failed:', err);
       }
     }
 

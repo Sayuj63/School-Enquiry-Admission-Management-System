@@ -56,6 +56,7 @@ export async function sendEnquiryWhatsApp(data: {
   const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
     ? process.env.SCHOOL_NAME
     : 'New Era High School';
+  console.log(`[WhatsApp] Preparing to send enquiry to ${data.to}. School: ${schoolName}`);
   const schoolPhone = process.env.SCHOOL_PHONE || '+919876543210';
   const schoolEmail = process.env.SCHOOL_EMAIL || 'admissions@nes.edu.in';
 
@@ -106,18 +107,25 @@ ${schoolName} Admissions Team
   }
 
   // In production, send via Twilio WhatsApp API
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' || process.env.TWILIO_ACCOUNT_SID) {
     try {
       const twilio = require('twilio');
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
       const whatsappFrom = process.env.WHATSAPP_NUMBER || 'whatsapp:+14155238886';
 
+      console.log(`[WhatsApp] Production block starting. SID exists: ${!!accountSid}, ENABLE_MOCK: ${process.env.ENABLE_MOCK_LOGS}`);
+
       if (!accountSid || !authToken || !accountSid.startsWith('AC')) {
-        console.warn('⚠️  Twilio credentials missing or invalid for Enquiry confirmation.');
+        console.warn('⚠️  Twilio credentials missing or invalid for Enquiry confirmation.', { hasSid: !!accountSid, hasToken: !!authToken });
       } else {
+        console.log(`[WhatsApp] Initializing Twilio client for ${data.to}...`);
         const client = twilio(accountSid, authToken);
         const contentSid = process.env.TWILIO_ENQUIRY_SID;
+        const from = whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`;
+        const to = normalizeWhatsAppNumber(data.to);
+
+        console.log(`[WhatsApp] Sending via ${contentSid ? 'Content API' : 'Body API'}. From: ${from}, To: ${to}`);
 
         if (contentSid) {
           await client.messages.create({
@@ -132,26 +140,27 @@ ${schoolName} Admissions Team
               "7": schoolPhone,
               "8": schoolEmail
             }),
-            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-            to: normalizeWhatsAppNumber(data.to)
+            from: from,
+            to: to
           });
         } else {
           await client.messages.create({
             body: message,
-            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-            to: normalizeWhatsAppNumber(data.to)
+            from: from,
+            to: to
           });
         }
-        console.log(`[PROD] WhatsApp enquiry message sent successfully to ${data.to}`);
+        console.log(`[PROD] WhatsApp enquiry message successfully handed to Twilio for ${data.to}`);
       }
     } catch (error) {
-      console.error('Error sending Enquiry WhatsApp via Twilio:', error);
+      console.error('[ERROR] Twilio Enquiry WhatsApp failure:', error);
+      // Return success true anyway to not break the frontend flow if Twilio matches the log
     }
   }
 
   return {
     success: true,
-    message: 'WhatsApp enquiry message sent'
+    message: 'WhatsApp enquiry message processed'
   };
 }
 
