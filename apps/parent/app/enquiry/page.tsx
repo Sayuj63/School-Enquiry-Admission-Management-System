@@ -476,35 +476,39 @@ function EnquiryContent() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-          <div className="w-full sm:w-auto">
-            <button onClick={() => router.back()} className="inline-flex items-center text-primary-600 hover:text-primary-700 mb-2 sm:mb-4 transition-colors">
+        <div className="mb-10 flex flex-col gap-6">
+          <div className="flex justify-between items-center">
+            <button onClick={() => router.back()} className="inline-flex items-center text-primary-600 hover:text-primary-700 transition-colors text-sm font-bold">
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back
             </button>
-            <div className="flex items-center">
-              <img src="/assets/logo.jpeg" alt="Logo" className="h-8 sm:h-10 w-auto" />
-              <h1 className="text-xl sm:text-3xl font-bold text-gray-900 ml-3 truncate">Admission Enquiry</h1>
-            </div>
+
+            {otpVerified && (
+              <div className="flex gap-2">
+                <button
+                  onClick={onSaveDraft}
+                  className="flex items-center text-[11px] sm:text-sm font-bold text-gray-500 hover:text-primary-600 transition-colors bg-white px-3 sm:px-4 py-2 rounded-xl border border-gray-100 shadow-sm whitespace-nowrap"
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  Save Draft
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center text-[11px] sm:text-sm font-bold text-red-500 hover:text-red-600 transition-colors bg-white px-3 sm:px-4 py-2 rounded-xl border border-red-100 shadow-sm whitespace-nowrap"
+                >
+                  <LogOut className="h-3.5 w-3.5 mr-1.5" />
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
-          {otpVerified && (
-            <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
-              <button
-                onClick={onSaveDraft}
-                className="flex-1 sm:flex-none flex items-center justify-center text-xs sm:text-sm font-medium text-gray-500 hover:text-primary-600 transition-colors bg-white px-3 sm:px-4 py-2 rounded-lg border shadow-sm"
-              >
-                <Save className="h-4 w-4 mr-1 sm:mr-2" />
-                Draft
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex-1 sm:flex-none flex items-center justify-center text-xs sm:text-sm font-medium text-red-500 hover:text-red-600 transition-colors bg-white px-3 sm:px-4 py-2 rounded-lg border shadow-sm"
-              >
-                <LogOut className="h-4 w-4 mr-1 sm:mr-2" />
-                Logout
-              </button>
+
+          <div className="flex items-center">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-gray-100 mr-3 sm:mr-4">
+              <img src="/assets/logo.jpeg" alt="Logo" className="h-7 sm:h-10 w-auto" />
             </div>
-          )}
+            <h1 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight">Admission Enquiry</h1>
+          </div>
         </div>
 
         {step === 'otp' && (
