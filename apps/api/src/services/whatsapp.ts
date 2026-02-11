@@ -1,5 +1,9 @@
 import { DocumentsList } from '../models';
 
+if (process.env.DEBUG_MODE === 'true') {
+  console.log('[WhatsApp Service] Initializing...');
+}
+
 interface WhatsAppMessage {
   to: string;
   tokenId: string;
@@ -107,6 +111,10 @@ ${schoolName} Admissions Team
   }
 
   // In production, send via Twilio WhatsApp API
+  if (process.env.DEBUG_MODE === 'true') {
+    console.log(`[WhatsApp] Logic check: NODE_ENV=${process.env.NODE_ENV}, HAS_SID=${!!process.env.TWILIO_ACCOUNT_SID}, MOCK=${process.env.ENABLE_MOCK_LOGS}`);
+  }
+
   if (process.env.NODE_ENV === 'production' || process.env.TWILIO_ACCOUNT_SID) {
     try {
       const twilio = require('twilio');
@@ -114,7 +122,7 @@ ${schoolName} Admissions Team
       const authToken = process.env.TWILIO_AUTH_TOKEN;
       const whatsappFrom = process.env.WHATSAPP_NUMBER || 'whatsapp:+14155238886';
 
-      console.log(`[WhatsApp] Production block starting. SID exists: ${!!accountSid}, ENABLE_MOCK: ${process.env.ENABLE_MOCK_LOGS}`);
+      console.log(`[WhatsApp] Production block starting. SID: ${accountSid ? accountSid.substring(0, 5) + '...' : 'MISSING'}`);
 
       if (!accountSid || !authToken || !accountSid.startsWith('AC')) {
         console.warn('⚠️  Twilio credentials missing or invalid for Enquiry confirmation.', { hasSid: !!accountSid, hasToken: !!authToken });

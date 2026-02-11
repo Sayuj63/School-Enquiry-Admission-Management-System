@@ -32,6 +32,12 @@ import { startReminderJob } from './services/reminder';
 
 const app = express();
 app.set('trust proxy', 1);
+
+// 1. Minimal logging for every request even in production
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5002;
 
 // 1. CORS Configuration
@@ -111,6 +117,28 @@ app.use('/api/', limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 5. Detailed Request Logger (Gated by DEBUG_MODE)
+app.use((req, res, next) => {
+  const isDebug = process.env.DEBUG_MODE === 'true';
+  const start = Date.now();
+
+  if (isDebug) {
+    if (req.body && Object.keys(req.body).length > 0) {
+      const safeBody = { ...req.body };
+      ['password', 'token', 'otp', 'auth'].forEach(key => delete safeBody[key]);
+      console.log(`[DEBUG-BODY] ${req.method} ${req.url}`, JSON.stringify(safeBody, null, 1));
+    }
+  }
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (isDebug || res.statusCode >= 400) {
+      console.log(`[RESPONSE] ${req.method} ${req.url} ${res.statusCode} (${duration}ms)`);
+    }
+  });
+  next();
+});
+
 // Static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
@@ -139,6 +167,22 @@ app.use(
     }
   })
 );
+
+// Debug Environment (Non-sensitive)
+app.get('/api/debug-env', (req, res) => {
+  res.json({
+    node_env: process.env.NODE_ENV,
+    debug_mode: process.env.DEBUG_MODE === 'true',
+    has_mongo: !!process.env.MONGODB_URI,
+    has_twilio_sid: !!process.env.TWILIO_ACCOUNT_SID,
+    has_twilio_token: !!process.env.TWILIO_AUTH_TOKEN,
+    has_twilio_number: !!process.env.WHATSAPP_NUMBER || !!process.env.TWILIO_PHONE_NUMBER,
+    has_resend: !!process.env.RESEND_API_KEY,
+    has_cloudinary: !!process.env.CLOUDINARY_URL,
+    frontend_url: process.env.FRONTEND_URL,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
