@@ -114,7 +114,7 @@ export default function HomePage() {
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center">
           <div className="flex items-center text-primary-600 font-bold text-xl select-none">
-            <GraduationCap className="h-8 w-8 mr-2" />
+            <img src="/assets/logo.jpeg" alt="Logo" className="h-10 w-auto mr-2" />
             New Era High School
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function HomePage() {
             </div>
           )}
           {step === 'mobile' && (
-            <div className="card p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="card p-8 bg-white rounded-xl shadow-sm border border-gray-100">
               <div className="flex justify-center mb-6">
                 <div className="p-4 bg-primary-50 rounded-full">
                   <UserCircle className="h-12 w-12 text-primary-600" />
@@ -140,16 +140,16 @@ export default function HomePage() {
 
               <form onSubmit={handleSendOTP} className="space-y-6">
                 <div>
-                  <label htmlFor="mobile" className="label">Mobile Number</label>
+                  <label htmlFor="mobile" className="label text-sm font-medium text-gray-700 mb-1 block">Mobile Number</label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 font-medium">
-                      <Phone className="h-5 w-5 mr-1" />
-                      <span className="text-sm border-r border-gray-200 pr-2 mr-2">+91</span>
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 font-medium border-r border-gray-200 pr-3">
+                      <Phone className="h-4 w-4 mr-1" />
+                      <span className="text-sm">+91</span>
                     </div>
                     <input
                       id="mobile"
                       type="tel"
-                      className="input pl-20 h-12 text-lg"
+                      className="w-full pl-24 pr-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-gray-900"
                       placeholder="98765 43210"
                       value={mobile}
                       onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -163,7 +163,7 @@ export default function HomePage() {
                 <button
                   type="submit"
                   disabled={loading || mobile.length < 10}
-                  className="btn-primary w-full h-12 text-lg font-semibold flex items-center justify-center"
+                  className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : 'Get OTP'}
                   {!loading && <ArrowRight className="h-5 w-5 ml-2" />}
@@ -173,7 +173,7 @@ export default function HomePage() {
           )}
 
           {step === 'otp' && (
-            <div className="card p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="card p-8 bg-white rounded-xl shadow-sm border border-gray-100">
               <h1 className="text-2xl font-bold text-center text-gray-900 mb-2">Verify OTP</h1>
               <p className="text-center text-gray-600 mb-6">
                 We've sent a 6-digit code to <span className="font-semibold text-gray-900">+91 {mobile}</span>
@@ -189,11 +189,11 @@ export default function HomePage() {
 
               <form onSubmit={handleVerifyOTP} className="space-y-6">
                 <div>
-                  <label htmlFor="otp" className="label">6-Digit OTP</label>
+                  <label htmlFor="otp" className="label text-sm font-medium text-gray-700 mb-1 block">6-Digit OTP</label>
                   <input
                     id="otp"
                     type="text"
-                    className="input h-12 text-center text-2xl tracking-[0.5em] font-bold"
+                    className="w-full py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-center text-2xl tracking-[0.5em] font-bold text-gray-900"
                     maxLength={6}
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
@@ -207,7 +207,7 @@ export default function HomePage() {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6}
-                  className="btn-primary w-full h-12 text-lg font-semibold flex items-center justify-center"
+                  className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : 'Verify & Continue'}
                 </button>

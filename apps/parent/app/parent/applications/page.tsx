@@ -92,7 +92,7 @@ export default function parentApplicationsPage() {
             <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
                     <div className="flex items-center text-primary-600 font-black text-2xl tracking-tight select-none">
-                        <GraduationCap className="h-10 w-10 mr-2" />
+                        <img src="/assets/logo.jpeg" alt="Logo" className="h-10 w-auto mr-2" />
                         New Era High School
                     </div>
                     <button

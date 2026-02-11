@@ -483,7 +483,7 @@ function EnquiryContent() {
               Back
             </button>
             <div className="flex items-center">
-              <GraduationCap className="h-10 w-10 text-primary-600" />
+              <img src="/assets/logo.jpeg" alt="Logo" className="h-10 w-auto" />
               <h1 className="text-3xl font-bold text-gray-900 ml-3">Admission Enquiry</h1>
             </div>
           </div>
