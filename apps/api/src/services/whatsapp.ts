@@ -113,21 +113,32 @@ ${schoolName} Admissions Team
         const contentSid = process.env.TWILIO_ENQUIRY_SID;
 
         if (contentSid) {
-          await client.messages.create({
-            contentSid: contentSid,
-            contentVariables: {
-              "1": schoolName,
-              "2": data.parentName,
-              "3": data.studentName,
-              "4": data.tokenId,
-              "5": documentsList,
-              "6": "https://brochure-magnum-solutions.tiiny.site",
-              "7": schoolPhone,
-              "8": schoolEmail
-            },
-            from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
-            to: normalizeWhatsAppNumber(data.to)
-          });
+          const contentVariables = {
+            "1": schoolName,
+            "2": data.parentName,
+            "3": data.studentName,
+            "4": data.tokenId,
+            "5": documentsList,
+            "6": "https://brochure-magnum-solutions.tiiny.site",
+            "7": schoolPhone,
+            "8": schoolEmail
+          };
+
+          try {
+            await client.messages.create({
+              contentSid: contentSid,
+              contentVariables: contentVariables,
+              from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+              to: normalizeWhatsAppNumber(data.to)
+            });
+          } catch (error1: any) {
+            // Fallback: Send as plain text message
+            await client.messages.create({
+              body: message,
+              from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
+              to: normalizeWhatsAppNumber(data.to)
+            });
+          }
         } else {
           await client.messages.create({
             body: message,
@@ -216,14 +227,14 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: {
+            contentVariables: JSON.stringify({
               "1": schoolName,
               "2": data.tokenId,
               "3": data.studentName,
               "4": data.slotDate,
               "5": data.slotTime,
               "6": data.location
-            },
+            }),
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -325,7 +336,7 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: {
+            contentVariables: JSON.stringify({
               "1": schoolName,
               "2": data.studentName,
               "3": reminderPoint,
@@ -333,7 +344,7 @@ ${schoolName} Admissions Team
               "5": data.slotDate,
               "6": data.slotTime,
               "7": docsNote
-            },
+            }),
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -436,13 +447,13 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: {
+            contentVariables: JSON.stringify({
               "1": schoolName,
               "2": data.studentName,
               "3": data.tokenId,
               "4": data.slotDate,
               "5": data.slotTime
-            },
+            }),
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -464,13 +475,13 @@ ${schoolName} Admissions Team
 }
 
 /**
- * Send status update WhatsApp (Confirmed, Waitlisted, Rejected)
+ * Send status update WhatsApp (Confirmed, Waitlisted, Rejected, Submitted)
  */
 export async function sendStatusUpdateWhatsApp(data: {
   to: string;
   tokenId: string;
   studentName: string;
-  status: 'confirmed' | 'waitlisted' | 'rejected' | 'approved';
+  status: 'submitted' | 'confirmed' | 'waitlisted' | 'rejected' | 'approved';
 }): Promise<SendWhatsAppResult> {
   const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
@@ -479,6 +490,11 @@ export async function sendStatusUpdateWhatsApp(data: {
   let additionalInfo = '';
 
   switch (data.status) {
+    case 'submitted':
+      statusText = 'ADMISSION FORM SUBMITTED';
+      colorEmoji = '📝';
+      additionalInfo = 'Your enquiry has been promoted to admission. The admission form has been created and is now under review. We will contact you shortly with the next steps.';
+      break;
     case 'confirmed':
     case 'approved':
       statusText = 'ADMISSION CONFIRMED';
@@ -548,6 +564,7 @@ ${schoolName} Admissions Team
           // Map internal status to template display text
           let templateStatus = '';
           switch (data.status) {
+            case 'submitted': templateStatus = 'ADMISSION FORM SUBMITTED'; break;
             case 'confirmed':
             case 'approved': templateStatus = 'ADMISSION CONFIRMED'; break;
             case 'waitlisted': templateStatus = 'WAITLISTED'; break;
@@ -556,12 +573,12 @@ ${schoolName} Admissions Team
 
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: {
+            contentVariables: JSON.stringify({
               "1": schoolName,
               "2": data.studentName,
               "3": data.tokenId,
               "4": templateStatus
-            },
+            }),
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });
@@ -595,15 +612,17 @@ export async function sendWaitlistReminderWhatsApp(data: {
   const schoolName = process.env.SCHOOL_NAME || 'New Era High School';
 
   const message = `
-*Waitlist Status Update - ${schoolName}*
+*Admission Application Update - ${schoolName}*
 
 Dear Parent,
 
-This is to inform you that the application for ${data.studentName} remains on the waitlist. 
+This message is to inform you of the outcome of the latest review of the admission application for ${data.studentName}.
+
+At present, seat availability for the selected grade is pending.
 
 *Token ID:* ${data.tokenId}
 
-We will notify you if a seat becomes available for the selected grade.
+You will be notified if there is a change in availability.
 
 Best regards,
 ${schoolName} Admissions Team
@@ -641,11 +660,11 @@ ${schoolName} Admissions Team
       if (contentSid) {
         await client.messages.create({
           contentSid: contentSid,
-          contentVariables: {
+          contentVariables: JSON.stringify({
             "1": schoolName,
             "2": data.studentName,
             "3": data.tokenId
-          },
+          }),
           from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
           to: normalizeWhatsAppNumber(data.to)
         });
@@ -733,14 +752,14 @@ ${schoolName} Admissions Team
         if (contentSid) {
           await client.messages.create({
             contentSid: contentSid,
-            contentVariables: {
+            contentVariables: JSON.stringify({
               "1": schoolName,
               "2": data.studentName,
               "3": data.tokenId,
               "4": data.slotDate,
               "5": data.slotTime,
               "6": data.reason || 'Administrative adjustment'
-            },
+            }),
             from: whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`,
             to: normalizeWhatsAppNumber(data.to)
           });

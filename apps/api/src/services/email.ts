@@ -422,14 +422,14 @@ ${schoolName} Admissions Team
 }
 
 /**
- * Send admission status update email (Confirmed, Approved, Rejected)
+ * Send admission status update email (Submitted, Confirmed, Approved, Rejected, Waitlisted)
  */
 export async function sendAdmissionStatusEmail(data: {
   parentEmail: string;
   parentName: string;
   studentName: string;
   tokenId: string;
-  status: 'confirmed' | 'approved' | 'rejected' | 'waitlisted';
+  status: 'submitted' | 'confirmed' | 'approved' | 'rejected' | 'waitlisted';
 }): Promise<SendEmailResult> {
   const schoolName = (process.env.SCHOOL_NAME && !process.env.SCHOOL_NAME.includes('ABC'))
     ? process.env.SCHOOL_NAME
@@ -442,6 +442,21 @@ export async function sendAdmissionStatusEmail(data: {
   const dashboardUrl = (process.env.FRONTEND_URL || 'https://nes.edu.in') + '/parent/login';
 
   switch (data.status) {
+    case 'submitted':
+      subject = `Admission Form Created - ${data.studentName}`;
+      emailBody = `
+Dear ${data.parentName},
+
+Your enquiry for ${data.studentName} (Token: ${data.tokenId}) has been promoted to admission.
+
+The admission form has been created and is now under review by our admissions team. We will contact you shortly with the next steps.
+
+You can check your application status on our portal: ${dashboardUrl}
+
+Best regards,
+${schoolName} Admissions Team
+      `.trim();
+      break;
     case 'confirmed':
       subject = `Admission Confirmed - ${data.studentName}`;
       emailBody = `

@@ -354,6 +354,20 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         updateData.waitlistDate = new Date();
         updateData.waitlistType = 'school';
         updateData.waitlistRemindersSent = [];
+
+        // Clear the slot booking when moving to waitlist
+        if (currentAdmission.slotBookingId) {
+          // Delete the slot booking to free up the slot
+          await SlotBooking.findByIdAndDelete(currentAdmission.slotBookingId);
+          updateData.slotBookingId = null;
+
+          // Also clear the slotBookingId from the related enquiry
+          if (currentAdmission.enquiryId) {
+            await Enquiry.findByIdAndUpdate(currentAdmission.enquiryId, {
+              $unset: { slotBookingId: 1 }
+            });
+          }
+        }
       }
       updateData.status = status;
     }
@@ -392,7 +406,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     // NOTIFICATIONS (WHATSAPP & EMAIL)
-    if (status && status !== currentAdmission.status && ['confirmed', 'approved', 'rejected', 'waitlisted'].includes(status)) {
+    if (status && status !== currentAdmission.status && ['submitted', 'confirmed', 'approved', 'rejected', 'waitlisted'].includes(status)) {
       // WhatsApp
       const { sendStatusUpdateWhatsApp } = require('../services/whatsapp');
       await sendStatusUpdateWhatsApp({

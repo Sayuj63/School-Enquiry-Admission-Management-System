@@ -6,6 +6,8 @@ node_modules/
 dist/
 .next/
 out/
+build/
+*.tsbuildinfo
 
 # Environment files
 .env
@@ -15,22 +17,39 @@ out/
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+*.bak
 
 # Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # Uploads
 uploads/
 
 # Testing
 coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+.cache/
+
+# Scripts
+apps/api/scripts/
 
 # WhatsApp Templates
 WHATSAPP_TEMPLATES.md
+TWILIO_TEMPLATES_UPDATE.md
+
+# Turbo
+.turbo/
