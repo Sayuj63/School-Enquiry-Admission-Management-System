@@ -68,7 +68,14 @@ export async function sendOTP(mobile: string): Promise<SendOTPResult> {
   });
 
   // In development, log OTP instead of sending
+  if (process.env.DEBUG_MODE === 'true') {
+    console.log(`[OTP] Checking mode: NODE_ENV=${process.env.NODE_ENV}, MOCK_LOGS=${process.env.ENABLE_MOCK_LOGS}`);
+  }
+
   if (process.env.NODE_ENV === 'development' || process.env.ENABLE_MOCK_LOGS === 'true') {
+    if (process.env.ENABLE_MOCK_LOGS === 'true' && process.env.NODE_ENV === 'production') {
+      console.log('[OTP] ⚠️ Mocking OTP even in Production because ENABLE_MOCK_LOGS is true');
+    }
     console.log('========================================');
     console.log('OTP SERVICE (MOCK MODE)');
     console.log('----------------------------------------');
