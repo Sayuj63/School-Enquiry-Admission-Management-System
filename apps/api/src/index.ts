@@ -62,9 +62,13 @@ app.use(cors({
     // Allow Vercel preview and production deployments
     const isVercel = origin.includes('.vercel.app');
 
+    // Allow NES custom domains
+    const isNES = origin.includes('.nes.edu.in') || origin === 'https://nes.edu.in' || origin === 'http://nes.edu.in';
+
     if (allowedOrigins.indexOf(origin) !== -1 ||
       (process.env.NODE_ENV === 'development' && isLocalhost) ||
-      isVercel) {
+      isVercel ||
+      isNES) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked for origin: ${origin}`);
