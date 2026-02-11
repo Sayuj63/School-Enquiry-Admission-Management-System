@@ -8,6 +8,7 @@ const router: Router = Router();
  * Send OTP to mobile number
  */
 router.post('/send', async (req, res: Response) => {
+  console.log(`[TRACE] POST /api/otp/send hit for ${req.body.mobile}`);
   try {
     const { mobile } = req.body;
 
@@ -54,6 +55,7 @@ router.post('/send', async (req, res: Response) => {
  * Verify OTP
  */
 router.post('/verify', async (req, res: Response) => {
+  console.log(`[TRACE] POST /api/otp/verify hit for ${req.body.mobile}`);
   try {
     const { mobile, otp } = req.body;
 
