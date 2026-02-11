@@ -174,6 +174,7 @@ router.get('/lookup/:mobile', async (req, res: Response) => {
  * Submit new enquiry (public endpoint for external frontend)
  */
 router.post('/', async (req, res: Response) => {
+  console.log(`[TRACE] POST /api/enquiry started`);
   try {
     const isDraft = req.body.status === 'draft';
 
@@ -339,6 +340,7 @@ router.post('/', async (req, res: Response) => {
 
       await enquiry.save();
 
+      console.log(`[TRACE] Creating Admission record for ${enquiry.tokenId}`);
       // 4. Automatically create Admission record
       const admission = await Admission.create({
         enquiryId: enquiry._id,
@@ -401,14 +403,14 @@ router.post('/', async (req, res: Response) => {
       console.log(`[DEBUG] Finalizing enquiry submission for ${enquiry.tokenId}...`);
       // 3. Send Notifications
       try {
-        console.log(`[DEBUG] Attempting to send WhatsApp enquiry message to ${enquiry.mobile}...`);
+        console.log(`[DEBUG] sendEnquiryWhatsApp start: ${enquiry.mobile}`);
         const whatsappResult = await sendEnquiryWhatsApp({
           to: enquiry.mobile,
           tokenId: enquiry.tokenId || '',
           studentName: enquiry.childName,
           parentName: enquiry.parentName
         });
-        console.log(`[DEBUG] sendEnquiryWhatsApp result:`, JSON.stringify(whatsappResult));
+        console.log(`[DEBUG] sendEnquiryWhatsApp result: ${JSON.stringify(whatsappResult)}`);
 
         if (enquiry.slotBookingId && slot) {
           const slotDateFormatted = slot.date.toLocaleDateString('en-IN', {
